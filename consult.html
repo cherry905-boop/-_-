@@ -44,7 +44,7 @@
   </div>
 
   <script type="module">
-    import { supabase, configReady, setStatus } from './app.js';
+    import { supabase, configReady, setStatus, friendlyError } from './app.js';
     const $ = id => document.getElementById(id);
     const esc = (s) => { const e = document.createElement('div'); e.textContent = s || ''; return e.innerHTML; };
     const KEY = 'ilhak_consult_id';
@@ -78,7 +78,7 @@
       $('create').disabled = true; setStatus($('cStatus'), '신청 중...', 'info');
       const { data, error } = await supabase.rpc('create_consultation', { p_name: profile.name || null, p_job: profile.job_key || null, p_message: msg });
       $('create').disabled = false;
-      if (error || !data) { setStatus($('cStatus'), '오류: ' + (error?.message || '실패'), 'error'); return; }
+      if (error || !data) { setStatus($('cStatus'), friendlyError(error), 'error'); return; }
       localStorage.setItem(KEY, data); $('firstMsg').value = ''; loadThread();
     });
 
@@ -88,7 +88,7 @@
       $('send').disabled = true;
       const { error } = await supabase.rpc('add_consultation_message', { p_id: id, p_text: text });
       $('send').disabled = false;
-      if (error) { setStatus($('rStatus'), '오류: ' + error.message, 'error'); return; }
+      if (error) { setStatus($('rStatus'), friendlyError(error), 'error'); return; }
       $('reply').value = ''; loadThread();
     });
 

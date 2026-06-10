@@ -44,7 +44,7 @@
   </div>
 
   <script type="module">
-    import { supabase, configReady, setStatus } from './app.js';
+    import { supabase, configReady, setStatus, friendlyError } from './app.js';
     const $ = id => document.getElementById(id);
     let profile = {}; try { profile = JSON.parse(localStorage.getItem('ilhak_profile') || '{}'); } catch (_) {}
     $('who').textContent = profile.name ? `${profile.name}님` : '';
@@ -73,6 +73,8 @@
 
     $('submit').addEventListener('click', async () => {
       const row = { semester: $('semester').value, job_key: profile.job_key || null, comment: $('comment').value.trim() || null };
+      const dupKey = 'ilhak_survey_' + row.semester;
+      if (localStorage.getItem(dupKey)) { setStatus($('status'), '이미 이 학기 만족도를 제출하셨어요. 감사합니다.', 'ok'); return; }
       for (const q of QS) {
         const sel = document.querySelector(`input[name=${q.key}]:checked`);
         if (!sel) { setStatus($('status'), '모든 항목을 평가해주세요.', 'error'); return; }
@@ -82,7 +84,8 @@
       $('submit').disabled = true; setStatus($('status'), '제출 중...', 'info');
       const { error } = await supabase.from('survey_responses').insert(row);
       $('submit').disabled = false;
-      if (error) { setStatus($('status'), '오류: ' + error.message, 'error'); return; }
+      if (error) { setStatus($('status'), friendlyError(error), 'error'); return; }
+      try { localStorage.setItem(dupKey, '1'); } catch (_) {}
       $('form').style.display = 'none'; $('homeBtn').style.display = 'none'; $('done').style.display = 'block';
     });
   </script>

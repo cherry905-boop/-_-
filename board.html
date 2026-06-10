@@ -28,7 +28,7 @@
   </div>
 
   <script type="module">
-    import { supabase, configReady, setStatus } from './app.js';
+    import { supabase, configReady, setStatus, friendlyError } from './app.js';
     const $ = id => document.getElementById(id);
 
     $('post').addEventListener('click', async () => {
@@ -38,7 +38,7 @@
       $('post').disabled = true; setStatus($('status'), '보내는 중...', 'info');
       const { error } = await supabase.from('board_posts').insert({ body });
       $('post').disabled = false;
-      if (error) { setStatus($('status'), '오류: ' + error.message, 'error'); return; }
+      if (error) { setStatus($('status'), friendlyError(error), 'error'); return; }
       $('body').value = '';
       document.querySelector('.card').style.display = 'none';
       $('done').style.display = 'block';

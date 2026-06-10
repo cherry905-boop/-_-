@@ -186,6 +186,11 @@
           <div id="rg-list"></div>
           <div class="status" id="rg-status"></div>
         </div>
+        <div class="card">
+          <h2>가입 도움 요청</h2>
+          <p class="note">명단 매칭에 실패한 학생이 남긴 요청입니다. 명단(이름·번호)을 점검하고 '처리완료'로 지우세요.</p>
+          <div id="uv-list"></div>
+        </div>
       </div>
 
       <button class="btn ghost" id="logout">로그아웃</button>
@@ -257,11 +262,19 @@
       setStatus($('n-status'), '✅ 발행되었습니다 (5분 내 푸시).', 'ok'); logAction('공지발행', lbl + ' · ' + title); $('n-title').value = ''; $('n-body').value = ''; nLoad();
     });
     async function nLoad() {
-      const { data } = await supabase.from('notices').select('title,target_scope,target_value,created_at').order('created_at', { ascending: false }).limit(20);
+      const { data } = await supabase.from('notices').select('id,title,target_scope,target_value,created_at,published').order('created_at', { ascending: false }).limit(20);
       const el = $('n-list'); el.innerHTML = (data && data.length) ? '' : '<p class="note">없음</p>';
-      (data || []).forEach(n => { const k = { all: '전체', job: '직무', company: '기업', target: '대상', type: '유형' }[n.target_scope] || n.target_scope;
-        const t = n.target_scope === 'all' ? '전체' : `${k}: ${n.target_value}`; const e = document.createElement('div'); e.textContent = n.title;
-        const row = document.createElement('div'); row.style.cssText = 'padding:9px 0;border-bottom:1px dashed var(--line)'; row.innerHTML = `<b>${e.innerHTML}</b><br/><span class="note">${t} · ${new Date(n.created_at).toLocaleString('ko-KR')}</span>`; el.appendChild(row); });
+      (data || []).forEach(n => {
+        const k = { all: '전체', job: '직무', company: '기업', target: '대상', type: '유형' }[n.target_scope] || n.target_scope;
+        const t = n.target_scope === 'all' ? '전체' : `${k}: ${n.target_value}`;
+        const e = document.createElement('div'); e.textContent = n.title;
+        const row = document.createElement('div'); row.style.cssText = 'padding:9px 0;border-bottom:1px dashed var(--line);display:flex;justify-content:space-between;gap:8px;align-items:center';
+        const info = document.createElement('div'); info.innerHTML = `<b>${e.innerHTML}</b>${n.published ? '' : ' <span class="note">(내려짐)</span>'}<br/><span class="note">${t} · ${new Date(n.created_at).toLocaleString('ko-KR')}</span>`;
+        const tg = document.createElement('button'); tg.textContent = n.published ? '내리기' : '올리기';
+        tg.style.cssText = 'padding:5px 12px;font-size:13px;border:1px solid var(--line);border-radius:8px;background:#fff;cursor:pointer;white-space:nowrap';
+        tg.addEventListener('click', async () => { await supabase.from('notices').update({ published: !n.published }).eq('id', n.id); logAction(n.published ? '공지내림' : '공지올림', n.title); nLoad(); });
+        row.appendChild(info); row.appendChild(tg); el.appendChild(row);
+      });
     }
 
     // ===== 발송 기록 =====
@@ -385,7 +398,7 @@
         const del = document.createElement('button'); del.textContent = '삭제';
         del.style.cssText = 'padding:5px 12px;font-size:13px;border:1px solid var(--err);color:var(--err);border-radius:8px;background:#fff;cursor:pointer;white-space:nowrap';
         del.addEventListener('click', async () => {
-          if (!confirm(`'${r.name}' 가입을 삭제할까요?`)) return;
+          if (!confirm(`'${r.name}' (${r.target_type === 'company' ? '기업' : '학생'} · ${r.job_key || r.company || '-'} · 번호뒤 ${(r.phone || '').slice(-4)}) 가입을 삭제할까요?`)) return;
           const { error } = await supabase.from('registrations').delete().eq('id', r.id);
           if (error) { setStatus($('rg-status'), '삭제 오류: ' + error.message, 'error'); return; }
           logAction('가입자삭제', r.name); regCache = regCache.filter(x => x.id !== r.id); regRender();
@@ -395,6 +408,24 @@
     }
     $('rg-search').addEventListener('input', regRender);
     $('rg-refresh').addEventListener('click', regLoad);
+
+    // ===== 가입 도움 요청 (명단 매칭 실패자) =====
+    async function uvLoad() {
+      const { data, error } = await supabase.from('unverified_signups').select('id,name,phone,target_type,reason,created_at').order('created_at', { ascending: false }).limit(100);
+      const el = $('uv-list');
+      if (error) { el.innerHTML = '<p class="note">조회 권한이 없습니다 — supabase_migration_R14_ux.sql 실행 필요</p>'; return; }
+      el.innerHTML = (data && data.length) ? '' : '<p class="note">요청 없음</p>';
+      const rmap = { phone: '번호 불일치', name: '이름 불일치', none: '명단에 없음' };
+      (data || []).forEach(r => {
+        const row = document.createElement('div'); row.style.cssText = 'padding:9px 0;border-bottom:1px dashed var(--line);display:flex;justify-content:space-between;gap:8px;align-items:center';
+        const info = document.createElement('div');
+        info.innerHTML = `<b>${esc(r.name || '')}</b> <span class="note">[${r.target_type === 'company' ? '기업' : '학생'} · ${rmap[r.reason] || r.reason || ''}]</span><br/><span class="note">${esc(r.phone || '')} · ${new Date(r.created_at).toLocaleString('ko-KR')}</span>`;
+        const del = document.createElement('button'); del.textContent = '처리완료';
+        del.style.cssText = 'padding:5px 12px;font-size:13px;border:1px solid var(--line);border-radius:8px;background:#fff;cursor:pointer;white-space:nowrap';
+        del.addEventListener('click', async () => { await supabase.from('unverified_signups').delete().eq('id', r.id); uvLoad(); });
+        row.appendChild(info); row.appendChild(del); el.appendChild(row);
+      });
+    }
 
     // ===== 만족도 집계 + PDF =====
     async function svLoad() {
@@ -451,7 +482,7 @@
         const { data: pl } = await supabase.from('push_logs').select('sent_at').order('sent_at', { ascending: false }).limit(1);
         if (pl && pl[0]) { const h = (Date.now() - new Date(pl[0].sent_at).getTime()) / 3600000; hp += '📨 마지막 발송 ' + (h < 1 ? '방금' : Math.round(h) + '시간 전'); }
       } catch (_) {}
-      $('d-health').textContent = hp;
+      $('d-health').textContent = hp || '아직 동기화·발송 기록이 없어요.';
       // 최근 활동 로그
       try {
         const { data: lg } = await supabase.from('admin_logs').select('actor,action,detail,created_at').order('created_at', { ascending: false }).limit(8);
@@ -466,7 +497,7 @@
       $('login').style.display = authed ? 'none' : 'block';
       $('panel').style.display = authed ? 'block' : 'none';
       adminEmail = authed ? session.user.email : ''; $('me').textContent = adminEmail;
-      if (authed) { dashLoad(); loadJobs(); nUpdateValue(); nLoad(); plLoad(); lLoad(); cLoad(); clLoad(); blLoad(); regLoad(); }
+      if (authed) { dashLoad(); loadJobs(); nUpdateValue(); nLoad(); plLoad(); lLoad(); cLoad(); clLoad(); blLoad(); regLoad(); uvLoad(); }
     }
     $('loginBtn').addEventListener('click', async () => {
       const email = $('email').value.trim(), password = $('pw').value;

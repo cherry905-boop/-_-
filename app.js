@@ -54,6 +54,17 @@ export function setStatus(el, msg, type = 'info') {
   el.className = 'status ' + type; // info / ok / error
 }
 
+// Supabase/네트워크 오류를 사용자 언어로 변환 (영문 원문은 콘솔로만)
+export function friendlyError(error) {
+  const m = (error && (error.message || error.msg)) || String(error || '');
+  try { console.error(error); } catch (_) {}
+  if (/Failed to fetch|NetworkError|network|timeout|타임아웃/i.test(m)) return '인터넷 연결을 확인한 뒤 다시 시도해주세요.';
+  if (/JWT|expired|로그인|session|invalid token/i.test(m)) return '로그인이 만료됐어요. 다시 로그인해주세요.';
+  if (/row-level security|permission denied|42501/i.test(m)) return '일시적인 문제가 있어요. 잠시 후 다시 시도하거나 담당자에게 문의해주세요.';
+  if (/duplicate|23505|already exists/i.test(m)) return '이미 처리된 내용이에요.';
+  return '문제가 발생했어요. 잠시 후 다시 시도해주세요.';
+}
+
 // PWA 서비스워커 등록 (홈 화면 추가 시 앱처럼 동작)
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {

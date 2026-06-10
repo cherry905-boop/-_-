@@ -90,6 +90,12 @@
 
         <button class="btn" id="submit" type="submit">가입하기</button>
         <div class="status" id="status"></div>
+        <div id="help" class="warn" style="display:none;margin-top:14px">
+          명단 확인이 안 되면 담당자에게 문의하거나, 아래로 도움을 요청해주세요.
+          <b id="help-contact" style="display:block;margin-top:4px"></b>
+          <button type="button" class="btn ghost" id="help-send" style="margin-top:10px">가입 도움 요청 보내기</button>
+          <div class="status" id="help-status"></div>
+        </div>
         <p class="note" id="cfgwarn" style="display:none;color:var(--err)">
           ⚠️ 아직 Supabase 연결이 설정되지 않았습니다. config.js 를 먼저 채워주세요(README_SETUP.md 참고).
         </p>
@@ -98,7 +104,7 @@
   </div>
 
   <script type="module">
-    import { supabase, configReady, getQueryParam, isInAppBrowser, setStatus } from './app.js';
+    import { supabase, configReady, getQueryParam, isInAppBrowser, setStatus, friendlyError } from './app.js';
 
     const cfg = window.APP_CONFIG || {};
     document.getElementById('t-title').textContent  = cfg.APP_TITLE  || '일학습병행 앱';
@@ -138,7 +144,7 @@
           .in('audience', aud)
           .eq('published', true)
           .order('due_date', { ascending: true });
-        if (res.error) return;
+        if (res.error) { document.getElementById('todo').innerHTML = '<div class="card"><p class="note" style="margin:0">이달의 할 일을 불러오지 못했어요. 잠시 후 새로고침해주세요.</p></div>'; return; }
         data = res.data;
       } catch (_) { return; }
       if (!data || !data.length) return;
@@ -245,11 +251,28 @@
         consent_collect: true, consent_transfer: true, consent_at: new Date().toISOString(),
         user_agent: navigator.userAgent
       });
-      if (error) { console.error(error); setStatus(statusEl, '오류가 발생했습니다: ' + error.message, 'error'); btn.disabled = false; return; }
+      if (error) { setStatus(statusEl, friendlyError(error), 'error'); btn.disabled = false; return; }
       // 기기 프로필 저장 — 공지 필터링에 사용(서버에서 명단을 읽지 않기 위함)
       try { localStorage.setItem('ilhak_profile', JSON.stringify({ name: rec.name, target_type: rec.target_type, job_key: rec.job_key, company: rec.company, type1: rec.type1 })); } catch (_) {}
       location.href = './install.html?joined=1';
     }
+
+    // 명단 매칭 실패 시 '가입 도움 요청' 출구
+    let helpData = null;
+    function showHelp(nm, ph, target, reason) {
+      helpData = { name: nm, phone: ph, target_type: target, reason: reason || 'none' };
+      const contact = (window.APP_CONFIG && window.APP_CONFIG.PRIVACY_OFFICER_CONTACT) || '';
+      document.getElementById('help-contact').textContent = contact ? ('담당자 연락처 — ' + contact) : '';
+      const hs = document.getElementById('help-send'); hs.disabled = false; hs.textContent = '가입 도움 요청 보내기';
+      document.getElementById('help').style.display = 'block';
+    }
+    document.getElementById('help-send').addEventListener('click', async () => {
+      if (!helpData || !configReady()) return;
+      const hs = document.getElementById('help-send'); hs.disabled = true;
+      const { error } = await supabase.from('unverified_signups').insert(helpData);
+      if (error) { setStatus(document.getElementById('help-status'), friendlyError(error), 'error'); hs.disabled = false; return; }
+      setStatus(document.getElementById('help-status'), '✅ 요청을 보냈어요. 담당자가 확인 후 연락드립니다.', 'ok');
+    });
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -262,6 +285,8 @@
       if (!name || !phone || !target) { setStatus(statusEl, '이름·휴대폰·대상 구분을 입력해주세요.', 'error'); return; }
       if (!c1 || !c2) { setStatus(statusEl, '필수 동의 두 가지에 모두 체크해주세요.', 'error'); return; }
       if (!configReady()) { setStatus(statusEl, 'Supabase 연결 설정이 필요합니다(config.js).', 'error'); return; }
+      document.getElementById('help').style.display = 'none';
+      if (phone.replace(/\D/g, '').length < 10) { setStatus(statusEl, '휴대폰 번호를 정확히 입력해주세요(숫자 10~11자리).', 'error'); return; }
 
       // ── 기업 담당자: 명단 매칭 없이 소속 기업만 선택 ──
       if (target === 'company') {
@@ -285,10 +310,16 @@
       try { res = await supabase.rpc('verify_student', { p_name: name, p_phone: phone }); }
       catch (err) { res = { error: err }; }
       btn.disabled = false;
-      if (res.error) { setStatus(statusEl, '확인 중 오류: ' + res.error.message, 'error'); return; }
+      if (res.error) { setStatus(statusEl, friendlyError(res.error), 'error'); return; }
       const v = res.data;
       if (!v || !v.matched) {
-        setStatus(statusEl, '명단에서 확인되지 않습니다. 이름·휴대폰 번호를 다시 확인하시거나 담당자에게 문의해주세요.', 'error');
+        const reason = v && v.reason;
+        let msg;
+        if (reason === 'phone') msg = '이름은 명단에 있지만 휴대폰 번호가 달라요. 번호를 바꾸셨다면 담당자 확인이 필요합니다.';
+        else if (reason === 'name') msg = '번호는 명단에 있지만 이름 표기가 달라요(한자·띄어쓰기 등). 담당자 확인이 필요합니다.';
+        else msg = '명단에서 확인되지 않습니다. 아직 명단 준비 중일 수 있어요. 이름·번호를 확인하거나 아래로 도움을 요청해주세요.';
+        setStatus(statusEl, msg, 'error');
+        showHelp(name, phone, target, reason);
         return;
       }
       const jobs = Array.isArray(v.job_keys) ? v.job_keys.filter(Boolean) : [];
