@@ -4,25 +4,24 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>관리자 · 일학습병행 앱</title>
-  <meta name="theme-color" content="#1f4e8c" />
+  <meta name="theme-color" content="#06264F" />
   <link rel="stylesheet" href="./styles.css" />
   <script src="./config.js"></script>
   <style>
     .tabs{display:flex;flex-wrap:wrap;gap:6px;margin-top:16px}
-    .tabs button{flex:1 1 30%;padding:8px 2px;border:1px solid var(--line);background:#fff;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer}
+    .tabs button{flex:1 1 30%;padding:9px 4px;border:1px solid var(--line);background:#fff;border-radius:11px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;font-family:inherit;transition:all .15s}
+    .tabs button.on{background:var(--brand);color:#fff;border-color:var(--brand)}
     .msg{max-width:80%;padding:9px 12px;border-radius:12px;margin:5px 0;font-size:14px;white-space:pre-wrap}
-    .msg.student{background:#eef2f7;margin-right:auto}
+    .msg.student{background:#EFEADF;color:var(--text);margin-right:auto}
     .msg.admin{background:var(--brand);color:#fff;margin-left:auto}
     table.rep{width:100%;border-collapse:collapse;margin-top:10px}
     table.rep th,table.rep td{border:1px solid var(--line);padding:7px 9px;font-size:14px;text-align:center}
-    table.rep th{background:#f1f5f9}
+    table.rep th{background:var(--sand-bg);color:var(--navy)}
     @media print{ body *{visibility:hidden} #sv-report,#sv-report *{visibility:visible} #sv-report{position:absolute;left:0;top:0;width:100%} .tabs,.btn,.topbar{display:none!important} }
-    .tabs button.on{background:var(--brand);color:#fff;border-color:var(--brand)}
-    textarea{width:100%;padding:12px;font-size:16px;border:1px solid var(--line);border-radius:10px}
   </style>
 </head>
 <body>
-  <div class="topbar"><h1>🛠 관리자</h1><p id="me"></p></div>
+  <div class="topbar"><h1>관리자</h1><p id="me"></p></div>
   <div class="wrap">
 
     <!-- 로그인 -->
@@ -40,20 +39,20 @@
     <!-- 관리자 패널 -->
     <div id="panel" style="display:none">
       <div class="tabs">
-        <button data-tab="dash" class="on">📊 요약</button>
-        <button data-tab="notice">📢 공지</button>
-        <button data-tab="library">📁 자료</button>
-        <button data-tab="calendar">📅 일정</button>
-        <button data-tab="consult">💬 상담</button>
-        <button data-tab="board">🙈 건의함</button>
-        <button data-tab="survey">📊 만족도</button>
-        <button data-tab="members">👥 가입자</button>
+        <button data-tab="dash" class="on">요약</button>
+        <button data-tab="notice">공지</button>
+        <button data-tab="library">자료</button>
+        <button data-tab="calendar">일정</button>
+        <button data-tab="consult">상담</button>
+        <button data-tab="board">건의함</button>
+        <button data-tab="survey">만족도</button>
+        <button data-tab="members">가입자</button>
       </div>
 
       <!-- 전담인력(운영팀) 요약 -->
       <div class="tabsec" id="sec-dash">
         <div class="card">
-          <h2>📊 운영 요약</h2>
+          <h2>운영 요약</h2>
           <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:8px">
             <div style="flex:1 1 45%;min-width:130px;padding:12px;border:1px solid var(--line);border-radius:10px">
               <div class="note" style="margin:0">학생 매칭</div>
@@ -104,8 +103,8 @@
           <div class="status" id="n-status"></div>
           <p class="note">※ 발행 후 5분 내 자동으로 푸시 발송됩니다(트리거).</p>
         </div>
-        <div class="card"><h2>📋 발송한 공지</h2><div id="n-list"></div></div>
-        <div class="card"><h2>📨 발송 기록</h2><p class="note">실제 푸시 발송 결과(대상·성공 인원).</p><div id="pl-list"></div></div>
+        <div class="card"><h2>발송한 공지</h2><div id="n-list"></div></div>
+        <div class="card"><h2>발송 기록</h2><p class="note">실제 푸시 발송 결과(대상·성공 인원).</p><div id="pl-list"></div></div>
       </div>
 
       <!-- 자료실 -->
@@ -125,7 +124,7 @@
           <button class="btn" id="l-add">등록</button>
           <div class="status" id="l-status"></div>
         </div>
-        <div class="card"><h2>📁 등록된 자료</h2><div id="l-list"></div></div>
+        <div class="card"><h2>등록된 자료</h2><div id="l-list"></div></div>
       </div>
 
       <!-- 캘린더 -->
@@ -145,12 +144,12 @@
           <button class="btn" id="c-add">등록</button>
           <div class="status" id="c-status"></div>
         </div>
-        <div class="card"><h2>📅 등록된 일정</h2><div id="c-list"></div></div>
+        <div class="card"><h2>등록된 일정</h2><div id="c-list"></div></div>
       </div>
 
       <!-- 상담 -->
       <div class="tabsec" id="sec-consult" style="display:none">
-        <div class="card"><h2>💬 상담 목록</h2><div id="cl-list"></div></div>
+        <div class="card"><h2>상담 목록</h2><div id="cl-list"></div></div>
         <div class="card" id="cl-thread" style="display:none">
           <h2 id="cl-title">상담</h2>
           <div id="cl-msgs" style="display:flex;flex-direction:column"></div>
@@ -162,13 +161,13 @@
 
       <!-- 게시판 -->
       <div class="tabsec" id="sec-board" style="display:none">
-        <div class="card"><h2>🙈 익명 건의함</h2><p class="note">학생이 익명으로 남긴 글입니다(학생끼리는 못 봄). 처리한 글은 '숨김'으로 표시해두세요.</p><div id="bl-list"></div></div>
+        <div class="card"><h2>익명 건의함</h2><p class="note">학생이 익명으로 남긴 글입니다(학생끼리는 못 봄). 처리한 글은 '숨김'으로 표시해두세요.</p><div id="bl-list"></div></div>
       </div>
 
       <!-- 만족도 -->
       <div class="tabsec" id="sec-survey" style="display:none">
         <div class="card">
-          <h2>📊 만족도 집계</h2>
+          <h2>만족도 집계</h2>
           <label>학기</label>
           <select id="sv-sem"><option value="">전체</option><option>2026 1학기</option><option>2026 2학기</option></select>
           <button class="btn" id="sv-refresh">집계 보기</button>
@@ -180,7 +179,7 @@
       <!-- 가입자 관리 -->
       <div class="tabsec" id="sec-members" style="display:none">
         <div class="card">
-          <h2>👥 가입자 관리</h2>
+          <h2>가입자 관리</h2>
           <input type="text" id="rg-search" placeholder="이름·기업·직무 검색" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:8px" />
           <button class="btn" id="rg-refresh">새로고침</button>
           <p class="note" id="rg-count"></p>
