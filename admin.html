@@ -47,6 +47,7 @@
         <button data-tab="consult">💬 상담</button>
         <button data-tab="board">🙈 게시판</button>
         <button data-tab="survey">📊 만족도</button>
+        <button data-tab="members">👥 가입자</button>
       </div>
 
       <!-- 전담인력(운영팀) 요약 -->
@@ -73,6 +74,9 @@
           </div>
           <button class="btn" id="d-goConsult" style="margin-top:14px">상담 보기</button>
           <div class="status" id="d-status"></div>
+          <p class="note" id="d-health" style="margin-top:12px"></p>
+          <h2 style="margin-top:16px;font-size:15px">최근 활동</h2>
+          <div id="d-logs"></div>
         </div>
       </div>
 
@@ -173,6 +177,18 @@
         <div class="card" id="sv-report"><p class="note">'집계 보기'를 눌러주세요.</p></div>
       </div>
 
+      <!-- 가입자 관리 -->
+      <div class="tabsec" id="sec-members" style="display:none">
+        <div class="card">
+          <h2>👥 가입자 관리</h2>
+          <input type="text" id="rg-search" placeholder="이름·기업·직무 검색" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:8px" />
+          <button class="btn" id="rg-refresh">새로고침</button>
+          <p class="note" id="rg-count"></p>
+          <div id="rg-list"></div>
+          <div class="status" id="rg-status"></div>
+        </div>
+      </div>
+
       <button class="btn ghost" id="logout">로그아웃</button>
     </div>
   </div>
@@ -183,10 +199,16 @@
     const esc = s => { const e = document.createElement('div'); e.textContent = s || ''; return e.innerHTML; };
     if (!configReady()) { $('loginStatus').textContent = 'config.js 의 Supabase 연결을 먼저 설정하세요.'; }
 
+    // 관리자 활동로그
+    let adminEmail = '';
+    async function logAction(action, detail) {
+      try { await supabase.from('admin_logs').insert({ actor: adminEmail || null, action, detail: detail || null }); } catch (_) {}
+    }
+
     // 탭 전환
     document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => {
       document.querySelectorAll('.tabs button').forEach(x => x.classList.toggle('on', x === b));
-      ['dash', 'notice', 'library', 'calendar', 'consult', 'board', 'survey'].forEach(t => $('sec-' + t).style.display = (t === b.dataset.tab ? 'block' : 'none'));
+      ['dash', 'notice', 'library', 'calendar', 'consult', 'board', 'survey', 'members'].forEach(t => $('sec-' + t).style.display = (t === b.dataset.tab ? 'block' : 'none'));
     }));
 
     // 직무 목록 캐시 → 대상 드롭다운 채우기
@@ -233,7 +255,7 @@
       const { error } = await supabase.from('notices').insert({ title, body, target_scope: scope, target_value: value, published: true, created_by: session?.user?.email || null });
       $('n-publish').disabled = false;
       if (error) { setStatus($('n-status'), '오류: ' + error.message, 'error'); return; }
-      setStatus($('n-status'), '✅ 발행되었습니다 (5분 내 푸시).', 'ok'); $('n-title').value = ''; $('n-body').value = ''; nLoad();
+      setStatus($('n-status'), '✅ 발행되었습니다 (5분 내 푸시).', 'ok'); logAction('공지발행', lbl + ' · ' + title); $('n-title').value = ''; $('n-body').value = ''; nLoad();
     });
     async function nLoad() {
       const { data } = await supabase.from('notices').select('title,target_scope,target_value,created_at').order('created_at', { ascending: false }).limit(20);
@@ -268,7 +290,7 @@
       const { error } = await supabase.from('library').insert({ title, url, kind, job_key: job, published: true });
       $('l-add').disabled = false;
       if (error) { setStatus($('l-status'), '오류: ' + error.message, 'error'); return; }
-      setStatus($('l-status'), '✅ 등록되었습니다.', 'ok'); $('l-title').value = ''; $('l-url').value = ''; lLoad();
+      setStatus($('l-status'), '✅ 등록되었습니다.', 'ok'); logAction('자료등록', title); $('l-title').value = ''; $('l-url').value = ''; lLoad();
     });
     async function lLoad() {
       const { data } = await supabase.from('library').select('title,kind,job_key,created_at').order('created_at', { ascending: false }).limit(30);
@@ -285,7 +307,7 @@
       const { error } = await supabase.from('calendar_events').insert({ title, event_date: date, kind, job_key: job, memo });
       $('c-add').disabled = false;
       if (error) { setStatus($('c-status'), '오류: ' + error.message, 'error'); return; }
-      setStatus($('c-status'), '✅ 등록되었습니다.', 'ok'); $('c-title').value = ''; $('c-memo').value = ''; cLoad();
+      setStatus($('c-status'), '✅ 등록되었습니다.', 'ok'); logAction('일정등록', title); $('c-title').value = ''; $('c-memo').value = ''; cLoad();
     });
     async function cLoad() {
       const { data } = await supabase.from('calendar_events').select('title,event_date,kind,job_key').order('event_date', { ascending: true }).limit(50);
@@ -326,7 +348,7 @@
       if (!error) await supabase.from('consultations').update({ status: '답변완료', last_at: new Date().toISOString() }).eq('id', curConsult);
       $('cl-send').disabled = false;
       if (error) { setStatus($('cl-status'), '오류: ' + error.message, 'error'); return; }
-      $('cl-reply').value = ''; setStatus($('cl-status'), '✅ 답변 전송', 'ok'); openConsult(curConsult, curLabel); clLoad();
+      $('cl-reply').value = ''; setStatus($('cl-status'), '✅ 답변 전송', 'ok'); logAction('상담답변', curLabel); openConsult(curConsult, curLabel); clLoad();
     });
 
     // ===== 게시판 (관리자) =====
@@ -338,11 +360,42 @@
         const row = document.createElement('div'); row.style.cssText = 'padding:10px 0;border-bottom:1px dashed var(--line)';
         const btn = document.createElement('button'); btn.textContent = p.hidden ? '표시' : '숨김';
         btn.style.cssText = 'margin-top:6px;padding:5px 12px;font-size:13px;border:1px solid var(--line);border-radius:8px;background:#fff;cursor:pointer';
-        btn.addEventListener('click', async () => { await supabase.from('board_posts').update({ hidden: !p.hidden }).eq('id', p.id); blLoad(); });
+        btn.addEventListener('click', async () => { await supabase.from('board_posts').update({ hidden: !p.hidden }).eq('id', p.id); logAction(p.hidden ? '게시판 표시' : '게시판 숨김', ''); blLoad(); });
         row.innerHTML = `<div style="white-space:pre-wrap${p.hidden ? ';opacity:.45' : ''}">${e.innerHTML}</div><span class="note">${new Date(p.created_at).toLocaleString('ko-KR')}${p.hidden ? ' · 숨김' : ''}</span><br/>`;
         row.appendChild(btn); el.appendChild(row);
       });
     }
+
+    // ===== 가입자 관리 =====
+    let regCache = [];
+    async function regLoad() {
+      const { data, error } = await supabase.from('registrations').select('id,name,phone,target_type,job_key,company,created_at').order('created_at', { ascending: false }).limit(500);
+      if (error) { $('rg-list').innerHTML = '<p class="note">가입자 조회 권한이 없습니다 — supabase_migration_R12_ops.sql 실행 필요</p>'; return; }
+      regCache = data || []; regRender();
+    }
+    function regRender() {
+      const q = ($('rg-search').value || '').trim().toLowerCase();
+      const rows = regCache.filter(r => !q || [r.name, r.company, r.job_key].some(x => (x || '').toLowerCase().includes(q)));
+      $('rg-count').textContent = '총 ' + regCache.length + '명' + (q ? ' · 검색 ' + rows.length + '명' : '');
+      const el = $('rg-list'); el.innerHTML = rows.length ? '' : '<p class="note">없음</p>';
+      rows.forEach(r => {
+        const tt = r.target_type === 'company' ? '기업' : '학생';
+        const row = document.createElement('div'); row.style.cssText = 'padding:9px 0;border-bottom:1px dashed var(--line);display:flex;justify-content:space-between;gap:8px;align-items:center';
+        const info = document.createElement('div');
+        info.innerHTML = `<b>${esc(r.name || '')}</b> <span class="note">[${tt}]</span><br/><span class="note">${esc(r.job_key || r.company || '')} · ${esc(r.phone || '')} · ${new Date(r.created_at).toLocaleDateString('ko-KR')}</span>`;
+        const del = document.createElement('button'); del.textContent = '삭제';
+        del.style.cssText = 'padding:5px 12px;font-size:13px;border:1px solid var(--err);color:var(--err);border-radius:8px;background:#fff;cursor:pointer;white-space:nowrap';
+        del.addEventListener('click', async () => {
+          if (!confirm(`'${r.name}' 가입을 삭제할까요?`)) return;
+          const { error } = await supabase.from('registrations').delete().eq('id', r.id);
+          if (error) { setStatus($('rg-status'), '삭제 오류: ' + error.message, 'error'); return; }
+          logAction('가입자삭제', r.name); regCache = regCache.filter(x => x.id !== r.id); regRender();
+        });
+        row.appendChild(info); row.appendChild(del); el.appendChild(row);
+      });
+    }
+    $('rg-search').addEventListener('input', regRender);
+    $('rg-refresh').addEventListener('click', regLoad);
 
     // ===== 만족도 집계 + PDF =====
     async function svLoad() {
@@ -389,6 +442,22 @@
       const today = new Date(); today.setHours(0, 0, 0, 0);
       const { count } = await supabase.from('push_logs').select('id', { count: 'exact', head: true }).gte('sent_at', today.toISOString());
       $('d-sent').textContent = count ?? '?';
+      // 파이프라인 헬스 — 마지막 동기화/발송 (멈추면 ⚠️)
+      let hp = '';
+      try {
+        const { data: sl } = await supabase.from('sync_log').select('created_at').order('created_at', { ascending: false }).limit(1);
+        if (sl && sl[0]) { const h = (Date.now() - new Date(sl[0].created_at).getTime()) / 3600000; hp += '🔄 마지막 동기화 ' + (h < 1 ? '방금' : Math.round(h) + '시간 전') + (h > 36 ? ' ⚠️멈춤?' : '') + ' '; }
+      } catch (_) {}
+      try {
+        const { data: pl } = await supabase.from('push_logs').select('sent_at').order('sent_at', { ascending: false }).limit(1);
+        if (pl && pl[0]) { const h = (Date.now() - new Date(pl[0].sent_at).getTime()) / 3600000; hp += '📨 마지막 발송 ' + (h < 1 ? '방금' : Math.round(h) + '시간 전'); }
+      } catch (_) {}
+      $('d-health').textContent = hp;
+      // 최근 활동 로그
+      try {
+        const { data: lg } = await supabase.from('admin_logs').select('actor,action,detail,created_at').order('created_at', { ascending: false }).limit(8);
+        $('d-logs').innerHTML = (lg && lg.length) ? lg.map(l => `<div style="padding:6px 0;border-bottom:1px dashed var(--line);font-size:13px"><b>${esc(l.action)}</b> ${esc(l.detail || '')} <span class="note">· ${new Date(l.created_at).toLocaleString('ko-KR')}</span></div>`).join('') : '<p class="note">기록 없음</p>';
+      } catch (_) { $('d-logs').innerHTML = ''; }
     }
 
     // ===== 인증 =====
@@ -397,8 +466,8 @@
       const authed = !!session;
       $('login').style.display = authed ? 'none' : 'block';
       $('panel').style.display = authed ? 'block' : 'none';
-      $('me').textContent = authed ? session.user.email : '';
-      if (authed) { dashLoad(); loadJobs(); nUpdateValue(); nLoad(); plLoad(); lLoad(); cLoad(); clLoad(); blLoad(); }
+      adminEmail = authed ? session.user.email : ''; $('me').textContent = adminEmail;
+      if (authed) { dashLoad(); loadJobs(); nUpdateValue(); nLoad(); plLoad(); lLoad(); cLoad(); clLoad(); blLoad(); regLoad(); }
     }
     $('loginBtn').addEventListener('click', async () => {
       const email = $('email').value.trim(), password = $('pw').value;
