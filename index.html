@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>일학습병행 앱 · 가입</title>
+  <link rel="manifest" href="./manifest.json" />
+  <meta name="theme-color" content="#1f4e8c" />
+  <link rel="apple-touch-icon" href="./icons/icon-192.png" />
+  <link rel="stylesheet" href="./styles.css" />
+  <script src="./config.js"></script>
+</head>
+<body>
+  <div class="topbar">
+    <h1 id="t-title">일학습병행 앱</h1>
+    <p id="t-center">공동훈련센터</p>
+  </div>
+
+  <div class="wrap">
+    <!-- 카카오톡/인스타 인앱브라우저 경고 (아이폰 푸시·설치 불가) -->
+    <div class="warn" id="inapp" style="display:none">
+      ⚠️ 지금 <b>카카오톡 등 앱 안의 브라우저</b>로 열려 있어요.<br/>
+      알림(푸시)과 홈 화면 추가가 안 됩니다. <b>오른쪽 위 메뉴 → "다른 브라우저로 열기"(Safari/크롬)</b>로 다시 열어주세요.<br/>
+      <button type="button" id="copyUrl" style="margin-top:8px;padding:9px 14px;border:1px solid #8a4b00;border-radius:8px;background:#fff;cursor:pointer">📋 주소 복사 → Safari/크롬에 붙여넣기</button>
+    </div>
+
+    <!-- 대상별 '이달의 할 일' 카드 (renderTodo가 주입; 항목 없으면 비어있음) -->
+    <div id="todo"></div>
+
+    <!-- 이미 가입한 기기에 보이는 홈 메뉴 -->
+    <div class="card" id="home" style="display:none">
+      <h2 id="home-name"></h2>
+      <a href="./notice.html"   class="btn"       style="text-decoration:none;text-align:center">📢 공지사항</a>
+      <a href="./library.html"  class="btn ghost" style="text-decoration:none;text-align:center">📁 자료실</a>
+      <a href="./calendar.html" class="btn ghost" style="text-decoration:none;text-align:center">📅 일정</a>
+      <a href="./consult.html"  class="btn ghost" style="text-decoration:none;text-align:center">💬 1:1 상담</a>
+      <a href="./board.html" id="m-board" class="btn ghost" style="text-decoration:none;text-align:center">🙈 익명게시판</a>
+      <a href="./survey.html" id="m-survey"  class="btn ghost" style="text-decoration:none;text-align:center">📊 만족도 조사</a>
+      <a href="./install.html"  class="btn ghost" style="text-decoration:none;text-align:center">🔔 알림 설정</a>
+      <p class="note" style="text-align:center;margin-top:14px"><a href="./privacy.html">개인정보 처리방침</a> · <a href="#" id="resignup">다른 정보로 다시 가입</a></p>
+    </div>
+
+    <div class="card" id="signupCard">
+      <h2>📲 간편 가입</h2>
+      <p class="note">이름·소속만 입력하면 끝납니다. 가입 후 공지를 푸시 알림으로 받아볼 수 있어요.</p>
+
+      <form id="form">
+        <label>이름 <span class="req">*</span></label>
+        <input type="text" id="name" autocomplete="name" placeholder="홍길동" required />
+
+        <label>휴대폰 번호 <span class="req">*</span></label>
+        <input type="tel" id="phone" inputmode="numeric" autocomplete="tel" placeholder="010-1234-5678" required />
+
+        <label>대상 구분 <span class="req">*</span></label>
+        <div class="radios" id="targets"></div>
+
+        <!-- 조건부: 훈련 직무 -->
+        <div class="cond" id="grp-job" hidden>
+          <label>훈련 직무 <span class="req">*</span></label>
+          <select id="job"><option value="">— 선택하세요 —</option></select>
+        </div>
+
+        <!-- 조건부: 학습기업 -->
+        <div class="cond" id="grp-company" hidden>
+          <label>소속 학습기업 <span class="req">*</span></label>
+          <select id="company">
+            <option value="">— 선택하세요 —</option>
+            <option value="__other__">▷ 목록에 없음 (직접 입력)</option>
+          </select>
+          <input type="text" id="company-other" placeholder="기업명을 직접 입력" hidden style="margin-top:8px" />
+        </div>
+
+        <!-- 조건부: 유형 -->
+        <div class="cond" id="grp-type" hidden>
+          <label>유형</label>
+          <select id="type"><option value="">— 선택 안 함 —</option></select>
+        </div>
+
+        <!-- 조건부: 역할 (전담인력) -->
+        <div class="cond" id="grp-role" hidden>
+          <label>역할</label>
+          <select id="role">
+            <option value="">— 선택 안 함 —</option>
+            <option>기업현장교사</option>
+            <option>HRD담당자</option>
+            <option>기타</option>
+          </select>
+        </div>
+
+        <!-- 조건부: 관심분야 (예비신입생) -->
+        <div class="cond" id="grp-interest" hidden>
+          <label>관심 분야 (선택)</label>
+          <input type="text" id="interest" placeholder="관심 직무·분야" />
+        </div>
+
+        <!-- 개인정보 동의 -->
+        <div class="consent">
+          <b>개인정보 수집·이용 안내</b><br/>
+          · 수집 항목: 이름, 휴대폰 번호, 대상 구분(+직무/기업/유형 등 선택 항목)<br/>
+          · 이용 목적: 일학습병행 공지·자료·상담 등 운영 안내<br/>
+          · 보유 기간: <span id="c-retention">훈련 종료 후 3년</span><br/>
+          · 동의를 거부할 수 있으며, 거부 시 앱 가입이 제한됩니다.<br/>
+          · <a href="./privacy.html" target="_blank">개인정보 처리방침 전문 보기</a>
+          <div class="row">
+            <input type="checkbox" id="c1" />
+            <label for="c1" style="margin:0;font-weight:500">(필수) 위 개인정보 수집·이용에 동의합니다.</label>
+          </div>
+          <div class="row">
+            <input type="checkbox" id="c2" />
+            <label for="c2" style="margin:0;font-weight:500">(필수) 데이터 보관을 위한 국외 이전(<span id="c-transfer">해외 클라우드</span>)에 동의합니다.</label>
+          </div>
+        </div>
+
+        <button class="btn" id="submit" type="submit">가입하기</button>
+        <div class="status" id="status"></div>
+        <p class="note" id="cfgwarn" style="display:none;color:var(--err)">
+          ⚠️ 아직 Supabase 연결이 설정되지 않았습니다. config.js 를 먼저 채워주세요(README_SETUP.md 참고).
+        </p>
+      </form>
+    </div>
+  </div>
+
+  <script type="module">
+    import { supabase, configReady, getQueryParam, isInAppBrowser, setStatus } from './app.js';
+
+    const cfg = window.APP_CONFIG || {};
+    document.getElementById('t-title').textContent  = cfg.APP_TITLE  || '일학습병행 앱';
+    document.getElementById('t-center').textContent = cfg.CENTER_NAME || '';
+    document.getElementById('c-retention').textContent = cfg.PRIVACY_RETENTION || '훈련 종료 후 3년';
+    document.getElementById('c-transfer').textContent  = cfg.PRIVACY_TRANSFER  || '해외 클라우드';
+
+    // 이미 가입한 기기면 가입폼 대신 홈 메뉴를 보여줌
+    let _prof = null; try { _prof = JSON.parse(localStorage.getItem('ilhak_profile') || 'null'); } catch (_) {}
+    if (_prof && _prof.name) {
+      document.getElementById('home').style.display = 'block';
+      document.getElementById('signupCard').style.display = 'none';
+      document.getElementById('home-name').textContent = `${_prof.name}님, 환영합니다`;
+      // 만족도 설문은 재학생 대상 → 그 외 대상은 메뉴에서 숨김
+      if (_prof.target_type && _prof.target_type !== 'student') { const s = document.getElementById('m-survey'); if (s) s.style.display = 'none'; }
+      // 기업 담당자: 익명게시판(학생용 소통 채널) 숨김 + 이름 옆 역할 표기
+      if (_prof.target_type === 'company') {
+        const b = document.getElementById('m-board'); if (b) b.style.display = 'none';
+        const hn = document.getElementById('home-name'); if (hn) hn.textContent += ' (기업 담당자)';
+      }
+      renderTodo(_prof);
+      document.getElementById('resignup').addEventListener('click', (e) => {
+        e.preventDefault();
+        if (confirm('가입 정보를 지우고 다시 가입할까요?')) { localStorage.removeItem('ilhak_profile'); location.reload(); }
+      });
+    }
+
+    // 대상별 '이달의 할 일' — 노션 동기화 tasks 테이블(published=true만 RLS 허용)에서 조회.
+    // calendar.html의 todayStr 계산과 dday() 색 규칙을 그대로 사용. 실패/빈데이터면 조용히 미표시.
+    async function renderTodo(prof) {
+      if (!configReady()) return;
+      const aud = prof.target_type === 'company' ? ['기업', '전체'] : ['매칭학생', '전체'];
+      let data;
+      try {
+        const res = await supabase.from('tasks')
+          .select('title,kind,link,memo,due_date')
+          .in('audience', aud)
+          .eq('published', true)
+          .order('due_date', { ascending: true });
+        if (res.error) return;
+        data = res.data;
+      } catch (_) { return; }
+      if (!data || !data.length) return;
+
+      // calendar.html과 동일한 todayStr 계산 / dday() 함수 (로컬 자정 기준)
+      const todayStr = new Date().toISOString().slice(0, 10);
+      function dday(dateStr) {
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const d = new Date(dateStr + 'T00:00:00');
+        const diff = Math.round((d - today) / 86400000);
+        if (diff === 0) return { label: 'D-DAY', color: '#c1121f' };
+        if (diff > 0) return { label: 'D-' + diff, color: diff <= 7 ? '#c1121f' : '#1f4e8c' };
+        return { label: '종료', color: '#94a3b8' };
+      }
+      const esc = (s) => { const e = document.createElement('div'); e.textContent = s || ''; return e.innerHTML; };
+
+      // 마감 미정(due_date 없음) 또는 오늘 이후(todayStr 이상) 항목만 표시
+      const shown = data.filter(r => !r.due_date || r.due_date >= todayStr);
+      if (!shown.length) return;
+
+      const rows = shown.map(r => {
+        const badge = r.due_date
+          ? (() => { const dd = dday(r.due_date); return `<span style="background:${dd.color};color:#fff;font-size:12px;font-weight:700;padding:2px 10px;border-radius:10px;white-space:nowrap">${dd.label}</span>`; })()
+          : `<span style="background:#94a3b8;color:#fff;font-size:12px;font-weight:700;padding:2px 10px;border-radius:10px;white-space:nowrap">미정</span>`;
+        const memo = r.memo ? `<p class="note" style="margin:4px 0 0">${esc(r.memo)}</p>` : '';
+        const safeLink = (r.link && /^https?:\/\//i.test(r.link)) ? r.link : null;
+        const link = safeLink ? `<p class="note" style="margin:4px 0 0"><a href="${encodeURI(safeLink)}" target="_blank" rel="noopener">바로가기 ↗</a></p>` : '';
+        return `<div style="padding:8px 0;border-top:1px solid var(--line)">` +
+          `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px">` +
+          `<b style="font-size:15px">${esc(r.title)}</b>${badge}</div>${memo}${link}</div>`;
+      }).join('');
+
+      document.getElementById('todo').innerHTML =
+        `<div class="card"><h2 style="margin-top:0">📌 이달의 할 일</h2>${rows}</div>`;
+    }
+
+    // 드롭다운 채우기 — 직무·기업은 노션 동기화(Supabase jobs/companies) 우선, 비면 config.js 시드 폴백
+    const jobSel = document.getElementById('job');
+    const compSel = document.getElementById('company');
+    const otherOpt = compSel.querySelector('option[value="__other__"]');
+    const typeSel = document.getElementById('type');
+    (window.TYPES || []).forEach(t => { const o = document.createElement('option'); o.value = t; o.textContent = t; typeSel.appendChild(o); });
+
+    const addJob = (value, label) => { const o = document.createElement('option'); o.value = value; o.textContent = label; jobSel.appendChild(o); };
+    const addCompany = (name) => { const o = document.createElement('option'); o.value = name; o.textContent = name; compSel.insertBefore(o, otherOpt); };
+    let jobsLoaded = false;  // 직무는 노션 동기화(jobs 테이블)만 정본. 실패 시 config 'key'로 폴백하면 타게팅이 어긋나므로 폴백하지 않음.
+    (async () => {
+      let compsLoaded = false;
+      if (configReady()) {
+        try {
+          const { data } = await supabase.from('jobs').select('name').eq('active', true).order('name');
+          if (data && data.length) { data.forEach(r => addJob(r.name, r.name)); jobsLoaded = true; }
+        } catch (_) {}
+        try {
+          const { data } = await supabase.from('companies').select('name').eq('active', true).order('name');
+          if (data && data.length) { data.forEach(r => addCompany(r.name)); compsLoaded = true; }
+        } catch (_) {}
+      }
+      if (!jobsLoaded) { jobSel.innerHTML = '<option value="">직무 목록을 불러오지 못했습니다 — 새로고침</option>'; jobSel.disabled = true; }
+      if (!compsLoaded) (window.COMPANIES || []).forEach(addCompany);  // 기업명은 양쪽 동일 체계라 폴백 안전
+    })();
+
+    // 대상 라디오
+    const targets = document.getElementById('targets');
+    (window.TARGET_TYPES || []).forEach(t => {
+      const lab = document.createElement('label');
+      lab.innerHTML = `<input type="radio" name="target" value="${t.key}"> ${t.label}`;
+      targets.appendChild(lab);
+    });
+
+    // 대상별 조건부 필드 노출
+    //  student(재학생): 직무*, 기업*, 유형  |  graduate(졸업생): 직무, 기업
+    //  prospect(예비신입생): 관심분야         |  company(전담인력): 기업*, 역할
+    const VISIBLE = {
+      student:  ['grp-job', 'grp-company', 'grp-type'],
+      graduate: ['grp-job', 'grp-company'],
+      prospect: ['grp-interest'],
+      company:  ['grp-company', 'grp-role'],
+    };
+    const ALL_GRP = ['grp-job', 'grp-company', 'grp-type', 'grp-role', 'grp-interest'];
+    function applyTarget(val) {
+      ALL_GRP.forEach(id => { document.getElementById(id).hidden = !(VISIBLE[val] || []).includes(id); });
+    }
+    targets.addEventListener('change', (e) => { if (e.target.name === 'target') applyTarget(e.target.value); });
+
+    // QR 출처별 대상 미리선택 (?as=student|graduate|prospect|company)
+    const presetTarget = getQueryParam('as');
+    if (presetTarget && (window.TARGET_TYPES || []).some(t => t.key === presetTarget)) {
+      const r = document.querySelector('input[name=target][value="' + presetTarget + '"]');
+      if (r) { r.checked = true; applyTarget(presetTarget); }
+    }
+
+    // 기업 '직접입력' 토글
+    compSel.addEventListener('change', () => {
+      document.getElementById('company-other').hidden = (compSel.value !== '__other__');
+    });
+
+    if (isInAppBrowser()) document.getElementById('inapp').style.display = 'block';
+    document.getElementById('copyUrl')?.addEventListener('click', () => {
+      navigator.clipboard?.writeText(location.href)
+        .then(() => { document.getElementById('copyUrl').textContent = '✅ 복사됨 — Safari/크롬 주소창에 붙여넣기'; })
+        .catch(() => { document.getElementById('copyUrl').textContent = location.href; });
+    });
+    if (!configReady())   document.getElementById('cfgwarn').style.display = 'block';
+
+    const form = document.getElementById('form');
+    const statusEl = document.getElementById('status');
+    const btn = document.getElementById('submit');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name  = document.getElementById('name').value.trim();
+      const phone = document.getElementById('phone').value.trim();
+      const target = (document.querySelector('input[name=target]:checked') || {}).value;
+      const c1 = document.getElementById('c1').checked;
+      const c2 = document.getElementById('c2').checked;
+
+      if (!name || !phone || !target) { setStatus(statusEl, '이름·휴대폰·대상 구분을 입력해주세요.', 'error'); return; }
+
+      // 대상별 필수값 검증 + 수집
+      const vis = VISIBLE[target] || [];
+      let job_key = null, company = null, type1 = null, role = null, interest = null;
+      if (vis.includes('grp-job')) {
+        job_key = document.getElementById('job').value || null;
+        if (target === 'student' && !job_key) { setStatus(statusEl, jobsLoaded ? '훈련 직무를 선택해주세요.' : '직무 목록을 불러오지 못했습니다. 새로고침 후 다시 시도해주세요.', 'error'); return; }
+      }
+      if (vis.includes('grp-company')) {
+        const sel = document.getElementById('company').value;
+        company = (sel === '__other__') ? (document.getElementById('company-other').value.trim() || null) : (sel || null);
+        if ((target === 'student' || target === 'company') && !company) { setStatus(statusEl, '소속 학습기업을 선택(또는 입력)해주세요.', 'error'); return; }
+      }
+      if (vis.includes('grp-type'))     type1    = document.getElementById('type').value || null;
+      if (vis.includes('grp-role'))     role     = document.getElementById('role').value || null;
+      if (vis.includes('grp-interest')) interest = document.getElementById('interest').value.trim() || null;
+
+      if (!c1 || !c2) { setStatus(statusEl, '필수 동의 두 가지에 모두 체크해주세요.', 'error'); return; }
+      if (!configReady()) { setStatus(statusEl, 'Supabase 연결 설정이 필요합니다(config.js).', 'error'); return; }
+
+      btn.disabled = true; setStatus(statusEl, '가입 중...', 'info');
+      const { error } = await supabase.from('registrations').insert({
+        name, phone, target_type: target,
+        job_key, company, type1, role, interest,
+        src: getQueryParam('src'),
+        consent_collect: c1, consent_transfer: c2, consent_at: new Date().toISOString(),
+        user_agent: navigator.userAgent
+      });
+
+      if (error) {
+        console.error(error);
+        setStatus(statusEl, '오류가 발생했습니다: ' + error.message, 'error');
+        btn.disabled = false; return;
+      }
+      // 기기 프로필 저장 — 공지 필터링에 사용(서버에서 명단을 읽지 않기 위함)
+      try { localStorage.setItem('ilhak_profile', JSON.stringify({ name, target_type: target, job_key, company, type1 })); } catch (_) {}
+      location.href = './install.html?joined=1';
+    });
+  </script>
+</body>
+</html>

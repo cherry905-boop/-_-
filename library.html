@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>자료실 · 일학습병행 앱</title>
+  <link rel="manifest" href="./manifest.json" />
+  <meta name="theme-color" content="#1f4e8c" />
+  <link rel="apple-touch-icon" href="./icons/icon-192.png" />
+  <link rel="stylesheet" href="./styles.css" />
+  <script src="./config.js"></script>
+</head>
+<body>
+  <div class="topbar"><h1>📁 자료실</h1><p id="who"></p></div>
+  <div class="wrap">
+    <div id="list"></div>
+    <p class="note" id="empty" style="display:none;text-align:center;margin-top:30px">등록된 자료가 없습니다.</p>
+    <a href="./index.html" class="btn ghost" style="text-decoration:none;text-align:center;margin-top:20px">홈으로</a>
+  </div>
+
+  <script type="module">
+    import { supabase, configReady } from './app.js';
+
+    let profile = {};
+    try { profile = JSON.parse(localStorage.getItem('ilhak_profile') || '{}'); } catch (_) {}
+    document.getElementById('who').textContent = profile.name ? `${profile.name}님` : '';
+
+    // 이 학생에게 보여야 하는 자료인가 (직무 타게팅)
+    const visible = (r) => !r.job_key || r.job_key === profile.job_key;
+    const esc = (s) => { const e = document.createElement('div'); e.textContent = s || ''; return e.innerHTML; };
+    const KIND_COLOR = { '학습안내서': '#1f4e8c', 'OFF-JT공지': '#157347', '일정표': '#b8860b', '서식': '#6f42c1', '기타': '#64748b' };
+
+    const listEl = document.getElementById('list');
+    (async () => {
+      if (!configReady()) { document.getElementById('empty').style.display = 'block'; return; }
+      const { data, error } = await supabase.from('library')
+        .select('title,kind,url,job_key,created_at').eq('published', true).order('created_at', { ascending: false });
+      if (error) { const e = document.getElementById('empty'); e.style.display = 'block'; e.textContent = '일시적 오류로 불러오지 못했습니다. 잠시 후 새로고침해주세요.'; console.error(error); return; }
+      const shown = (data || []).filter(visible);
+      if (!shown.length) {
+        const em = document.getElementById('empty'); em.style.display = 'block';
+        if (!profile.name) em.innerHTML = '내 정보가 이 기기에 없어 맞춤 자료가 안 보일 수 있어요.<br/><a href="./index.html">홈에서 정보 입력하기</a>';
+        return;
+      }
+      shown.forEach(r => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        const color = KIND_COLOR[r.kind] || '#64748b';
+        card.innerHTML =
+          `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">` +
+          `<span style="background:${color};color:#fff;font-size:11px;padding:2px 8px;border-radius:10px">${esc(r.kind)}</span>` +
+          `<b style="font-size:15px">${esc(r.title)}</b></div>` +
+          `<a href="${encodeURI(r.url)}" target="_blank" rel="noopener" class="btn" style="text-decoration:none;text-align:center;padding:11px">열기 / 다운로드</a>`;
+        listEl.appendChild(card);
+      });
+    })();
+  </script>
+</body>
+</html>

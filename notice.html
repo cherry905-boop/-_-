@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>공지 · 일학습병행 앱</title>
+  <link rel="manifest" href="./manifest.json" />
+  <meta name="theme-color" content="#1f4e8c" />
+  <link rel="apple-touch-icon" href="./icons/icon-192.png" />
+  <link rel="stylesheet" href="./styles.css" />
+  <script src="./config.js"></script>
+</head>
+<body>
+  <div class="topbar"><h1>📢 공지사항</h1><p id="who"></p></div>
+  <div class="wrap">
+    <div id="list"></div>
+    <p class="note" id="empty" style="display:none;text-align:center;margin-top:30px">표시할 공지가 없습니다.</p>
+    <a href="./index.html" class="btn ghost" style="text-decoration:none;text-align:center;margin-top:20px">처음으로</a>
+  </div>
+
+  <script type="module">
+    import { supabase, configReady } from './app.js';
+
+    // 이 기기의 프로필(가입 때 저장) — 공지 필터링용
+    let profile = {};
+    try { profile = JSON.parse(localStorage.getItem('ilhak_profile') || '{}'); } catch (_) {}
+    document.getElementById('who').textContent = profile.name ? `${profile.name}님 맞춤 공지` : '전체 공지';
+
+    // 공지가 이 기기에 보여야 하는가?
+    const normCo = (s) => (s || '').replace(/㈜|\(주\)|주식회사|\s/g, '');  // 회사명 표기차이 흡수
+    function matches(n) {
+      switch (n.target_scope) {
+        case 'all':     return true;
+        case 'job':     return profile.job_key   === n.target_value;
+        case 'company': return normCo(profile.company) === normCo(n.target_value);
+        case 'target':  return profile.target_type === n.target_value;
+        case 'type':    return profile.type1       === n.target_value;
+        default:        return false; // manager/status 등은 푸시 단계에서 처리
+      }
+    }
+    function fmt(d) { try { return new Date(d).toLocaleString('ko-KR', { dateStyle: 'medium', timeStyle: 'short' }); } catch (_) { return d; } }
+    function esc(s) { const e = document.createElement('div'); e.textContent = s || ''; return e.innerHTML; }
+
+    const listEl = document.getElementById('list');
+    (async () => {
+      if (!configReady()) { document.getElementById('empty').style.display = 'block'; document.getElementById('empty').textContent = 'Supabase 연결이 필요합니다(config.js).'; return; }
+      const { data, error } = await supabase.from('notices')
+        .select('title,body,target_scope,target_value,created_at')
+        .eq('published', true).order('created_at', { ascending: false });
+      if (error) { document.getElementById('empty').style.display = 'block'; document.getElementById('empty').textContent = '불러오기 오류: ' + error.message; return; }
+
+      const shown = (data || []).filter(matches);
+      if (!shown.length) {
+        const em = document.getElementById('empty'); em.style.display = 'block';
+        if (!profile.name) em.innerHTML = '내 정보가 이 기기에 없어 맞춤 공지가 안 보일 수 있어요.<br/><a href="./index.html">홈에서 정보 입력하기</a>';
+        return;
+      }
+      shown.forEach(n => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `<h2 style="margin-bottom:6px">${esc(n.title)}</h2>` +
+          `<p class="note" style="margin:0 0 10px">${fmt(n.created_at)}</p>` +
+          `<div style="white-space:pre-wrap;font-size:15px">${esc(n.body)}</div>`;
+        listEl.appendChild(card);
+      });
+    })();
+  </script>
+</body>
+</html>

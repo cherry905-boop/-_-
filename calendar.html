@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>일정 · 일학습병행 앱</title>
+  <link rel="manifest" href="./manifest.json" />
+  <meta name="theme-color" content="#1f4e8c" />
+  <link rel="apple-touch-icon" href="./icons/icon-192.png" />
+  <link rel="stylesheet" href="./styles.css" />
+  <script src="./config.js"></script>
+</head>
+<body>
+  <div class="topbar"><h1>📅 일정</h1><p id="who"></p></div>
+  <div class="wrap">
+    <div id="list"></div>
+    <p class="note" id="empty" style="display:none;text-align:center;margin-top:30px">예정된 일정이 없습니다.</p>
+    <a href="./index.html" class="btn ghost" style="text-decoration:none;text-align:center;margin-top:20px">홈으로</a>
+  </div>
+
+  <script type="module">
+    import { supabase, configReady } from './app.js';
+
+    let profile = {};
+    try { profile = JSON.parse(localStorage.getItem('ilhak_profile') || '{}'); } catch (_) {}
+    document.getElementById('who').textContent = profile.name ? `${profile.name}님 일정` : '';
+
+    const visible = (r) => !r.job_key || r.job_key === profile.job_key;
+    const esc = (s) => { const e = document.createElement('div'); e.textContent = s || ''; return e.innerHTML; };
+    const KIND_COLOR = { '외부평가': '#c1121f', '마감': '#b8860b', 'OT': '#1f4e8c', '특강': '#157347', '행사': '#6f42c1', '기타': '#64748b' };
+
+    // D-day 계산 (로컬 자정 기준)
+    function dday(dateStr) {
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      const d = new Date(dateStr + 'T00:00:00');
+      const diff = Math.round((d - today) / 86400000);
+      if (diff === 0) return { label: 'D-DAY', color: '#c1121f' };
+      if (diff > 0) return { label: 'D-' + diff, color: diff <= 7 ? '#c1121f' : '#1f4e8c' };
+      return { label: '종료', color: '#94a3b8' };
+    }
+    const fmtDate = (s) => { try { return new Date(s + 'T00:00:00').toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' }); } catch (_) { return s; } };
+
+    const listEl = document.getElementById('list');
+    (async () => {
+      if (!configReady()) { document.getElementById('empty').style.display = 'block'; return; }
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const { data, error } = await supabase.from('calendar_events')
+        .select('title,event_date,kind,job_key,memo').gte('event_date', todayStr).order('event_date', { ascending: true });
+      if (error) { const e = document.getElementById('empty'); e.style.display = 'block'; e.textContent = '일시적 오류로 불러오지 못했습니다. 잠시 후 새로고침해주세요.'; console.error(error); return; }
+      const shown = (data || []).filter(visible);
+      if (!shown.length) {
+        const em = document.getElementById('empty'); em.style.display = 'block';
+        if (!profile.name) em.innerHTML = '내 정보가 이 기기에 없어 맞춤 일정이 안 보일 수 있어요.<br/><a href="./index.html">홈에서 정보 입력하기</a>';
+        return;
+      }
+      shown.forEach(r => {
+        const dd = dday(r.event_date);
+        const color = KIND_COLOR[r.kind] || '#64748b';
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML =
+          `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">` +
+          `<span style="background:${color};color:#fff;font-size:11px;padding:2px 8px;border-radius:10px">${esc(r.kind)}</span>` +
+          `<span style="background:${dd.color};color:#fff;font-size:12px;font-weight:700;padding:2px 10px;border-radius:10px">${dd.label}</span></div>` +
+          `<b style="font-size:16px">${esc(r.title)}</b>` +
+          `<p class="note" style="margin:4px 0 0">${fmtDate(r.event_date)}${r.memo ? ' · ' + esc(r.memo) : ''}</p>`;
+        listEl.appendChild(card);
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>1:1 상담 · 일학습병행 앱</title>
+  <link rel="manifest" href="./manifest.json" />
+  <meta name="theme-color" content="#1f4e8c" />
+  <link rel="apple-touch-icon" href="./icons/icon-192.png" />
+  <link rel="stylesheet" href="./styles.css" />
+  <script src="./config.js"></script>
+  <style>
+    .msg{max-width:80%;padding:10px 13px;border-radius:14px;margin:6px 0;font-size:15px;white-space:pre-wrap}
+    .msg.student{background:var(--brand);color:#fff;margin-left:auto;border-bottom-right-radius:4px}
+    .msg.admin{background:#fff;border:1px solid var(--line);margin-right:auto;border-bottom-left-radius:4px}
+    .msg .t{display:block;font-size:11px;opacity:.7;margin-top:3px}
+  </style>
+</head>
+<body>
+  <div class="topbar"><h1>💬 1:1 상담</h1><p id="sub">담당자와 비공개로 대화해요</p></div>
+  <div class="wrap">
+
+    <!-- 신규 상담 신청 -->
+    <div class="card" id="newForm" style="display:none">
+      <h2>상담 신청</h2>
+      <p class="note">담당자에게는 회원님의 <b>이름과 직무가 함께 보입니다</b>(정확한 지원을 위해). 완전 익명으로 남기고 싶으면 <a href="./board.html">익명게시판</a>을 이용하세요.</p>
+      <textarea id="firstMsg" rows="4" style="width:100%;padding:12px;font-size:16px;border:1px solid var(--line);border-radius:10px" placeholder="상담 내용을 입력하세요"></textarea>
+      <button class="btn" id="create">상담 신청하기</button>
+      <div class="status" id="cStatus"></div>
+    </div>
+
+    <!-- 진행 중 상담 -->
+    <div id="thread" style="display:none">
+      <div class="card" id="msgs" style="display:flex;flex-direction:column"></div>
+      <div class="card">
+        <textarea id="reply" rows="2" style="width:100%;padding:12px;font-size:16px;border:1px solid var(--line);border-radius:10px" placeholder="메시지 입력"></textarea>
+        <button class="btn" id="send">보내기</button>
+        <div class="status" id="rStatus"></div>
+        <p class="note"><a href="#" id="newOne">새 상담 시작</a> · 답변이 오면 새로고침하면 보여요</p>
+      </div>
+    </div>
+
+    <a href="./index.html" class="btn ghost" style="text-decoration:none;text-align:center;margin-top:20px">홈으로</a>
+  </div>
+
+  <script type="module">
+    import { supabase, configReady, setStatus } from './app.js';
+    const $ = id => document.getElementById(id);
+    const esc = (s) => { const e = document.createElement('div'); e.textContent = s || ''; return e.innerHTML; };
+    const KEY = 'ilhak_consult_id';
+
+    let profile = {};
+    try { profile = JSON.parse(localStorage.getItem('ilhak_profile') || '{}'); } catch (_) {}
+
+    function showNew() { $('newForm').style.display = 'block'; $('thread').style.display = 'none'; }
+    function showThread() { $('newForm').style.display = 'none'; $('thread').style.display = 'block'; }
+
+    async function loadThread() {
+      const id = localStorage.getItem(KEY);
+      if (!id) { showNew(); return; }
+      const { data, error } = await supabase.rpc('get_consultation', { p_id: id });
+      if (error || !data) { localStorage.removeItem(KEY); showNew(); return; }
+      showThread();
+      $('sub').textContent = '상태: ' + (data.status || '열림');
+      const box = $('msgs'); box.innerHTML = '';
+      (data.messages || []).forEach(m => {
+        const div = document.createElement('div'); div.className = 'msg ' + (m.sender === 'admin' ? 'admin' : 'student');
+        div.innerHTML = esc(m.text) + `<span class="t">${m.sender === 'admin' ? '담당자' : '나'} · ${new Date(m.at).toLocaleString('ko-KR', { dateStyle: 'short', timeStyle: 'short' })}</span>`;
+        box.appendChild(div);
+      });
+      box.scrollTop = box.scrollHeight;
+    }
+
+    $('create').addEventListener('click', async () => {
+      const msg = $('firstMsg').value.trim();
+      if (!msg) { setStatus($('cStatus'), '내용을 입력해주세요.', 'error'); return; }
+      if (!configReady()) { setStatus($('cStatus'), 'Supabase 연결이 필요합니다.', 'error'); return; }
+      $('create').disabled = true; setStatus($('cStatus'), '신청 중...', 'info');
+      const { data, error } = await supabase.rpc('create_consultation', { p_name: profile.name || null, p_job: profile.job_key || null, p_message: msg });
+      $('create').disabled = false;
+      if (error || !data) { setStatus($('cStatus'), '오류: ' + (error?.message || '실패'), 'error'); return; }
+      localStorage.setItem(KEY, data); $('firstMsg').value = ''; loadThread();
+    });
+
+    $('send').addEventListener('click', async () => {
+      const text = $('reply').value.trim(); const id = localStorage.getItem(KEY);
+      if (!text || !id) return;
+      $('send').disabled = true;
+      const { error } = await supabase.rpc('add_consultation_message', { p_id: id, p_text: text });
+      $('send').disabled = false;
+      if (error) { setStatus($('rStatus'), '오류: ' + error.message, 'error'); return; }
+      $('reply').value = ''; loadThread();
+    });
+
+    $('newOne').addEventListener('click', (e) => { e.preventDefault(); if (confirm('새 상담을 시작할까요? (기존 상담은 담당자에게 남아있어요)')) { localStorage.removeItem(KEY); showNew(); } });
+
+    loadThread();
+  </script>
+</body>
+</html>

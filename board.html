@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>익명게시판 · 일학습병행 앱</title>
+  <link rel="manifest" href="./manifest.json" />
+  <meta name="theme-color" content="#1f4e8c" />
+  <link rel="apple-touch-icon" href="./icons/icon-192.png" />
+  <link rel="stylesheet" href="./styles.css" />
+  <script src="./config.js"></script>
+</head>
+<body>
+  <div class="topbar"><h1>🙈 익명게시판</h1><p>이름 없이 자유롭게 의견을 남겨요</p></div>
+  <div class="wrap">
+    <div class="card">
+      <textarea id="body" rows="3" style="width:100%;padding:12px;font-size:16px;border:1px solid var(--line);border-radius:10px" placeholder="하고 싶은 말을 익명으로 남겨주세요"></textarea>
+      <button class="btn" id="post">익명으로 올리기</button>
+      <div class="status" id="status"></div>
+      <p class="note">작성자 정보는 저장하지 않습니다. 비방·욕설은 관리자가 숨길 수 있어요.</p>
+    </div>
+    <div id="list"></div>
+    <p class="note" id="empty" style="display:none;text-align:center;margin-top:20px">아직 글이 없습니다. 첫 글을 남겨보세요.</p>
+    <a href="./index.html" class="btn ghost" style="text-decoration:none;text-align:center;margin-top:20px">홈으로</a>
+  </div>
+
+  <script type="module">
+    import { supabase, configReady, setStatus } from './app.js';
+    const $ = id => document.getElementById(id);
+    const esc = (s) => { const e = document.createElement('div'); e.textContent = s || ''; return e.innerHTML; };
+    const ago = (d) => { const s = (Date.now() - new Date(d).getTime()) / 1000; if (s < 60) return '방금'; if (s < 3600) return Math.floor(s / 60) + '분 전'; if (s < 86400) return Math.floor(s / 3600) + '시간 전'; return new Date(d).toLocaleDateString('ko-KR'); };
+
+    async function load() {
+      if (!configReady()) { $('empty').style.display = 'block'; return; }
+      const { data, error } = await supabase.from('board_posts').select('body,created_at').eq('hidden', false).order('created_at', { ascending: false }).limit(100);
+      const el = $('list'); el.innerHTML = '';
+      if (error) { $('empty').style.display = 'block'; $('empty').textContent = '일시적 오류로 불러오지 못했습니다. 잠시 후 새로고침해주세요.'; console.error(error); return; }
+      if (!data || !data.length) { $('empty').style.display = 'block'; return; }
+      $('empty').style.display = 'none';
+      data.forEach(p => {
+        const card = document.createElement('div'); card.className = 'card';
+        card.innerHTML = `<div style="white-space:pre-wrap;font-size:15px">${esc(p.body)}</div><p class="note" style="margin:8px 0 0">🙈 익명 · ${ago(p.created_at)}</p>`;
+        el.appendChild(card);
+      });
+    }
+
+    $('post').addEventListener('click', async () => {
+      const body = $('body').value.trim();
+      if (!body) { setStatus($('status'), '내용을 입력해주세요.', 'error'); return; }
+      if (!configReady()) { setStatus($('status'), 'Supabase 연결이 필요합니다.', 'error'); return; }
+      $('post').disabled = true; setStatus($('status'), '올리는 중...', 'info');
+      const { error } = await supabase.from('board_posts').insert({ body });
+      $('post').disabled = false;
+      if (error) { setStatus($('status'), '오류: ' + error.message, 'error'); return; }
+      setStatus($('status'), '✅ 등록되었어요.', 'ok'); $('body').value = ''; load();
+    });
+
+    load();
+  </script>
+</body>
+</html>

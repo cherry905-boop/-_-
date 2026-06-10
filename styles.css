@@ -1,0 +1,52 @@
+/* 공용 스타일 — 모바일 우선, 단순/깔끔 */
+:root{
+  --brand:#1f4e8c;       /* 기본 색 (기관 색에 맞게 바꿔도 됨) */
+  --brand-d:#163a69;
+  --bg:#f5f7fa; --card:#fff; --line:#e2e8f0; --text:#1a202c; --muted:#64748b;
+  --ok:#157347; --err:#c1121f;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  font-family:'Pretendard',system-ui,-apple-system,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+  background:var(--bg); color:var(--text); line-height:1.55;
+  -webkit-text-size-adjust:100%;
+}
+.wrap{max-width:480px; margin:0 auto; padding:20px 16px 48px}
+.topbar{background:var(--brand); color:#fff; padding:16px; text-align:center}
+.topbar h1{margin:0; font-size:17px; font-weight:700}
+.topbar p{margin:4px 0 0; font-size:12px; opacity:.85}
+.card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px; margin-top:16px}
+h2{font-size:16px; margin:0 0 12px}
+label{display:block; font-size:14px; font-weight:600; margin:14px 0 6px}
+.req{color:var(--err)}
+input[type=text],input[type=tel],select{
+  width:100%; padding:12px; font-size:16px; /* 16px = iOS 자동확대 방지 */
+  border:1px solid var(--line); border-radius:10px; background:#fff;
+}
+.radios{display:flex; flex-direction:column; gap:8px; margin-top:4px}
+.radios label{display:flex; align-items:center; gap:10px; font-weight:500; margin:0;
+  padding:11px 12px; border:1px solid var(--line); border-radius:10px}
+.radios input{width:18px;height:18px}
+.consent{margin-top:10px; padding:12px; background:#f8fafc; border:1px solid var(--line); border-radius:10px; font-size:12px; color:var(--muted)}
+.consent .row{display:flex; align-items:flex-start; gap:9px; margin-top:10px; color:var(--text); font-size:13px}
+.consent .row input{width:18px;height:18px;margin-top:1px}
+.btn{display:block; width:100%; padding:14px; margin-top:20px; font-size:16px; font-weight:700;
+  color:#fff; background:var(--brand); border:none; border-radius:12px; cursor:pointer}
+.btn:active{background:var(--brand-d)}
+.btn[disabled]{opacity:.5}
+.btn.ghost{background:#fff; color:var(--brand); border:2px solid var(--brand)}
+.status{margin-top:14px; font-size:14px; text-align:center; min-height:20px}
+.status.ok{color:var(--ok); font-weight:600}
+.status.error{color:var(--err); font-weight:600}
+.note{font-size:13px; color:var(--muted); margin-top:8px}
+.warn{background:#fff4e5; border:1px solid #ffd8a8; color:#8a4b00; padding:14px; border-radius:12px; font-size:14px; margin-top:16px}
+.steps{counter-reset:s; padding:0; list-style:none; margin:8px 0 0}
+.steps li{position:relative; padding:12px 0 12px 40px; border-bottom:1px dashed var(--line)}
+.steps li:last-child{border-bottom:none}
+.steps li::before{counter-increment:s; content:counter(s); position:absolute; left:0; top:10px;
+  width:26px;height:26px; background:var(--brand); color:#fff; border-radius:50%;
+  display:flex;align-items:center;justify-content:center; font-size:13px; font-weight:700}
+.mono{font-family:ui-monospace,Consolas,monospace; font-size:12px; background:#f1f5f9; padding:2px 6px; border-radius:6px}
+.pass{color:var(--ok); font-weight:700}
+.fail{color:var(--err); font-weight:700}

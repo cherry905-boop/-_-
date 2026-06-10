@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>보안 자가점검 (RLS)</title>
+  <link rel="stylesheet" href="./styles.css" />
+  <script src="./config.js"></script>
+</head>
+<body>
+  <div class="topbar"><h1>🔐 보안 자가점검</h1><p>익명 사용자가 개인정보를 읽을 수 없는지 기계가 대신 검사</p></div>
+  <div class="wrap">
+    <div class="warn">
+      이 페이지는 <b>익명(anon) 키</b>로 각 테이블을 몰래 읽어보려고 시도합니다.<br/>
+      ✅ <b>차단됨(PASS)</b> = 안전 / ❌ <b>읽힘(FAIL)</b> = 즉시 RLS를 고쳐야 함.<br/>
+      <b>정확한 검사를 위해, students 테이블에 더미 1줄 이상 넣은 뒤</b> 실행하세요(빈 테이블은 읽혀도 0줄이라 구분이 안 됩니다).
+    </div>
+    <div class="card">
+      <button class="btn" id="run">점검 실행</button>
+      <div id="results" style="margin-top:16px"></div>
+    </div>
+    <p class="note">새 테이블을 추가할 때마다 이 목록(TABLES)에 한 줄 추가하고 다시 점검하세요.</p>
+  </div>
+
+  <script type="module">
+    import { supabase, configReady } from './app.js';
+    const results = document.getElementById('results');
+
+    // 익명이 절대 읽으면 안 되는 테이블들 (개인정보 포함)
+    const MUST_BE_BLOCKED = ['students', 'registrations', 'push_logs', 'push_tokens', 'consultations', 'consultation_messages', 'survey_responses', 'deletion_log', 'sync_log'];
+    // 익명이 "공개분만" 읽어야 하는 테이블 (의도된 공개 — 읽히는 게 정상)
+    const PUBLIC_OK = ['notices', 'board_posts', 'library', 'calendar_events', 'jobs', 'companies'];
+
+    document.getElementById('run').addEventListener('click', async () => {
+      if (!configReady()) { results.innerHTML = '<p class="fail">config.js 의 Supabase 값을 먼저 채워주세요.</p>'; return; }
+      results.innerHTML = '검사 중...';
+      let html = '';
+
+      for (const t of MUST_BE_BLOCKED) {
+        const { data, error } = await supabase.from(t).select('*').limit(5);
+        const leaked = !error && Array.isArray(data) && data.length > 0;
+        html += `<p><b>${t}</b> (읽기 금지여야 함): ` +
+          (leaked
+            ? `<span class="fail">❌ FAIL — ${data.length}줄이 익명에게 노출됨! RLS를 즉시 점검하세요.</span>`
+            : `<span class="pass">✅ PASS — 차단됨</span>`) + `</p>`;
+      }
+      for (const t of PUBLIC_OK) {
+        const { error } = await supabase.from(t).select('*').limit(1);
+        html += `<p><b>${t}</b> (의도된 공개): ` +
+          (error ? `<span class="fail">읽기 오류 — 정책/컬럼 확인: ${error.message}</span>`
+                 : `<span class="pass">공개 정상</span> (발행/active/숨김 게이트는 SQL에서 확인)`) + `</p>`;
+      }
+      // 가입 INSERT 는 되어야 정상 (쓰기 테스트는 더미가 쌓이므로 생략, 가입 페이지에서 확인)
+      results.innerHTML = html + '<p class="note" style="margin-top:10px">MUST_BE_BLOCKED 가 모두 ✅ PASS 여야 운영 가능합니다.</p>';
+    });
+  </script>
+</body>
+</html>
