@@ -42,7 +42,7 @@
 
     <div class="card" id="signupCard">
       <h2>📲 간편 가입</h2>
-      <p class="note">이름·소속만 입력하면 끝납니다. 가입 후 공지를 푸시 알림으로 받아볼 수 있어요.</p>
+      <p class="note">이름·휴대폰을 입력하면 명단 확인 후 가입됩니다. 가입 후 공지를 푸시 알림으로 받아볼 수 있어요.</p>
 
       <form id="form">
         <label>이름 <span class="req">*</span></label>
@@ -68,29 +68,6 @@
             <option value="__other__">▷ 목록에 없음 (직접 입력)</option>
           </select>
           <input type="text" id="company-other" placeholder="기업명을 직접 입력" hidden style="margin-top:8px" />
-        </div>
-
-        <!-- 조건부: 유형 -->
-        <div class="cond" id="grp-type" hidden>
-          <label>유형</label>
-          <select id="type"><option value="">— 선택 안 함 —</option></select>
-        </div>
-
-        <!-- 조건부: 역할 (전담인력) -->
-        <div class="cond" id="grp-role" hidden>
-          <label>역할</label>
-          <select id="role">
-            <option value="">— 선택 안 함 —</option>
-            <option>기업현장교사</option>
-            <option>HRD담당자</option>
-            <option>기타</option>
-          </select>
-        </div>
-
-        <!-- 조건부: 관심분야 (예비신입생) -->
-        <div class="cond" id="grp-interest" hidden>
-          <label>관심 분야 (선택)</label>
-          <input type="text" id="interest" placeholder="관심 직무·분야" />
         </div>
 
         <!-- 개인정보 동의 -->
@@ -198,30 +175,22 @@
         `<div class="card"><h2 style="margin-top:0">📌 이달의 할 일</h2>${rows}</div>`;
     }
 
-    // 드롭다운 채우기 — 직무·기업은 노션 동기화(Supabase jobs/companies) 우선, 비면 config.js 시드 폴백
+    // 기업 드롭다운만 노션 동기화(companies)에서 채움 (직무는 매칭학생 확인 후 '본인 직무'만 동적 노출)
+    const nameEl = document.getElementById('name');
+    const phoneEl = document.getElementById('phone');
     const jobSel = document.getElementById('job');
     const compSel = document.getElementById('company');
     const otherOpt = compSel.querySelector('option[value="__other__"]');
-    const typeSel = document.getElementById('type');
-    (window.TYPES || []).forEach(t => { const o = document.createElement('option'); o.value = t; o.textContent = t; typeSel.appendChild(o); });
-
-    const addJob = (value, label) => { const o = document.createElement('option'); o.value = value; o.textContent = label; jobSel.appendChild(o); };
     const addCompany = (name) => { const o = document.createElement('option'); o.value = name; o.textContent = name; compSel.insertBefore(o, otherOpt); };
-    let jobsLoaded = false;  // 직무는 노션 동기화(jobs 테이블)만 정본. 실패 시 config 'key'로 폴백하면 타게팅이 어긋나므로 폴백하지 않음.
     (async () => {
       let compsLoaded = false;
       if (configReady()) {
-        try {
-          const { data } = await supabase.from('jobs').select('name').eq('active', true).order('name');
-          if (data && data.length) { data.forEach(r => addJob(r.name, r.name)); jobsLoaded = true; }
-        } catch (_) {}
         try {
           const { data } = await supabase.from('companies').select('name').eq('active', true).order('name');
           if (data && data.length) { data.forEach(r => addCompany(r.name)); compsLoaded = true; }
         } catch (_) {}
       }
-      if (!jobsLoaded) { jobSel.innerHTML = '<option value="">직무 목록을 불러오지 못했습니다 — 새로고침</option>'; jobSel.disabled = true; }
-      if (!compsLoaded) (window.COMPANIES || []).forEach(addCompany);  // 기업명은 양쪽 동일 체계라 폴백 안전
+      if (!compsLoaded) (window.COMPANIES || []).forEach(addCompany);
     })();
 
     // 대상 라디오
@@ -232,22 +201,19 @@
       targets.appendChild(lab);
     });
 
-    // 대상별 조건부 필드 노출
-    //  student(재학생): 직무*, 기업*, 유형  |  graduate(졸업생): 직무, 기업
-    //  prospect(예비신입생): 관심분야         |  company(전담인력): 기업*, 역할
-    const VISIBLE = {
-      student:  ['grp-job', 'grp-company', 'grp-type'],
-      graduate: ['grp-job', 'grp-company'],
-      prospect: ['grp-interest'],
-      company:  ['grp-company', 'grp-role'],
-    };
-    const ALL_GRP = ['grp-job', 'grp-company', 'grp-type', 'grp-role', 'grp-interest'];
+    const btn = document.getElementById('submit');
+    let pendingStudent = null; // 직무가 여러 개인 매칭학생의 2단계(본인 직무 선택)용
+
+    // 대상별 필드: 매칭학생=직접입력 없음(노션 자동입력), 기업=소속기업 선택
+    const VISIBLE = { student: [], company: ['grp-company'] };
     function applyTarget(val) {
-      ALL_GRP.forEach(id => { document.getElementById(id).hidden = !(VISIBLE[val] || []).includes(id); });
+      document.getElementById('grp-company').hidden = !(VISIBLE[val] || []).includes('grp-company');
+      document.getElementById('grp-job').hidden = true;   // 학생 직무 picker는 명단 확인 후에만
+      pendingStudent = null; btn.textContent = '가입하기';
     }
     targets.addEventListener('change', (e) => { if (e.target.name === 'target') applyTarget(e.target.value); });
 
-    // QR 출처별 대상 미리선택 (?as=student|graduate|prospect|company)
+    // QR 출처별 대상 미리선택 (?as=student|company)
     const presetTarget = getQueryParam('as');
     if (presetTarget && (window.TARGET_TYPES || []).some(t => t.key === presetTarget)) {
       const r = document.querySelector('input[name=target][value="' + presetTarget + '"]');
@@ -269,54 +235,76 @@
 
     const form = document.getElementById('form');
     const statusEl = document.getElementById('status');
-    const btn = document.getElementById('submit');
+
+    async function doRegister(rec) {
+      btn.disabled = true; setStatus(statusEl, '가입 중...', 'info');
+      const { error } = await supabase.from('registrations').insert({
+        name: rec.name, phone: rec.phone, target_type: rec.target_type,
+        job_key: rec.job_key, company: rec.company, type1: rec.type1,
+        src: getQueryParam('src'),
+        consent_collect: true, consent_transfer: true, consent_at: new Date().toISOString(),
+        user_agent: navigator.userAgent
+      });
+      if (error) { console.error(error); setStatus(statusEl, '오류가 발생했습니다: ' + error.message, 'error'); btn.disabled = false; return; }
+      // 기기 프로필 저장 — 공지 필터링에 사용(서버에서 명단을 읽지 않기 위함)
+      try { localStorage.setItem('ilhak_profile', JSON.stringify({ name: rec.name, target_type: rec.target_type, job_key: rec.job_key, company: rec.company, type1: rec.type1 })); } catch (_) {}
+      location.href = './install.html?joined=1';
+    }
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const name  = document.getElementById('name').value.trim();
-      const phone = document.getElementById('phone').value.trim();
+      const name  = nameEl.value.trim();
+      const phone = phoneEl.value.trim();
       const target = (document.querySelector('input[name=target]:checked') || {}).value;
       const c1 = document.getElementById('c1').checked;
       const c2 = document.getElementById('c2').checked;
 
       if (!name || !phone || !target) { setStatus(statusEl, '이름·휴대폰·대상 구분을 입력해주세요.', 'error'); return; }
-
-      // 대상별 필수값 검증 + 수집
-      const vis = VISIBLE[target] || [];
-      let job_key = null, company = null, type1 = null, role = null, interest = null;
-      if (vis.includes('grp-job')) {
-        job_key = document.getElementById('job').value || null;
-        if (target === 'student' && !job_key) { setStatus(statusEl, jobsLoaded ? '훈련 직무를 선택해주세요.' : '직무 목록을 불러오지 못했습니다. 새로고침 후 다시 시도해주세요.', 'error'); return; }
-      }
-      if (vis.includes('grp-company')) {
-        const sel = document.getElementById('company').value;
-        company = (sel === '__other__') ? (document.getElementById('company-other').value.trim() || null) : (sel || null);
-        if ((target === 'student' || target === 'company') && !company) { setStatus(statusEl, '소속 학습기업을 선택(또는 입력)해주세요.', 'error'); return; }
-      }
-      if (vis.includes('grp-type'))     type1    = document.getElementById('type').value || null;
-      if (vis.includes('grp-role'))     role     = document.getElementById('role').value || null;
-      if (vis.includes('grp-interest')) interest = document.getElementById('interest').value.trim() || null;
-
       if (!c1 || !c2) { setStatus(statusEl, '필수 동의 두 가지에 모두 체크해주세요.', 'error'); return; }
       if (!configReady()) { setStatus(statusEl, 'Supabase 연결 설정이 필요합니다(config.js).', 'error'); return; }
 
-      btn.disabled = true; setStatus(statusEl, '가입 중...', 'info');
-      const { error } = await supabase.from('registrations').insert({
-        name, phone, target_type: target,
-        job_key, company, type1, role, interest,
-        src: getQueryParam('src'),
-        consent_collect: c1, consent_transfer: c2, consent_at: new Date().toISOString(),
-        user_agent: navigator.userAgent
-      });
-
-      if (error) {
-        console.error(error);
-        setStatus(statusEl, '오류가 발생했습니다: ' + error.message, 'error');
-        btn.disabled = false; return;
+      // ── 기업 담당자: 명단 매칭 없이 소속 기업만 선택 ──
+      if (target === 'company') {
+        const sel = compSel.value;
+        const company = (sel === '__other__') ? (document.getElementById('company-other').value.trim() || null) : (sel || null);
+        if (!company) { setStatus(statusEl, '소속 학습기업을 선택(또는 입력)해주세요.', 'error'); return; }
+        return doRegister({ name, phone, target_type: 'company', job_key: null, company, type1: null });
       }
-      // 기기 프로필 저장 — 공지 필터링에 사용(서버에서 명단을 읽지 않기 위함)
-      try { localStorage.setItem('ilhak_profile', JSON.stringify({ name, target_type: target, job_key, company, type1 })); } catch (_) {}
-      location.href = './install.html?joined=1';
+
+      // ── 매칭학생: 직무가 여러 개면 2단계(본인 직무 선택 후 완료) ──
+      if (pendingStudent) {
+        const job_key = jobSel.value || null;
+        if (!job_key) { setStatus(statusEl, '본인 직무를 선택해주세요.', 'error'); return; }
+        const s = pendingStudent; pendingStudent = null;
+        return doRegister({ name: s.name, phone, target_type: 'student', job_key, company: s.company, type1: s.type1 });
+      }
+
+      // ── 매칭학생 1단계: 노션 명단(이름+휴대폰) 확인 ──
+      btn.disabled = true; setStatus(statusEl, '명단 확인 중...', 'info');
+      let res;
+      try { res = await supabase.rpc('verify_student', { p_name: name, p_phone: phone }); }
+      catch (err) { res = { error: err }; }
+      btn.disabled = false;
+      if (res.error) { setStatus(statusEl, '확인 중 오류: ' + res.error.message, 'error'); return; }
+      const v = res.data;
+      if (!v || !v.matched) {
+        setStatus(statusEl, '명단에서 확인되지 않습니다. 이름·휴대폰 번호를 다시 확인하시거나 담당자에게 문의해주세요.', 'error');
+        return;
+      }
+      const jobs = Array.isArray(v.job_keys) ? v.job_keys.filter(Boolean) : [];
+      if (jobs.length > 1) {
+        // 직무가 여러 개 → 본인 직무 중에서만 선택
+        pendingStudent = v;
+        jobSel.innerHTML = '<option value="">— 본인 직무 선택 —</option>';
+        jobs.forEach(j => { const o = document.createElement('option'); o.value = j; o.textContent = j; jobSel.appendChild(o); });
+        jobSel.disabled = false;
+        document.getElementById('grp-job').hidden = false;
+        btn.textContent = '가입 완료';
+        setStatus(statusEl, `${v.name}님 확인됐어요. 본인 직무를 선택하고 '가입 완료'를 눌러주세요.`, 'ok');
+        return;
+      }
+      // 직무 0~1개 → 바로 가입 (직무·기업·유형은 노션 값 자동입력)
+      return doRegister({ name: v.name, phone, target_type: 'student', job_key: jobs[0] || null, company: v.company, type1: v.type1 });
     });
   </script>
 </body>

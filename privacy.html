@@ -63,13 +63,12 @@
 
       <h3>7. 개인정보 보호책임자</h3>
       <ul>
-        <li>책임자: <span class="fill">○○○ (직책)</span></li>
-        <li>연락처: <span class="fill">전화 000-0000-0000 / 이메일 ○○○@○○○</span></li>
+        <li>책임자: <span class="fill" id="officer">○○○ (직책)</span></li>
+        <li>연락처: <span class="fill" id="officerContact">전화 000-0000-0000 / 이메일 ○○○@○○○</span></li>
       </ul>
-      <p class="note">※ 회색 표시 부분(<span class="fill">기관명·보호책임자 연락처</span>)은 게시 전 센터 정보로 채워주세요.</p>
 
       <h3>8. 처리방침의 변경</h3>
-      <p>이 처리방침은 시행일로부터 적용되며, 변경 시 앱 공지를 통해 알립니다. (시행일: <span class="fill">2026-○○-○○</span>)</p>
+      <p>이 처리방침은 시행일로부터 적용되며, 변경 시 앱 공지를 통해 알립니다. (시행일: <span class="fill" id="effectiveDate">2026-○○-○○</span>)</p>
 
       <a href="./index.html" class="btn ghost" style="text-decoration:none;text-align:center;display:block;margin-top:18px">홈으로</a>
     </div>
@@ -80,6 +79,9 @@
     if (cfg.CENTER_NAME) document.getElementById('org').textContent = cfg.CENTER_NAME;
     if (cfg.PRIVACY_RETENTION) document.getElementById('retention').textContent = cfg.PRIVACY_RETENTION;
     if (cfg.PRIVACY_TRANSFER) document.getElementById('transfer').textContent = cfg.PRIVACY_TRANSFER + ', Notion Labs, Inc.(미국)';
+    if (cfg.PRIVACY_OFFICER) document.getElementById('officer').textContent = cfg.PRIVACY_OFFICER;
+    if (cfg.PRIVACY_OFFICER_CONTACT) document.getElementById('officerContact').textContent = cfg.PRIVACY_OFFICER_CONTACT;
+    if (cfg.PRIVACY_EFFECTIVE_DATE) document.getElementById('effectiveDate').textContent = cfg.PRIVACY_EFFECTIVE_DATE;
   </script>
 </body>
 </html>
