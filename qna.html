@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>QnA · 명지대 일학습병행</title>
+  <meta name="description" content="명지대 일학습병행 — 실제로 들어온 질문과 센터의 답변 모음" />
+  <link rel="manifest" href="./manifest.json" />
+  <meta name="theme-color" content="#002968" />
+  <link rel="apple-touch-icon" href="./icons/icon-192.png" />
+  <link rel="stylesheet" href="./styles.css" />
+  <script src="./config.js"></script>
+</head>
+<body>
+  <div class="app">
+    <header class="ph-header">
+      <img class="wm" src="./assets/logo-mono-white.png" alt="" />
+      <div class="ph-lockup"><img src="./assets/logo-mono-white.png" alt="" /><span>일학습병행 공동훈련센터</span></div>
+      <div class="ph-title-row"><a class="ph-back" href="./index.html" aria-label="뒤로"><i data-lucide="chevron-left"></i></a><h1 class="ph-title">QnA</h1></div>
+      <p class="ph-sub">실제로 들어온 질문과 센터의 답변 — 익명으로 공개돼요</p>
+    </header>
+
+    <main class="ph-body">
+      <div class="searchbar" id="sb" style="display:none">
+        <i data-lucide="search"></i>
+        <input type="search" id="q" placeholder="질문 검색" aria-label="질문 검색" autocomplete="off" />
+        <button type="button" class="sb-clear" id="qClear" aria-label="검색어 지우기" style="display:none">✕</button>
+      </div>
+      <div class="filter-chips" id="chips" style="display:none" role="group" aria-label="카테고리 필터"></div>
+      <div id="list"></div>
+      <div class="empty-state" id="empty" style="display:none">
+        <span class="ei"><i data-lucide="message-circle-question"></i></span>
+        <div class="et">아직 공개된 QnA가 없어요</div>
+        <p class="es">자주 들어오는 질문이 익명으로 정리되어 올라옵니다.<br/>급한 질문은 1:1 상담을 이용해주세요.</p>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:auto">
+        <a href="./faq.html" class="mju-btn mju-btn--secondary mju-btn--full" style="text-decoration:none">자주 묻는 질문</a>
+        <a href="./consult.html" class="mju-btn mju-btn--secondary mju-btn--full" style="text-decoration:none">1:1 상담</a>
+      </div>
+    </main>
+  </div>
+
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <script type="module">
+    import { supabase, configReady, esc, getProfile, skeletonList, clearSkeleton } from './app.js';
+    if (window.lucide) window.lucide.createIcons();
+
+    const $ = id => document.getElementById(id);
+    const listEl = $('list'), emptyEl = $('empty'), chipsEl = $('chips');
+    const qEl = $('q'), qClear = $('qClear');
+    let all = [], catSel = '';
+
+    // 내 역할에 맞는 QnA 우선 — 역할 미상(비가입)은 지원자·전체 위주
+    const myRole = getProfile().target_type || 'applicant';
+
+    function render() {
+      const q = (qEl.value || '').trim().toLowerCase();
+      qClear.style.display = q ? 'block' : 'none';
+      const shown = all.filter(p =>
+        (!catSel || p.category === catSel) &&
+        (!q || [p.question, p.answer, p.category].some(x => (x || '').toLowerCase().includes(q))));
+      listEl.innerHTML = '';
+      if (!shown.length) {
+        emptyEl.style.display = 'block';
+        if (all.length) emptyEl.innerHTML = '<span class="ei"><i data-lucide="search"></i></span><div class="et">조건에 맞는 질문이 없어요</div><p class="es">검색어나 카테고리를 바꿔보세요.</p>';
+        window.lucide?.createIcons();
+        return;
+      }
+      emptyEl.style.display = 'none';
+      shown.forEach(p => {
+        const d = document.createElement('details');
+        d.className = 'faq-item';
+        d.innerHTML =
+          `<summary><i aria-hidden="true" data-lucide="message-circle-question"></i><span style="flex:1;min-width:0">${esc(p.question)}</span>` +
+          `<i aria-hidden="true" data-lucide="chevron-down" class="fq-arrow"></i></summary>` +
+          `<div class="fq-a">${esc(p.answer).replace(/\n/g, '<br/>')}` +
+          (p.category ? `<div style="margin-top:8px"><span class="mju-badge mju-badge--neutral">${esc(p.category)}</span></div>` : '') + `</div>`;
+        listEl.appendChild(d);
+      });
+      window.lucide?.createIcons();
+    }
+    function syncChips() {
+      [...chipsEl.children].forEach(b => {
+        const on = b.dataset.val === catSel;
+        b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+    }
+    function buildChips() {
+      const cats = [...new Set(all.map(p => p.category).filter(Boolean))];
+      if (cats.length < 2) return;
+      chipsEl.innerHTML = '';
+      const mk = (label, val) => {
+        const b = document.createElement('button');
+        b.type = 'button'; b.className = 'chip'; b.textContent = label; b.dataset.val = val;
+        b.addEventListener('click', () => { catSel = val; syncChips(); render(); });
+        chipsEl.appendChild(b);
+      };
+      mk('전체', '');
+      cats.forEach(c => mk(c, c));
+      syncChips();
+      chipsEl.style.display = 'flex';
+    }
+    qEl.addEventListener('input', render);
+    qClear.addEventListener('click', () => { qEl.value = ''; render(); qEl.focus(); });
+
+    (async () => {
+      if (!configReady()) { emptyEl.style.display = 'block'; return; }
+      skeletonList(listEl, 3);
+      let data = null;
+      try {
+        const res = await supabase.from('qna_posts')
+          .select('audience,category,question,answer,created_at')
+          .eq('published', true).order('created_at', { ascending: false }).limit(200);
+        if (!res.error) data = res.data;
+      } catch (_) {}
+      clearSkeleton(listEl);
+      const rows = data || [];
+      // 내 역할 + 전체 대상 글만 (역할이 다른 글은 숨김)
+      all = rows.filter(p => p.audience === 'all' || p.audience === myRole);
+      if (!all.length) { emptyEl.style.display = 'block'; window.lucide?.createIcons(); return; }
+      if (all.length > 5) $('sb').style.display = 'block';
+      buildChips();
+      render();
+    })();
+  </script>
+</body>
+</html>

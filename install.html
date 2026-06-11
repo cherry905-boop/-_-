@@ -79,6 +79,12 @@
     import { supabase, configReady, getPlatform, isInAppBrowser, isStandalone, getQueryParam, setStatus } from './app.js';
 
     if (getQueryParam('joined') === '1') document.getElementById('joined').style.display = 'block';
+    // 지원자에게는 안내 문구를 모집 중심으로
+    let _ip = {}; try { _ip = JSON.parse(localStorage.getItem('ilhak_profile') || '{}'); } catch (_) {}
+    if (_ip.target_type === 'applicant') {
+      const jt = document.querySelector('#joined .mju-alert__text');
+      if (jt) jt.innerHTML = '이제 <b>홈 화면에 추가</b>하면 앱처럼 쓰고, <b>새 채용공고</b>를 알림으로 받을 수 있어요.';
+    }
     if (isInAppBrowser()) document.getElementById('inapp').style.display = 'block';
     document.getElementById('copyUrl')?.addEventListener('click', () => {
       navigator.clipboard?.writeText(location.href)
@@ -118,7 +124,7 @@
         let prof = {}; try { prof = JSON.parse(localStorage.getItem('ilhak_profile') || '{}'); } catch (_) {}
         // 프로필이 없으면(특히 iOS 표준앱 첫 진입) 메타가 전부 null로 저장돼 맞춤 푸시가 누락됨 → 먼저 복원 유도
         if (!prof || !prof.name) {
-          setStatus(statusEl, '먼저 "홈으로" 가서 이름·휴대폰으로 내 정보를 불러온 뒤 알림을 켜주세요. 그래야 맞춤 공지가 정확히 도착합니다.', 'error');
+          setStatus(statusEl, '먼저 "홈으로" 가서 내 정보를 불러온 뒤 알림을 켜주세요. (학생·기업담당자=내 정보 불러오기, 지원자=새로 가입하기에서 지원자로 다시 등록 — 중복돼도 괜찮아요)', 'error');
           return;
         }
         // 순수 INSERT (upsert의 on_conflict은 RLS와 충돌). 중복(23505)=이미 등록=정상.
@@ -127,12 +133,23 @@
           target_type: prof.target_type || null, job_key: prof.job_key || null,
           company: prof.company || null, type1: prof.type1 || null,
           manager: prof.manager || null, device_key: prof.token || null,
+          interest_jobs: prof.interest_jobs || null,   // 지원자 관심직무 (01 SQL)
           platform: p, updated_at: new Date().toISOString()
         };
         let { error } = await supabase.from('push_tokens').insert(row);
-        if (error && /device_key|manager|column/i.test(error.message || '')) {   // R15 미적용 시 컬럼 없음 → 폴백
-          const r2 = { ...row }; delete r2.device_key; delete r2.manager;
+        if (error && /device_key|manager|interest_jobs|column/i.test(error.message || '')) {   // 마이그레이션 미적용 폴백
+          const r2 = { ...row }; delete r2.device_key; delete r2.manager; delete r2.interest_jobs;
           ({ error } = await supabase.from('push_tokens').insert(r2));
+        }
+        if (error && error.code === '23505') {
+          // 이미 등록된 토큰 = 같은 기기 재등록(지원자→학생 전환 포함) → 메타를 최신 프로필로 갱신
+          try {
+            await supabase.rpc('refresh_push_token', {
+              p_token: token, p_target_type: prof.target_type || null, p_job_key: prof.job_key || null,
+              p_company: prof.company || null, p_type1: prof.type1 || null, p_manager: prof.manager || null,
+              p_device_key: prof.token || null, p_interest_jobs: prof.interest_jobs || null
+            });
+          } catch (_) {}   // RPC 미적용(01 SQL 전)이면 기존 동작 유지
         }
         if (error && error.code !== '23505') { setStatus(statusEl, '토큰 저장 오류: ' + error.message, 'error'); return; }
 

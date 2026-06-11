@@ -21,6 +21,11 @@ window.APP_CONFIG = {
   PRIVACY_OFFICER:         '권순천 (일학습병행운영팀)',                // 개인정보 보호책임자 성명·직책
   PRIVACY_OFFICER_CONTACT: '전화 031-324-1228 / 이메일 cherry905@mju.ac.kr',  // 보호책임자 연락처(열람·삭제·철회 창구)
   PRIVACY_EFFECTIVE_DATE:  '2026. 6. 11.',                        // 처리방침 시행일
+  PRIVACY_RETENTION_APPLICANT: '해당 학년도 모집 종료 후 6개월',     // 지원자(매칭 전) 보유기간 — 학교 합의값으로 수정
+
+  // ── 초대코드 강제 여부 ─ 코드 배포가 끝나면 true로 바꿔 코드 없는 가입을 차단 ──
+  REQUIRE_STUDENT_CODE: false,   // true: 매칭학생 가입에 개인 초대코드 필수
+  REQUIRE_COMPANY_CODE: false,   // true: 기업담당자 가입에 기업 초대코드 필수
 };
 
 /* ── 4) 훈련 직무 (1차 분류축) ─ 노션 "2026 직무" 미러 ─────────────────
@@ -80,4 +85,17 @@ window.FCM_VAPID_KEY = 'BPwU6DR4mAus6qml5sw8A4kokXyuuJIB-V6HkCuvqeUTm-Xkqn9nOFS6
 window.TARGET_TYPES = [
   { key: 'student',  label: '매칭학생 (재학생)' },
   { key: 'company',  label: '학습기업 담당자 (HRD담당자·기업현장교사)' },
+  { key: 'applicant', label: '지원자 (매칭 전 — 채용 알림 받기)' },
+];
+
+/* ── 9) 학습기업 진행단계 (트래커) ─ 관리자 '기업' 탭과 기업담당자 홈 카드가 공유 ── */
+window.COMPANY_STAGES = [
+  { key: 'apply',     label: '참여신청' },
+  { key: 'audit',     label: '공단 현장실사' },
+  { key: 'designate', label: '학습기업 지정완료' },
+  { key: 'training',  label: '전담인력 양성교육' },
+  { key: 'mou',       label: 'MOU 협약' },
+  { key: 'recruit',   label: '학생 모집 개시' },
+  { key: 'matched',   label: '학생 매칭' },
+  { key: 'running',   label: '훈련 운영 중' },
 ];

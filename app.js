@@ -71,6 +71,8 @@ export function matchSel(sel, profile, withManagers = false) {
   if (!sel) return false;
   if (sel.targets && sel.targets.includes(profile.target_type)) return true;
   if (sel.jobs && profile.job_key && sel.jobs.includes(profile.job_key)) return true;
+  // 지원자: 단일 job_key 대신 관심직무 배열과 교집합
+  if (sel.jobs && Array.isArray(profile.interest_jobs) && profile.interest_jobs.some(j => sel.jobs.includes(j))) return true;
   if (sel.companies && profile.company && sel.companies.map(normCo).includes(normCo(profile.company))) return true;
   if (sel.types && profile.type1 && sel.types.includes(profile.type1)) return true;
   if (withManagers && sel.managers && sel.managers.length && profile.manager && sel.managers.includes(profile.manager.trim())) return true;
@@ -195,7 +197,24 @@ if ('serviceWorker' in navigator) {
     if (!document.querySelector('.ph-body')) return;
     if (document.querySelector('.tabbar')) return;
     const page = location.pathname.split('/').pop() || 'index.html';
-    const items = [
+    // 지원자(매칭 전)와 모집 경로로 들어온 비가입 방문자는 모집 중심 탭, 학생·기업담당자는 운영 탭
+    // (모집 페이지 방문 시 세션에 진입 맥락을 기억해, 홈으로 이동해도 탭이 뒤바뀌지 않게)
+    const prof = getProfile();
+    const RECRUIT_PAGES = ['intro.html', 'companies.html', 'cases.html', 'qna.html'];
+    let recruitEntry = false;
+    try {
+      if (prof.name) sessionStorage.removeItem('ilhak_entry');
+      else if (RECRUIT_PAGES.includes(page)) { sessionStorage.setItem('ilhak_entry', 'recruit'); recruitEntry = true; }
+      else recruitEntry = sessionStorage.getItem('ilhak_entry') === 'recruit';
+    } catch (_) {}
+    const isApplicant = prof.target_type === 'applicant' || (!prof.name && (RECRUIT_PAGES.includes(page) || recruitEntry));
+    const items = isApplicant ? [
+      ['index.html', 'home', '홈'],
+      ['companies.html', 'building', '모집기업'],
+      ['cases.html', 'sparkles', '사례'],
+      ['qna.html', 'message-circle-question', 'QnA'],
+      ['intro.html', 'book-open', '제도소개'],
+    ] : [
       ['index.html', 'home', '홈'],
       ['notice.html', 'megaphone', '공지'],
       ['library.html', 'folder', '자료'],

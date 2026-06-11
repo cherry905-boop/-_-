@@ -25,6 +25,7 @@
           <table class="pv-table">
             <tr><th>구분</th><th>항목</th><th>목적</th></tr>
             <tr><td>가입 시</td><td>이름, 휴대폰 번호, 대상 구분, (해당 시) 직무·소속 학습기업·유형</td><td>일학습병행 공지·자료·일정 안내, 대상별 알림</td></tr>
+            <tr><td>지원자 등록 시</td><td>이름, 휴대폰 번호, 관심 직무, 학과(선택)</td><td>채용공고·모집 안내 알림 발송</td></tr>
             <tr><td>1:1 상담</td><td>상담 내용(작성자가 입력한 텍스트)</td><td>학습근로자 고충 상담·지원</td></tr>
             <tr><td>알림 설정 시</td><td>푸시 알림 토큰, 기기 종류</td><td>공지 푸시 발송</td></tr>
             <tr><td>자동 수집</td><td>접속 브라우저 정보, QR 출처값</td><td>오류 대응·가입 경로 통계</td></tr>
@@ -35,6 +36,7 @@
         <div class="pv-sec">
           <h4>2. 보유 및 이용 기간</h4>
           <p>수집·이용 목적 달성 시 또는 <b id="retention">훈련 종료 후 3년</b> 경과 시 지체 없이 파기합니다. 단, 관계 법령에 따라 보존이 필요한 경우 해당 기간 동안 보관합니다.</p>
+          <p>지원자(매칭 전) 정보는 <b id="retentionApplicant">해당 학년도 모집 종료 후 6개월</b> 경과 시(또는 매칭 확정으로 학습근로자 정보로 전환 시) 파기합니다.</p>
         </div>
 
         <div class="pv-sec">
@@ -94,6 +96,7 @@
     document.getElementById('center').textContent = cfg.CENTER_NAME || '';
     if (cfg.CENTER_NAME) document.getElementById('org').textContent = cfg.CENTER_NAME;
     if (cfg.PRIVACY_RETENTION) document.getElementById('retention').textContent = cfg.PRIVACY_RETENTION;
+    if (cfg.PRIVACY_RETENTION_APPLICANT) document.getElementById('retentionApplicant').textContent = cfg.PRIVACY_RETENTION_APPLICANT;
     if (cfg.PRIVACY_TRANSFER) document.getElementById('transfer').textContent = cfg.PRIVACY_TRANSFER + ', Notion Labs, Inc.(미국)';
     if (cfg.PRIVACY_OFFICER) document.getElementById('officer').textContent = cfg.PRIVACY_OFFICER;
     if (cfg.PRIVACY_OFFICER_CONTACT) document.getElementById('officerContact').textContent = cfg.PRIVACY_OFFICER_CONTACT;

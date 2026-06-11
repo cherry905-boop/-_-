@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>선배 사례 · 명지대 일학습병행</title>
+  <meta name="description" content="명지대 일학습병행으로 취업까지 간 선배들의 이야기" />
+  <link rel="manifest" href="./manifest.json" />
+  <meta name="theme-color" content="#002968" />
+  <link rel="apple-touch-icon" href="./icons/icon-192.png" />
+  <link rel="stylesheet" href="./styles.css" />
+  <script src="./config.js"></script>
+</head>
+<body>
+  <div class="app">
+    <header class="ph-header">
+      <img class="wm" src="./assets/logo-mono-white.png" alt="" />
+      <div class="ph-lockup"><img src="./assets/logo-mono-white.png" alt="" /><span>일학습병행 공동훈련센터</span></div>
+      <div class="ph-title-row"><a class="ph-back" href="./intro.html" aria-label="뒤로"><i data-lucide="chevron-left"></i></a><h1 class="ph-title">선배 사례</h1></div>
+      <p class="ph-sub">먼저 다녀온 선배들의 이야기</p>
+    </header>
+
+    <main class="ph-body">
+      <div class="filter-chips" id="chips" style="display:none" role="group" aria-label="직무 필터"></div>
+      <div id="list"></div>
+      <div class="empty-state" id="empty" style="display:none">
+        <span class="ei"><i data-lucide="sparkles"></i></span>
+        <div class="et">사례를 준비하고 있어요</div>
+        <p class="es">수료 선배들의 이야기가 곧 올라옵니다.</p>
+      </div>
+      <a href="./intro.html" class="mju-btn mju-btn--secondary mju-btn--full" style="margin-top:auto;text-decoration:none">제도 소개 보기</a>
+    </main>
+  </div>
+
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <script type="module">
+    import { supabase, configReady, esc, skeletonList, clearSkeleton } from './app.js';
+    if (window.lucide) window.lucide.createIcons();
+
+    const $ = id => document.getElementById(id);
+    const listEl = $('list'), emptyEl = $('empty'), chipsEl = $('chips');
+    let all = [], jobSel = '';
+
+    function render() {
+      const shown = jobSel ? all.filter(c => c.job_key === jobSel) : all;
+      listEl.innerHTML = '';
+      if (!shown.length) { emptyEl.style.display = 'block'; window.lucide?.createIcons(); return; }
+      emptyEl.style.display = 'none';
+      shown.forEach(c => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML =
+          `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">` +
+          (c.job_key ? `<span class="mju-badge">${esc(c.job_key)}</span>` : '') +
+          (c.company ? `<span class="mju-badge mju-badge--neutral">${esc(c.company)}</span>` : '') + `</div>` +
+          `<p class="ph-card-title" style="margin:0 0 6px">${esc(c.title)}</p>` +
+          `<p class="notice-body" style="white-space:pre-wrap">${esc(c.body)}</p>`;
+        listEl.appendChild(card);
+      });
+      window.lucide?.createIcons();
+    }
+    function syncChips() {
+      [...chipsEl.children].forEach(b => {
+        const on = b.dataset.val === jobSel;
+        b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+    }
+    function buildChips() {
+      const jobs = [...new Set(all.map(c => c.job_key).filter(Boolean))];
+      if (jobs.length < 2) return;
+      chipsEl.innerHTML = '';
+      const mk = (label, val) => {
+        const b = document.createElement('button');
+        b.type = 'button'; b.className = 'chip'; b.textContent = label; b.dataset.val = val;
+        b.addEventListener('click', () => { jobSel = val; syncChips(); render(); });
+        chipsEl.appendChild(b);
+      };
+      mk('전체', '');
+      jobs.forEach(j => mk(j, j));
+      syncChips();
+      chipsEl.style.display = 'flex';
+    }
+
+    (async () => {
+      if (!configReady()) { emptyEl.style.display = 'block'; return; }
+      skeletonList(listEl, 2);
+      let data = null;
+      try {
+        const res = await supabase.from('success_cases')
+          .select('title,job_key,company,body,created_at')
+          .eq('published', true).order('created_at', { ascending: false });
+        if (!res.error) data = res.data;
+      } catch (_) {}
+      clearSkeleton(listEl);
+      all = data || [];
+      if (!all.length) { emptyEl.style.display = 'block'; window.lucide?.createIcons(); return; }
+      buildChips();
+      render();
+    })();
+  </script>
+</body>
+</html>

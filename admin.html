@@ -62,6 +62,8 @@
         <button class="adm-nav-item" data-tab="board"><i data-lucide="inbox"></i>건의함</button>
         <button class="adm-nav-item" data-tab="survey"><i data-lucide="clipboard-list"></i>만족도</button>
         <button class="adm-nav-item" data-tab="members"><i data-lucide="users"></i>가입자</button>
+        <button class="adm-nav-item" data-tab="recruit"><i data-lucide="briefcase"></i>모집</button>
+        <button class="adm-nav-item" data-tab="stages"><i data-lucide="route"></i>기업</button>
         <div class="adm-nav-sep"></div>
         <a class="adm-nav-item" href="./rls-check.html"><i data-lucide="lock"></i>보안 점검</a>
       </nav>
@@ -167,6 +169,7 @@
           <div id="cl-msgs" style="display:flex;flex-direction:column"></div>
           <textarea id="cl-reply" class="ph-ta" rows="2" style="min-height:64px"></textarea>
           <button class="btn" id="cl-send">답변 보내기</button>
+          <button class="mju-btn mju-btn--secondary mju-btn--full" id="cl-toqna" style="margin-top:8px"><i data-lucide="share-2"></i> 이 상담을 QnA 사례로 공개 (익명화)</button>
           <div class="status" id="cl-status"></div>
         </div>
       </div>
@@ -200,12 +203,13 @@
             <select id="rg-fmanager"><option value="">담당직원 전체</option></select>
             <select id="rg-fjob"><option value="">직무 전체</option></select>
             <select id="rg-ftype"><option value="">유형 전체</option></select>
-            <select id="rg-ftarget"><option value="">대상 전체</option><option value="student">학생</option><option value="company">기업담당자</option></select>
+            <select id="rg-ftarget"><option value="">대상 전체</option><option value="student">학생</option><option value="company">기업담당자</option><option value="applicant">지원자</option></select>
             <button class="mju-btn mju-btn--secondary mju-btn--sm" id="rg-refresh"><i data-lucide="refresh-cw"></i> 새로고침</button>
           </div>
           <div class="selbar" id="rg-selbar" style="display:none">
             <b id="rg-selcount">선택 0명</b>
             <button class="mju-btn mju-btn--gold mju-btn--sm" id="rg-notify"><i data-lucide="send"></i> 선택한 사람에게 개인 공지</button>
+            <button class="mju-btn mju-btn--secondary mju-btn--sm" id="rg-codes"><i data-lucide="key-round"></i> 선택 학생 코드 발급</button>
             <button class="mju-btn mju-btn--secondary mju-btn--sm" id="rg-clearsel">선택 해제</button>
           </div>
           <p class="note" id="rg-count"></p>
@@ -216,6 +220,75 @@
           <p class="ph-card-title">가입 도움 요청</p>
           <p class="note">명단 매칭에 실패한 학생이 남긴 요청입니다. 명단(이름·번호)을 점검하고 '처리완료'로 지우세요.</p>
           <div id="uv-list"></div>
+        </div>
+      </div>
+
+      <!-- 모집 콘텐츠 (공고·사례·QnA) -->
+      <div class="tabsec" id="sec-recruit" style="display:none">
+        <h2 class="adm-h2">모집 콘텐츠 <span class="hint">채용공고·선배사례·QnA — 공개 페이지(모집기업/사례/QnA)에 노출됩니다</span></h2>
+        <div class="adm-2col">
+          <div style="display:flex;flex-direction:column;gap:18px">
+            <div class="card">
+              <p class="ph-card-title">채용공고 등록</p>
+              <label>기업명 <span class="req">*</span></label>
+              <input type="text" id="jp-company" list="co-datalist" placeholder="기업명 (목록에서 선택 또는 직접 입력)" />
+              <datalist id="co-datalist"></datalist>
+              <label>직무</label>
+              <select id="jp-job" class="ph-select"><option value="">— 선택 —</option></select>
+              <label>공고 제목 <span class="req">*</span></label>
+              <input type="text" id="jp-title" placeholder="예: 2026 SW개발 학습근로자 모집" />
+              <label>지역</label>
+              <input type="text" id="jp-region" placeholder="예: 용인" />
+              <label>한 줄 소개</label>
+              <input type="text" id="jp-intro" placeholder="기업·포지션 소개" />
+              <label>근무조건·우대 (선택)</label>
+              <input type="text" id="jp-perks" placeholder="예: 기숙사 제공, 자차 출퇴근 가능" />
+              <label>마감일 (비우면 상시)</label>
+              <input type="date" id="jp-deadline" />
+              <label style="display:flex;align-items:center;gap:8px;font-weight:500;margin-top:10px"><input type="checkbox" id="jp-push" style="width:18px;height:18px" checked> 지원자 전체에게 <b>공지로도 알림</b> (푸시 발송)</label>
+              <button class="btn" id="jp-add">공고 발행</button>
+              <div class="status" id="jp-status"></div>
+            </div>
+            <div class="card">
+              <p class="ph-card-title">선배 사례 등록</p>
+              <label>제목 <span class="req">*</span></label>
+              <input type="text" id="sc-title" placeholder="예: 반도체장비 기구설계로 입사까지" />
+              <label>직무</label>
+              <select id="sc-job" class="ph-select"><option value="">— 선택 —</option></select>
+              <label>기업 표기 (익명 가능)</label>
+              <input type="text" id="sc-company" placeholder='예: 반도체 장비社 (실명 동의 시 실명)' />
+              <label>본문 <span class="req">*</span></label>
+              <textarea id="sc-body" class="ph-ta" rows="5" placeholder="수료 선배의 이야기 (개인 식별 정보 제외)"></textarea>
+              <button class="btn" id="sc-add">사례 등록</button>
+              <div class="status" id="sc-status"></div>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:18px">
+            <div class="card">
+              <p class="ph-card-title">QnA 등록 (직접 작성)</p>
+              <p class="note">상담 탭에서 '사례로 공개'를 눌러도 여기로 들어옵니다. 식별 정보는 꼭 지워주세요.</p>
+              <label>대상</label>
+              <select id="qa-aud" class="ph-select"><option value="all">전체</option><option value="applicant">지원자</option><option value="student">학생</option><option value="company">기업담당자</option></select>
+              <label>카테고리</label>
+              <input type="text" id="qa-cat" placeholder="예: 지원·면접 / 가입·알림 / 서류·마감 / 수당" />
+              <label>질문 <span class="req">*</span></label>
+              <textarea id="qa-q" class="ph-ta" rows="2"></textarea>
+              <label>답변 <span class="req">*</span></label>
+              <textarea id="qa-a" class="ph-ta" rows="4"></textarea>
+              <button class="btn" id="qa-add">QnA 공개</button>
+              <div class="status" id="qa-status"></div>
+            </div>
+            <div class="card"><p class="ph-card-title">등록된 콘텐츠</p><div id="rc-list"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 학습기업 진행단계 + 기업 코드 -->
+      <div class="tabsec" id="sec-stages" style="display:none">
+        <h2 class="adm-h2">학습기업 진행단계 <span class="hint">단계를 바꾸면 해당 기업담당자 홈에 바로 반영 · 알림 체크 시 푸시 발송</span></h2>
+        <div class="card">
+          <div class="status" id="st-status"></div>
+          <div id="st-list"><p class="note">로그인 후 표시됩니다.</p></div>
         </div>
       </div>
       </main>
@@ -239,6 +312,27 @@
         <div style="display:flex;gap:10px;justify-content:flex-end">
           <button class="mju-btn mju-btn--secondary" id="nv-cancel">취소</button>
           <button class="mju-btn mju-btn--gold" id="nv-confirm">발행하기</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 상담 → QnA 사례 공개 모달 -->
+    <div class="modal-veil" id="qv-veil" style="display:none">
+      <div class="modal" style="width:520px">
+        <h3>QnA 사례로 공개</h3>
+        <p style="margin:0 0 10px">이름·기업명 등 <b>식별 정보를 지우고(익명화)</b> 공개하세요. 공개 후에도 모집 탭에서 내릴 수 있어요.</p>
+        <label style="font-size:13px;font-weight:700">대상</label>
+        <select id="qv-aud" class="ph-select" style="margin:4px 0 10px"><option value="all">전체</option><option value="applicant">지원자</option><option value="student">학생</option><option value="company">기업담당자</option></select>
+        <label style="font-size:13px;font-weight:700">카테고리</label>
+        <input type="text" id="qv-cat" placeholder="예: 지원·면접 / 수당 / 서류·마감" style="width:100%;margin:4px 0 10px;padding:10px 12px;border:1px solid var(--line);border-radius:9px" />
+        <label style="font-size:13px;font-weight:700">질문 (익명화)</label>
+        <textarea id="qv-q" class="ph-ta" rows="2" style="width:100%;margin:4px 0 10px"></textarea>
+        <label style="font-size:13px;font-weight:700">답변</label>
+        <textarea id="qv-a" class="ph-ta" rows="4" style="width:100%"></textarea>
+        <div class="status" id="qv-status"></div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px">
+          <button class="mju-btn mju-btn--secondary" id="qv-cancel">취소</button>
+          <button class="mju-btn mju-btn--gold" id="qv-save">공개하기</button>
         </div>
       </div>
     </div>
@@ -277,6 +371,7 @@
         if (s.targets && s.targets.includes('student')) p.push('매칭학생 전체');
         if (s.jobs && s.jobs.length) p.push(s.jobs.join('·'));
         if (s.targets && s.targets.includes('company')) p.push('기업담당자 전체');
+        if (s.targets && s.targets.includes('applicant')) p.push('지원자 전체');
         if (s.companies && s.companies.length) p.push(s.companies.join('·'));
         if (s.types && s.types.length) p.push(s.types.join('·'));
         return '상세: ' + (p.join(' / ') || '?');
@@ -294,7 +389,7 @@
     // 탭 전환
     document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => {
       document.querySelectorAll('.tabs button').forEach(x => x.classList.toggle('on', x === b));
-      ['dash', 'notice', 'library', 'calendar', 'consult', 'board', 'survey', 'members'].forEach(t => $('sec-' + t).style.display = (t === b.dataset.tab ? 'block' : 'none'));
+      ['dash', 'notice', 'library', 'calendar', 'consult', 'board', 'survey', 'members', 'recruit', 'stages'].forEach(t => $('sec-' + t).style.display = (t === b.dataset.tab ? 'block' : 'none'));
     }));
 
     // ===== 받는 대상 상세 지정 (전체 / 상세 칩 조합 + 예상 대상 N명) =====
@@ -578,14 +673,44 @@
         el.appendChild(row);
       });
     }
+    let curMsgs = [];
     async function openConsult(id, label) {
       curConsult = id; curLabel = label;
       $('cl-title').textContent = '상담 · ' + label;
       const { data } = await supabase.from('consultation_messages').select('sender,text,created_at').eq('consultation_id', id).order('created_at', { ascending: true });
+      curMsgs = data || [];
       const box = $('cl-msgs'); box.innerHTML = '';
-      (data || []).forEach(m => { const e = document.createElement('div'); e.textContent = m.text; const div = document.createElement('div'); div.className = 'msg ' + (m.sender === 'admin' ? 'admin' : 'student'); div.innerHTML = e.innerHTML; box.appendChild(div); });
+      curMsgs.forEach(m => { const e = document.createElement('div'); e.textContent = m.text; const div = document.createElement('div'); div.className = 'msg ' + (m.sender === 'admin' ? 'admin' : 'student'); div.innerHTML = e.innerHTML; box.appendChild(div); });
       $('cl-thread').style.display = 'block'; $('cl-thread').scrollIntoView({ behavior: 'smooth' });
     }
+    // 상담 → QnA 사례로 공개 (첫 질문·마지막 답변을 미리 채움, 익명화는 사람이 확인)
+    $('cl-toqna').addEventListener('click', () => {
+      if (!curConsult) return;
+      const firstQ = curMsgs.find(m => m.sender !== 'admin');
+      const lastA = [...curMsgs].reverse().find(m => m.sender === 'admin');
+      $('qv-q').value = firstQ ? firstQ.text : '';
+      $('qv-a').value = lastA ? lastA.text : '';
+      $('qv-cat').value = ''; $('qv-aud').value = 'all';
+      setStatus($('qv-status'), '', 'info');
+      $('qv-veil').style.display = 'flex';
+    });
+    $('qv-cancel').addEventListener('click', () => { $('qv-veil').style.display = 'none'; });
+    $('qv-veil').addEventListener('click', e => { if (e.target === $('qv-veil')) $('qv-veil').style.display = 'none'; });
+    $('qv-save').addEventListener('click', async () => {
+      const q = $('qv-q').value.trim(), a = $('qv-a').value.trim();
+      if (!q || !a) { setStatus($('qv-status'), '질문·답변을 입력하세요.', 'error'); return; }
+      $('qv-save').disabled = true;
+      const { error } = await supabase.from('qna_posts').insert({
+        audience: $('qv-aud').value, category: $('qv-cat').value.trim() || null,
+        question: q, answer: a, source: 'consult', published: true
+      });
+      $('qv-save').disabled = false;
+      if (error) { setStatus($('qv-status'), /relation|does not exist|schema cache/i.test(error.message || '') ? 'qna_posts 테이블이 없어요 — sql/05_qna.sql 실행 필요' : '오류: ' + error.message, 'error'); return; }
+      logAction('QnA공개', q.slice(0, 30));
+      setStatus($('qv-status'), '✅ QnA에 공개됐어요.', 'ok');
+      rcLoad();
+      setTimeout(() => { $('qv-veil').style.display = 'none'; }, 1000);
+    });
     $('cl-send').addEventListener('click', async () => {
       const text = $('cl-reply').value.trim(); if (!text || !curConsult) return;
       $('cl-send').disabled = true;
@@ -615,11 +740,31 @@
     let regCache = [];
     const regSel = new Set();                       // 선택된 학생 id(synthetic)
     let regSort = { key: 'name', dir: 1 };
+    let codeMap = {};                               // name|phone → {id, code} (student_codes)
+    let codesReady = false;                         // 02 SQL 적용 여부
+    const CODE_ALPHA = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+    const genCode = () => Array.from({ length: 8 }, () => CODE_ALPHA[Math.floor(Math.random() * CODE_ALPHA.length)]).join('');
+    async function loadCodes() {
+      codeMap = {}; codesReady = false;
+      try {
+        const { data, error } = await supabase.from('student_codes').select('id,name,phone,code,active');
+        if (error) return;
+        (data || []).forEach(s => { if (s.active) codeMap[(s.name || '') + '|' + (s.phone || '')] = { id: s.id, code: s.code }; });
+        codesReady = true;
+      } catch (_) {}
+    }
     async function regLoad() {
       let rows;
       const { data: roster, error: rerr } = await supabase.rpc('admin_students');   // 전체 학생 명단(R15)
       if (!rerr && Array.isArray(roster)) {
         rows = roster.map(s => ({ id: 'st:' + (s.name || '') + '|' + (s.phone || ''), name: s.name, phone: s.phone, target_type: 'student', job_key: s.job_key || null, company: s.company || null, type1: s.type1 || null, manager: s.manager || null, signed: !!s.signed }));
+        // 지원자(매칭 전)는 명단이 아닌 registrations 기준 — 표에 병합
+        try {
+          const { data: apps } = await supabase.from('registrations')
+            .select('id,name,phone,target_type,job_key,company,type1,created_at')
+            .eq('target_type', 'applicant').order('created_at', { ascending: false }).limit(1000);
+          (apps || []).forEach(a => rows.push({ ...a, manager: null, signed: true }));
+        } catch (_) {}
       } else {
         // 폴백(R15 admin_students 미적용): 앱 가입자(registrations)
         let { data, error } = await supabase.from('registrations').select('id,name,phone,target_type,job_key,company,type1,manager,created_at').order('created_at', { ascending: false }).limit(1000);
@@ -627,6 +772,7 @@
         if (error) { $('rg-table').innerHTML = '<tbody><tr><td style="padding:10px;color:var(--text-muted)">명단 조회 권한이 없습니다 — R12/R15 SQL 실행 필요</td></tr></tbody>'; return; }
         rows = (data || []).map(r => ({ ...r, signed: true }));
       }
+      await loadCodes();
       regCache = rows; regDims = null;
       fillSel('rg-fmanager', (window.MANAGERS || []).slice());
       fillSel('rg-fjob', [...new Set(regCache.map(r => r.job_key).filter(Boolean))].sort());
@@ -654,6 +800,24 @@
       $('rg-selbar').style.display = n ? 'flex' : 'none';
       $('rg-selcount').textContent = '선택 ' + n + '명';
     }
+    // 학생 1명 코드 발급 (이미 있으면 기존 행 갱신 — 같은 학생에게 행이 쌓이지 않게)
+    async function issueCode(name, phone) {
+      const key = (name || '') + '|' + (phone || '');
+      const existing = codeMap[key];
+      for (let i = 0; i < 2; i++) {
+        const code = genCode();
+        if (existing && existing.id) {
+          const { error } = await supabase.from('student_codes').update({ code }).eq('id', existing.id);
+          if (!error) { codeMap[key] = { id: existing.id, code }; return code; }
+          if (!/duplicate|23505/i.test(error.message || '')) throw error;
+        } else {
+          const { data, error } = await supabase.from('student_codes').insert({ name, phone, code }).select('id').single();
+          if (!error) { codeMap[key] = { id: data ? data.id : null, code }; return code; }
+          if (!/duplicate|23505/i.test(error.message || '')) throw error;
+        }
+      }
+      throw new Error('코드 생성 충돌 — 다시 시도해주세요');
+    }
     function regRender() {
       const rows = regFiltered();
       $('rg-count').textContent = '총 ' + regCache.length + '명' + (rows.length !== regCache.length ? ' · 필터 ' + rows.length + '명' : '');
@@ -663,12 +827,12 @@
       $('rg-table').innerHTML = '<thead><tr>' +
         `<th class="nosort"><input type="checkbox" id="rg-all" ${allOn ? 'checked' : ''}></th>` +
         cols.map(c => `<th data-k="${c[0]}">${c[1]}${arrow(c[0])}</th>`).join('') +
-        '<th class="nosort">전화</th></tr></thead>';
+        '<th class="nosort">전화</th><th class="nosort">코드</th></tr></thead>';
       const tb = document.createElement('tbody');
-      if (!rows.length) tb.innerHTML = '<tr><td colspan="9" style="color:var(--text-muted)">없음</td></tr>';
+      if (!rows.length) tb.innerHTML = '<tr><td colspan="10" style="color:var(--text-muted)">없음</td></tr>';
       rows.forEach(r => {
         const tr = document.createElement('tr'); if (regSel.has(r.id)) tr.className = 'on';
-        const tt = r.target_type === 'company' ? '기업' : '학생';
+        const tt = r.target_type === 'company' ? '기업' : r.target_type === 'applicant' ? '지원자' : '학생';
         const cb = document.createElement('td'); cb.innerHTML = `<input type="checkbox" ${regSel.has(r.id) ? 'checked' : ''}>`;
         cb.querySelector('input').addEventListener('change', e => { e.target.checked ? regSel.add(r.id) : regSel.delete(r.id); tr.className = e.target.checked ? 'on' : ''; regSelBar(); });
         tr.appendChild(cb);
@@ -678,6 +842,29 @@
         const tdp = document.createElement('td'); const ph = document.createElement('button'); ph.type = 'button'; ph.className = 'phone-btn'; const pv = r.phone || ''; let rv = false;
         const dph = () => { ph.innerHTML = `<i data-lucide="${rv ? 'eye-off' : 'eye'}"></i>${rv ? esc(pv) : esc(maskPhone(pv))}`; if (window.lucide) window.lucide.createIcons(); };
         ph.addEventListener('click', () => { rv = !rv; dph(); }); dph(); tdp.appendChild(ph); tr.appendChild(tdp);
+        // 초대코드 — 발급/복사/재발급 (02 SQL 적용 후, 학생만)
+        const tdc = document.createElement('td');
+        if (!codesReady || r.target_type !== 'student') tdc.innerHTML = '<span class="note">-</span>';
+        else {
+          const cbtn = document.createElement('button'); cbtn.type = 'button'; cbtn.className = 'phone-btn';
+          const draw = (label, ic) => { cbtn.innerHTML = `<i data-lucide="${ic}"></i>${label}`; if (window.lucide) window.lucide.createIcons(); };
+          // 발급 후엔 클릭=복사가 되도록 상태로 분기 (리스너 중복 발급 방지)
+          let issuedCode = (codeMap[(r.name || '') + '|' + (r.phone || '')] || {}).code || null;
+          draw(issuedCode || '발급', issuedCode ? 'copy' : 'key-round');
+          if (issuedCode) cbtn.title = '클릭하면 복사';
+          cbtn.addEventListener('click', async () => {
+            if (issuedCode) {
+              navigator.clipboard?.writeText(issuedCode).then(() => { draw('복사됨', 'check'); setTimeout(() => draw(issuedCode, 'copy'), 1200); });
+              return;
+            }
+            cbtn.disabled = true;
+            try { issuedCode = await issueCode(r.name, r.phone); draw(issuedCode, 'copy'); cbtn.title = '클릭하면 복사'; logAction('코드발급', r.name); }
+            catch (err) { setStatus($('rg-status'), '코드 발급 오류: ' + (err.message || err), 'error'); }
+            cbtn.disabled = false;
+          });
+          tdc.appendChild(cbtn);
+        }
+        tr.appendChild(tdc);
         tb.appendChild(tr);
       });
       $('rg-table').appendChild(tb);
@@ -690,6 +877,20 @@
     ['rg-search', 'rg-fmanager', 'rg-fjob', 'rg-ftype', 'rg-ftarget'].forEach(id => { const e = $(id); if (e) e.addEventListener('input', regRender); });
     $('rg-refresh').addEventListener('click', regLoad);
     $('rg-clearsel').addEventListener('click', () => { regSel.clear(); regRender(); });
+    // 선택 학생 코드 일괄 발급 (이미 있으면 건너뜀)
+    $('rg-codes').addEventListener('click', async () => {
+      if (!codesReady) { setStatus($('rg-status'), '초대코드 기능이 꺼져 있어요 — sql/02_codes.sql 을 먼저 실행하세요.', 'error'); return; }
+      const targets = regCache.filter(r => regSel.has(r.id) && r.target_type === 'student' && !codeMap[(r.name || '') + '|' + (r.phone || '')]);
+      if (!targets.length) { setStatus($('rg-status'), '발급할 대상이 없어요(이미 발급됐거나 학생이 아님).', 'ok'); return; }
+      setStatus($('rg-status'), `코드 발급 중... (${targets.length}명)`, 'info');
+      let ok = 0, fail = 0;
+      for (const r of targets) {
+        try { await issueCode(r.name, r.phone); ok++; } catch (_) { fail++; }
+      }
+      logAction('코드 일괄발급', ok + '명');
+      setStatus($('rg-status'), `✅ ${ok}명 발급 완료${fail ? ` · 실패 ${fail}` : ''} — 코드 열에서 복사해 합격 안내에 동봉하세요.`, fail ? 'error' : 'ok');
+      regRender();
+    });
     // 선택한 사람에게 개인 공지(personal·비공개 수신자)
     $('rg-notify').addEventListener('click', () => {
       if (!regSel.size) return;
@@ -804,6 +1005,177 @@
       } catch (_) { $('d-logs').innerHTML = ''; }
     }
 
+    // ===== 모집 콘텐츠 (공고·사례·QnA) =====
+    const tblMissing = (m) => /relation|does not exist|schema cache/i.test(m || '');
+    async function fillRecruitPickers() {
+      const [js, cos] = [await loadJobs(), await loadCompanies()];
+      ['jp-job', 'sc-job'].forEach(id => {
+        const el = $(id); if (!el || el.options.length > 1) return;
+        js.forEach(j => { const o = document.createElement('option'); o.value = j; o.textContent = j; el.appendChild(o); });
+      });
+      const dl = $('co-datalist');
+      if (dl && !dl.children.length) cos.forEach(c => { const o = document.createElement('option'); o.value = c; dl.appendChild(o); });
+    }
+    $('jp-add').addEventListener('click', async () => {
+      const company = $('jp-company').value.trim(), title = $('jp-title').value.trim();
+      if (!company || !title) { setStatus($('jp-status'), '기업명·공고 제목을 입력하세요.', 'error'); return; }
+      const row = {
+        company, title, job_key: $('jp-job').value || null, region: $('jp-region').value.trim() || null,
+        intro: $('jp-intro').value.trim() || null, perks: $('jp-perks').value.trim() || null,
+        deadline: $('jp-deadline').value || null, published: true
+      };
+      $('jp-add').disabled = true;
+      const { error } = await supabase.from('job_postings').insert(row);
+      $('jp-add').disabled = false;
+      if (error) { setStatus($('jp-status'), tblMissing(error.message) ? 'job_postings 테이블이 없어요 — sql/03_recruit.sql 실행 필요' : '오류: ' + error.message, 'error'); return; }
+      if ($('jp-push').checked) {
+        try {
+          await supabase.from('notices').insert({
+            title: '[채용] ' + company + (row.job_key ? ' — ' + row.job_key : ''),
+            body: title + (row.deadline ? ' · 마감 ' + row.deadline : ' · 상시') + '. 앱 모집기업에서 확인하세요.',
+            target_scope: 'custom', target_value: JSON.stringify({ targets: ['applicant'], jobs: [], companies: [], types: [], managers: [] }),
+            published: true, created_by: null
+          });
+        } catch (_) {}
+      }
+      logAction('공고발행', company + ' · ' + title);
+      setStatus($('jp-status'), $('jp-push').checked ? '✅ 공고 발행 + 지원자 알림 (5분 내 푸시).' : '✅ 공고가 발행됐어요.', 'ok');
+      ['jp-company', 'jp-title', 'jp-region', 'jp-intro', 'jp-perks', 'jp-deadline'].forEach(id => { $(id).value = ''; });
+      rcLoad();
+    });
+    $('sc-add').addEventListener('click', async () => {
+      const title = $('sc-title').value.trim(), body = $('sc-body').value.trim();
+      if (!title || !body) { setStatus($('sc-status'), '제목·본문을 입력하세요.', 'error'); return; }
+      $('sc-add').disabled = true;
+      const { error } = await supabase.from('success_cases').insert({
+        title, body, job_key: $('sc-job').value || null, company: $('sc-company').value.trim() || null, published: true
+      });
+      $('sc-add').disabled = false;
+      if (error) { setStatus($('sc-status'), tblMissing(error.message) ? 'success_cases 테이블이 없어요 — sql/03_recruit.sql 실행 필요' : '오류: ' + error.message, 'error'); return; }
+      logAction('사례등록', title);
+      setStatus($('sc-status'), '✅ 사례가 공개됐어요.', 'ok');
+      ['sc-title', 'sc-company', 'sc-body'].forEach(id => { $(id).value = ''; });
+      rcLoad();
+    });
+    $('qa-add').addEventListener('click', async () => {
+      const q = $('qa-q').value.trim(), a = $('qa-a').value.trim();
+      if (!q || !a) { setStatus($('qa-status'), '질문·답변을 입력하세요.', 'error'); return; }
+      $('qa-add').disabled = true;
+      const { error } = await supabase.from('qna_posts').insert({
+        audience: $('qa-aud').value, category: $('qa-cat').value.trim() || null, question: q, answer: a, source: 'manual', published: true
+      });
+      $('qa-add').disabled = false;
+      if (error) { setStatus($('qa-status'), tblMissing(error.message) ? 'qna_posts 테이블이 없어요 — sql/05_qna.sql 실행 필요' : '오류: ' + error.message, 'error'); return; }
+      logAction('QnA공개', q.slice(0, 30));
+      setStatus($('qa-status'), '✅ QnA에 공개됐어요.', 'ok');
+      ['qa-cat', 'qa-q', 'qa-a'].forEach(id => { $(id).value = ''; });
+      rcLoad();
+    });
+    // 등록된 콘텐츠 목록 — 공고/사례/QnA 묶어서 + 내리기 토글
+    async function rcLoad() {
+      const el = $('rc-list'); el.innerHTML = '';
+      const groups = [
+        ['채용공고', 'job_postings', r => `${r.company} — ${r.title}`, 'jp'],
+        ['선배 사례', 'success_cases', r => r.title, 'sc'],
+        ['QnA', 'qna_posts', r => r.question, 'qa'],
+      ];
+      for (const [label, table, fmt] of groups) {
+        let res;
+        try { res = await supabase.from(table).select('*').order('created_at', { ascending: false }).limit(15); } catch (e) { res = { error: e }; }
+        const h = document.createElement('p');
+        h.style.cssText = 'margin:12px 0 4px;font-size:12px;font-weight:800;color:var(--text-muted)';
+        h.textContent = label; el.appendChild(h);
+        if (res.error) { const p = document.createElement('p'); p.className = 'note'; p.textContent = tblMissing(res.error.message) ? '테이블 없음 — sql/ 마이그레이션 실행 필요' : '조회 오류'; el.appendChild(p); continue; }
+        if (!(res.data || []).length) { const p = document.createElement('p'); p.className = 'note'; p.textContent = '없음'; el.appendChild(p); continue; }
+        res.data.forEach(r => {
+          const e = document.createElement('div'); e.textContent = fmt(r);
+          const row = document.createElement('div'); row.style.cssText = 'padding:7px 0;border-bottom:1px solid var(--gray-100);display:flex;justify-content:space-between;gap:8px;align-items:center;font-size:13.5px';
+          const st = r.published ? '' : ' <span class="mju-badge mju-badge--neutral">내려짐</span>';
+          row.innerHTML = `<div style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.innerHTML}${st}</div>`;
+          const tg = document.createElement('button'); tg.textContent = r.published ? '내리기' : '올리기';
+          tg.style.cssText = 'padding:4px 10px;font-size:12.5px;border:1px solid var(--line);border-radius:8px;background:var(--surface-card);cursor:pointer;white-space:nowrap';
+          tg.addEventListener('click', async () => { await supabase.from(table).update({ published: !r.published }).eq('id', r.id); rcLoad(); });
+          row.appendChild(tg); el.appendChild(row);
+        });
+      }
+    }
+
+    // ===== 학습기업 진행단계 + 기업 코드 =====
+    let coStageMap = {}, coCodeMap = {}, stagesReady = false, coCodesReady = false;
+    async function issueCoCode(company) {
+      for (let i = 0; i < 2; i++) {
+        const code = genCode();
+        const { error } = await supabase.from('company_codes').upsert({ company, code, active: true });
+        if (!error) { coCodeMap[company] = code; return code; }
+        if (!/duplicate|23505/i.test(error.message || '')) throw error;
+      }
+      throw new Error('코드 생성 충돌');
+    }
+    async function stLoad() {
+      const cos = await loadCompanies();
+      coStageMap = {}; coCodeMap = {}; stagesReady = false; coCodesReady = false;
+      try {
+        const { data, error } = await supabase.from('company_stages').select('company,stage_key,memo');
+        if (!error) { stagesReady = true; (data || []).forEach(r => { coStageMap[r.company] = r; }); }
+      } catch (_) {}
+      try {
+        const { data, error } = await supabase.from('company_codes').select('company,code,active');
+        if (!error) { coCodesReady = true; (data || []).forEach(r => { if (r.active) coCodeMap[r.company] = r.code; }); }
+      } catch (_) {}
+      const el = $('st-list'); el.innerHTML = '';
+      if (!stagesReady) { el.innerHTML = '<p class="note">진행단계 테이블이 없어요 — sql/04_stages.sql 을 실행하면 켜집니다.' + (coCodesReady ? '' : ' (기업 코드는 sql/02_codes.sql)') + '</p>'; return; }
+      const STAGES = window.COMPANY_STAGES || [];
+      cos.forEach(co => {
+        const cur = coStageMap[co] || { stage_key: 'apply', memo: '' };
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 0;border-bottom:1px solid var(--gray-100)';
+        const nm = document.createElement('b'); nm.textContent = co; nm.style.cssText = 'flex:1;min-width:140px;font-size:13.5px';
+        const sel = document.createElement('select'); sel.className = 'ph-select'; sel.style.cssText = 'width:170px;height:38px;font-size:13px';
+        STAGES.forEach(s => { const o = document.createElement('option'); o.value = s.key; o.textContent = s.label; if (s.key === cur.stage_key) o.selected = true; sel.appendChild(o); });
+        const memo = document.createElement('input'); memo.type = 'text'; memo.placeholder = '안내 메모 (예: 이수증 회신 마감 6/20)'; memo.value = cur.memo || '';
+        memo.style.cssText = 'flex:2;min-width:170px;padding:8px 10px;font-size:13px;border-radius:9px';
+        const ntf = document.createElement('label'); ntf.style.cssText = 'display:flex;align-items:center;gap:5px;font-size:12.5px;font-weight:600;margin:0';
+        ntf.innerHTML = '<input type="checkbox" style="width:16px;height:16px"> 알림';
+        const save = document.createElement('button'); save.className = 'mju-btn mju-btn--sm'; save.textContent = '저장';
+        save.addEventListener('click', async () => {
+          save.disabled = true;
+          const { error } = await supabase.from('company_stages').upsert({ company: co, stage_key: sel.value, memo: memo.value.trim() || null, updated_at: new Date().toISOString() });
+          if (!error && ntf.querySelector('input').checked) {
+            const label = (STAGES.find(s => s.key === sel.value) || {}).label || sel.value;
+            try {
+              await supabase.from('notices').insert({
+                title: '[진행 안내] ' + label,
+                body: '「' + co + '」 진행단계가 \'' + label + '\'(으)로 업데이트됐어요.' + (memo.value.trim() ? ' — ' + memo.value.trim() : '') + ' 앱 홈에서 확인하세요.',
+                target_scope: 'custom', target_value: JSON.stringify({ targets: [], jobs: [], companies: [co], types: [], managers: [] }),
+                published: true, created_by: null
+              });
+            } catch (_) {}
+          }
+          save.disabled = false;
+          setStatus($('st-status'), error ? '오류: ' + error.message : '✅ ' + co + ' 저장' + (ntf.querySelector('input').checked ? ' + 알림 발행' : ''), error ? 'error' : 'ok');
+          if (!error) logAction('단계변경', co + ' → ' + sel.value);
+        });
+        row.appendChild(nm); row.appendChild(sel); row.appendChild(memo); row.appendChild(ntf); row.appendChild(save);
+        // 기업 초대코드
+        const codeBtn = document.createElement('button'); codeBtn.type = 'button'; codeBtn.className = 'phone-btn';
+        const drawCo = (label, ic) => { codeBtn.innerHTML = `<i data-lucide="${ic}"></i>${label}`; if (window.lucide) window.lucide.createIcons(); };
+        if (!coCodesReady) { codeBtn.style.display = 'none'; }
+        else if (coCodeMap[co]) {
+          drawCo(coCodeMap[co], 'copy');
+          codeBtn.addEventListener('click', () => { navigator.clipboard?.writeText(coCodeMap[co]).then(() => { drawCo('복사됨', 'check'); setTimeout(() => drawCo(coCodeMap[co], 'copy'), 1200); }); });
+        } else {
+          drawCo('코드 발급', 'key-round');
+          codeBtn.addEventListener('click', async () => {
+            try { const code = await issueCoCode(co); drawCo(code, 'copy'); logAction('기업코드발급', co); }
+            catch (err) { setStatus($('st-status'), '코드 발급 오류: ' + (err.message || err), 'error'); }
+          });
+        }
+        row.appendChild(codeBtn);
+        el.appendChild(row);
+      });
+      if (window.lucide) window.lucide.createIcons();
+    }
+
     // ===== 인증 =====
     async function refresh() {
       const { data: { session } } = await supabase.auth.getSession();
@@ -812,7 +1184,7 @@
       $('panel').style.display = authed ? 'block' : 'none';
       adminEmail = authed ? session.user.email : ''; $('me').textContent = adminEmail;
       const _u = $('adm-user'); if (_u) _u.style.display = authed ? 'flex' : 'none';
-      if (authed) { dashLoad(); initPickers(); nLoad(); plLoad(); lLoad(); cLoad(); clLoad(); blLoad(); regLoad(); uvLoad(); }
+      if (authed) { dashLoad(); initPickers().then(fillRecruitPickers); nLoad(); plLoad(); lLoad(); cLoad(); clLoad(); blLoad(); regLoad(); uvLoad(); rcLoad(); stLoad(); }
     }
     $('loginBtn').addEventListener('click', async () => {
       const email = $('email').value.trim(), password = $('pw').value;

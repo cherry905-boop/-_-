@@ -539,6 +539,36 @@ body.has-tabbar .ph-body{padding-bottom:84px}
 .sr-only{position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden;
   clip:rect(0 0 0 0); white-space:nowrap; border:0}
 
+/* ── 진행단계 스테퍼 (기업담당자 홈 · 관리자 기업 탭) ── */
+.stage-list{display:flex; flex-direction:column; margin-top:6px}
+.stage-item{display:flex; gap:11px}
+.stage-item .stage-col{display:flex; flex-direction:column; align-items:center}
+.stage-dot{width:20px; height:20px; border-radius:999px; flex-shrink:0; display:flex; align-items:center;
+  justify-content:center; color:#fff; background:var(--gray-300); box-sizing:border-box}
+.stage-dot [data-lucide]{width:12px; height:12px}
+.stage-item.done .stage-dot{background:var(--success-500)}
+.stage-item.now  .stage-dot{background:var(--accent)}
+.stage-item.todo .stage-dot{background:transparent; border:2px solid var(--gray-300)}
+.stage-line{width:2px; flex:1; min-height:12px; background:var(--border-subtle)}
+.stage-item.done .stage-line{background:var(--success-500); opacity:.35}
+.stage-body{padding-bottom:13px; min-width:0; flex:1}
+.stage-t{font-size:13.5px; font-weight:750; display:flex; align-items:center; gap:7px; flex-wrap:wrap}
+.stage-item.todo .stage-t{color:var(--text-muted); font-weight:600}
+.stage-s{font-size:12px; color:var(--text-secondary); margin-top:2px; line-height:1.55}
+
+/* ── 초대코드 입력 ── */
+.code-input{text-transform:uppercase; letter-spacing:.14em; font-family:var(--mono); font-weight:700}
+
+/* ── 가입폼 관심직무 다중 칩 ── */
+.chips-wrap{display:flex; gap:7px; flex-wrap:wrap; margin-top:8px}
+
+/* ── 모집·소개 페이지 ── */
+.benefit-num{font-size:22px; font-weight:800; letter-spacing:-.02em; color:var(--tint-fg)}
+.benefit-cap{font-size:12px; color:var(--text-muted); margin-top:2px; line-height:1.5}
+.cite{font-size:11.5px; color:var(--text-muted); margin-top:8px; line-height:1.5}
+.cite::before{content:"근거 · "}
+.intro-flow{display:flex; flex-direction:column; gap:0; margin-top:6px}
+
 /* ===================================================================
    다크 모드 — OS 설정 자동 추종 (관리자 콘솔 body.adm 은 라이트 유지)
    헤더는 두 모드 모두 네이비 브랜드 유지. 틴트/액센트/링크 4토큰 + 중립 스케일만 뒤집음.
