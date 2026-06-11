@@ -363,7 +363,7 @@
         const k = { all: '전체', job: '직무', company: '기업', target: '대상', type: '유형', custom: '상세 지정' }[n.target_scope] || n.target_scope;
         const t = (n.target_scope === 'all' || n.target_scope === 'custom') ? k : `${k}: ${n.target_value}`;
         const e = document.createElement('div'); e.textContent = n.title;
-        const row = document.createElement('div'); row.style.cssText = 'padding:9px 0;border-bottom:1px dashed var(--line);display:flex;justify-content:space-between;gap:8px;align-items:center';
+        const row = document.createElement('div'); row.style.cssText = 'padding:9px 0;border-bottom:1px solid var(--gray-100);display:flex;justify-content:space-between;gap:8px;align-items:center';
         const info = document.createElement('div'); info.innerHTML = `<b>${e.innerHTML}</b>${n.published ? '' : ' <span class="note">(내려짐)</span>'}<br/><span class="note">${t} · ${new Date(n.created_at).toLocaleString('ko-KR')}</span>`;
         const tg = document.createElement('button'); tg.textContent = n.published ? '내리기' : '올리기';
         tg.style.cssText = 'padding:5px 12px;font-size:13px;border:1px solid var(--line);border-radius:8px;background:#fff;cursor:pointer;white-space:nowrap';
@@ -381,7 +381,7 @@
       (data || []).forEach(p => {
         const e = document.createElement('div'); e.textContent = p.title;
         const tgt = p.scope === 'all' ? '전체' : (p.scope === 'custom' ? '상세 지정' : p.scope + ': ' + p.target);
-        const row = document.createElement('div'); row.style.cssText = 'padding:9px 0;border-bottom:1px dashed var(--line)';
+        const row = document.createElement('div'); row.style.cssText = 'padding:9px 0;border-bottom:1px solid var(--gray-100)';
         row.innerHTML = `<b>${e.innerHTML}</b><br/><span class="note">${tgt} · 대상 ${p.recipient_count ?? '?'} / 성공 ${p.success_count ?? '?'} · ${new Date(p.sent_at).toLocaleString('ko-KR')}</span>`;
         el.appendChild(row);
       });
@@ -404,7 +404,7 @@
     async function lLoad() {
       const { data } = await supabase.from('library').select('title,kind,job_key,created_at').order('created_at', { ascending: false }).limit(30);
       const el = $('l-list'); el.innerHTML = (data && data.length) ? '' : '<p class="note">없음</p>';
-      (data || []).forEach(r => { const e = document.createElement('div'); e.textContent = r.title; const row = document.createElement('div'); row.style.cssText = 'padding:9px 0;border-bottom:1px dashed var(--line)';
+      (data || []).forEach(r => { const e = document.createElement('div'); e.textContent = r.title; const row = document.createElement('div'); row.style.cssText = 'padding:9px 0;border-bottom:1px solid var(--gray-100)';
         row.innerHTML = `<b>${e.innerHTML}</b><br/><span class="note">${r.kind} · ${r.job_key || '전체'} · ${new Date(r.created_at).toLocaleDateString('ko-KR')}</span>`; el.appendChild(row); });
     }
 
@@ -423,7 +423,7 @@
     async function cLoad() {
       const { data } = await supabase.from('calendar_events').select('title,event_date,kind,job_key').order('event_date', { ascending: true }).limit(50);
       const el = $('c-list'); el.innerHTML = (data && data.length) ? '' : '<p class="note">없음</p>';
-      (data || []).forEach(r => { const e = document.createElement('div'); e.textContent = r.title; const row = document.createElement('div'); row.style.cssText = 'padding:9px 0;border-bottom:1px dashed var(--line)';
+      (data || []).forEach(r => { const e = document.createElement('div'); e.textContent = r.title; const row = document.createElement('div'); row.style.cssText = 'padding:9px 0;border-bottom:1px solid var(--gray-100)';
         row.innerHTML = `<b>${e.innerHTML}</b><br/><span class="note">${r.event_date} · ${r.kind} · ${r.job_key || '전체'}</span>`; el.appendChild(row); });
     }
 
@@ -438,7 +438,7 @@
       rows.forEach(c => {
         const nm = document.createElement('span'); nm.textContent = (c.name || '익명') + (c.job_key ? ' · ' + c.job_key : '');
         const isOpen = c.status === '열림';
-        const row = document.createElement('div'); row.style.cssText = 'padding:10px 0;border-bottom:1px dashed var(--line);cursor:pointer' + (isOpen ? ';background:#fff4e5' : '');
+        const row = document.createElement('div'); row.style.cssText = 'padding:10px 0;border-bottom:1px solid var(--gray-100);cursor:pointer' + (isOpen ? ';background:var(--warning-50)' : '');
         row.innerHTML = `<b>${nm.innerHTML}</b> <span style="font-size:12px;font-weight:700;color:${isOpen ? 'var(--err)' : 'var(--muted)'}">[${c.status}]</span><br/><span class="note">${new Date(c.last_at).toLocaleString('ko-KR')}</span>`;
         row.addEventListener('click', () => openConsult(c.id, c.name || '익명'));
         el.appendChild(row);
@@ -468,7 +468,7 @@
       const el = $('bl-list'); el.innerHTML = (data && data.length) ? '' : '<p class="note">글 없음</p>';
       (data || []).forEach(p => {
         const e = document.createElement('div'); e.textContent = p.body;
-        const row = document.createElement('div'); row.style.cssText = 'padding:10px 0;border-bottom:1px dashed var(--line)';
+        const row = document.createElement('div'); row.style.cssText = 'padding:10px 0;border-bottom:1px solid var(--gray-100)';
         const btn = document.createElement('button'); btn.textContent = p.hidden ? '표시' : '숨김';
         btn.style.cssText = 'margin-top:6px;padding:5px 12px;font-size:13px;border:1px solid var(--line);border-radius:8px;background:#fff;cursor:pointer';
         btn.addEventListener('click', async () => { await supabase.from('board_posts').update({ hidden: !p.hidden }).eq('id', p.id); logAction(p.hidden ? '게시판 표시' : '게시판 숨김', ''); blLoad(); });
@@ -491,7 +491,7 @@
       const el = $('rg-list'); el.innerHTML = rows.length ? '' : '<p class="note">없음</p>';
       rows.forEach(r => {
         const tt = r.target_type === 'company' ? '기업' : '학생';
-        const row = document.createElement('div'); row.style.cssText = 'padding:9px 0;border-bottom:1px dashed var(--line);display:flex;justify-content:space-between;gap:10px;align-items:center';
+        const row = document.createElement('div'); row.style.cssText = 'padding:9px 0;border-bottom:1px solid var(--gray-100);display:flex;justify-content:space-between;gap:10px;align-items:center';
         const info = document.createElement('div'); info.style.flex = '1';
         info.innerHTML = `<b>${esc(r.name || '')}</b> <span class="note">[${tt}]</span><br/><span class="note">${esc(r.job_key || r.company || '')} · 가입 ${new Date(r.created_at).toLocaleDateString('ko-KR')}</span>`;
         // 휴대폰 번호는 기본 마스킹, 눌러서 잠시 확인 (개인정보 보호)
@@ -520,7 +520,7 @@
       el.innerHTML = (data && data.length) ? '' : '<p class="note">요청 없음</p>';
       const rmap = { phone: '번호 불일치', name: '이름 불일치', none: '명단에 없음' };
       (data || []).forEach(r => {
-        const row = document.createElement('div'); row.style.cssText = 'padding:9px 0;border-bottom:1px dashed var(--line);display:flex;justify-content:space-between;gap:8px;align-items:center';
+        const row = document.createElement('div'); row.style.cssText = 'padding:9px 0;border-bottom:1px solid var(--gray-100);display:flex;justify-content:space-between;gap:8px;align-items:center';
         const info = document.createElement('div');
         info.innerHTML = `<b>${esc(r.name || '')}</b> <span class="note">[${r.target_type === 'company' ? '기업' : '학생'} · ${rmap[r.reason] || r.reason || ''}]</span><br/><span class="note">${esc(r.phone || '')} · ${new Date(r.created_at).toLocaleString('ko-KR')}</span>`;
         const del = document.createElement('button'); del.textContent = '처리완료';
@@ -589,7 +589,7 @@
       // 최근 활동 로그
       try {
         const { data: lg } = await supabase.from('admin_logs').select('actor,action,detail,created_at').order('created_at', { ascending: false }).limit(8);
-        $('d-logs').innerHTML = (lg && lg.length) ? lg.map(l => `<div style="padding:6px 0;border-bottom:1px dashed var(--line);font-size:13px"><b>${esc(l.action)}</b> ${esc(l.detail || '')} <span class="note">· ${new Date(l.created_at).toLocaleString('ko-KR')}</span></div>`).join('') : '<p class="note">기록 없음</p>';
+        $('d-logs').innerHTML = (lg && lg.length) ? lg.map(l => `<div style="padding:6px 0;border-bottom:1px solid var(--gray-100);font-size:13px"><b>${esc(l.action)}</b> ${esc(l.detail || '')} <span class="note">· ${new Date(l.created_at).toLocaleString('ko-KR')}</span></div>`).join('') : '<p class="note">기록 없음</p>';
       } catch (_) { $('d-logs').innerHTML = ''; }
     }
 

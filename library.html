@@ -54,7 +54,7 @@
       return r.job_key === profile.job_key;                          // 단일 직무(기존)
     };
     const esc = (s) => { const e = document.createElement('div'); e.textContent = s || ''; return e.innerHTML; };
-    const KIND_COLOR = { '학습안내서': '#1f4e8c', 'OFF-JT공지': '#157347', '일정표': '#b8860b', '서식': '#6f42c1', '기타': '#64748b' };
+    const KIND_BADGE = { '학습안내서': 'mju-badge--navy', 'OFF-JT공지': 'mju-badge--coral', '일정표': 'mju-badge--gold', '서식': 'mju-badge--sky', '기타': 'mju-badge--neutral' };
 
     const listEl = document.getElementById('list');
     (async () => {
@@ -76,10 +76,10 @@
       shown.forEach(r => {
         const card = document.createElement('div');
         card.className = 'card';
-        const color = KIND_COLOR[r.kind] || '#64748b';
+        const badgeCls = KIND_BADGE[r.kind] || 'mju-badge--neutral';
         card.innerHTML =
           `<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">` +
-          `<span class="mju-badge" style="background:${color};color:#fff">${esc(r.kind)}</span>` +
+          `<span class="mju-badge ${badgeCls}">${esc(r.kind)}</span>` +
           `<p class="ph-card-title" style="margin:0">${esc(r.title)}</p></div>` +
           `<a href="${encodeURI(r.url)}" target="_blank" rel="noopener" class="mju-btn mju-btn--sm mju-btn--full" style="text-decoration:none"><i data-lucide="external-link"></i>열기 / 다운로드</a>`;
         listEl.appendChild(card);

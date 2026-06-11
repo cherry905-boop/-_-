@@ -53,7 +53,7 @@
       return r.job_key === profile.job_key;                          // 단일 직무(기존)
     };
     const esc = (s) => { const e = document.createElement('div'); e.textContent = s || ''; return e.innerHTML; };
-    const KIND_COLOR = { '외부평가': '#c1121f', '마감': '#b8860b', 'OT': '#1f4e8c', '특강': '#157347', '행사': '#6f42c1', '기타': '#64748b' };
+    const KIND_BADGE = { '외부평가': 'mju-badge--coral', '마감': 'mju-badge--gold', 'OT': 'mju-badge--navy', '특강': 'mju-badge--sky', '행사': 'mju-badge--navy', '기타': 'mju-badge--neutral' };
 
     // D-day 계산 (로컬 자정 기준)
     function dday(dateStr) {
@@ -81,13 +81,13 @@
       }
       shown.forEach(r => {
         const dd = dday(r.event_date);
-        const color = KIND_COLOR[r.kind] || '#64748b';
+        const badgeCls = KIND_BADGE[r.kind] || 'mju-badge--neutral';
         const ddClass = dd.label === '종료' ? 'dday muted' : (dd.color === '#c1121f' ? 'dday urgent' : 'dday');
         const card = document.createElement('div');
         card.className = 'card';
         card.innerHTML =
           `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px">` +
-          `<span class="mju-badge" style="background:${color};color:#fff">${esc(r.kind)}</span>` +
+          `<span class="mju-badge ${badgeCls}">${esc(r.kind)}</span>` +
           `<span class="${ddClass}">${dd.label}</span></div>` +
           `<p class="ph-card-title" style="margin:0 0 2px">${esc(r.title)}</p>` +
           `<p class="notice-card-time" style="margin:2px 0 0">${fmtDate(r.event_date)}${r.memo ? ' · ' + esc(r.memo) : ''}</p>`;
