@@ -126,6 +126,7 @@
             <label>대상</label>
             <div id="l-tgt"></div>
             <label style="display:flex;align-items:center;gap:8px;font-weight:500;margin-top:14px"><input type="checkbox" id="l-shared" style="width:18px;height:18px"> 구글드라이브 공유를 '링크 있는 모든 사용자'로 설정했습니다</label>
+            <label style="display:flex;align-items:center;gap:8px;font-weight:500;margin-top:10px"><input type="checkbox" id="l-push" style="width:18px;height:18px"> 이 자료를 <b>공지로도 알림</b> (위 대상에게 푸시 발송)</label>
             <button class="btn" id="l-add">등록</button>
             <div class="status" id="l-status"></div>
           </div>
@@ -149,6 +150,7 @@
             <div id="c-tgt"></div>
             <label>메모 (선택)</label>
             <input type="text" id="c-memo" placeholder="예: 접수기한 6/30" />
+            <label style="display:flex;align-items:center;gap:8px;font-weight:500;margin-top:10px"><input type="checkbox" id="c-push" style="width:18px;height:18px"> 이 일정을 <b>공지로도 알림</b> (위 대상에게 푸시 발송)</label>
             <button class="btn" id="c-add">등록</button>
             <div class="status" id="c-status"></div>
           </div>
@@ -217,6 +219,20 @@
     const $ = id => document.getElementById(id);
     const esc = s => { const e = document.createElement('div'); e.textContent = s || ''; return e.innerHTML; };
     const maskPhone = p => (p && p.length >= 7) ? (p.slice(0, 3) + '-****-' + p.slice(-4)) : (p || '');
+    // 공지/발송기록의 대상 표기 — custom 은 JSON 을 사람이 읽는 라벨로 펼침
+    function fmtTarget(scope, value) {
+      if (scope === 'all') return '전체';
+      if (scope !== 'custom') return ({ job: '직무', company: '기업', target: '대상', type: '유형' }[scope] || scope) + ': ' + value;
+      try {
+        const s = JSON.parse(value || '{}'); const p = [];
+        if (s.targets && s.targets.includes('student')) p.push('매칭학생 전체');
+        if (s.jobs && s.jobs.length) p.push(s.jobs.join('·'));
+        if (s.targets && s.targets.includes('company')) p.push('기업담당자 전체');
+        if (s.companies && s.companies.length) p.push(s.companies.join('·'));
+        if (s.types && s.types.length) p.push(s.types.join('·'));
+        return '상세: ' + (p.join(' / ') || '?');
+      } catch (_) { return '상세 지정'; }
+    }
     if (window.lucide) window.lucide.createIcons();
     if (!configReady()) { $('loginStatus').textContent = 'config.js 의 Supabase 연결을 먼저 설정하세요.'; }
 
@@ -248,15 +264,25 @@
       regDims = data || [];
       return regDims;
     }
+    let companies = null;
+    async function loadCompanies() {
+      if (companies) return companies;
+      const { data } = await supabase.from('companies').select('name').eq('active', true).order('name');
+      companies = (data || []).map(r => r.name);
+      if (!companies.length) companies = (window.COMPANIES || []).slice();
+      return companies;
+    }
+    const normCo = (s) => (s || '').replace(/㈜|\(주\)|주식회사|\s/g, '');
     // 한 가입자(p)가 선택(sel)에 해당하는가 — 학생 페이지 matchSel 과 동일 규칙(union)
     function matchSel(sel, p) {
       if (!p) return false;
       if (sel.targets && sel.targets.includes(p.target_type)) return true;
       if (sel.jobs && p.job_key && sel.jobs.includes(p.job_key)) return true;
+      if (sel.companies && sel.companies.length && p.company && sel.companies.some(c => normCo(c) === normCo(p.company))) return true;
       if (sel.types && p.type1 && sel.types.includes(p.type1)) return true;
       return false;
     }
-    const selEmpty = (sel) => !(sel.targets.length || sel.jobs.length || sel.types.length);
+    const selEmpty = (sel) => !(sel.targets.length || sel.jobs.length || sel.companies.length || sel.types.length);
 
     // 작성 폼 대상 선택기: 전체/상세 토글 + 칩(매칭학생 전체·직무 / 기업담당자 전체 / 유형) + 예상 대상 N명
     function buildPicker(mountId, allLabel, allDesc) {
@@ -303,9 +329,19 @@
         }));
         chipsBox.appendChild(group('기업담당자', row => {
           row.appendChild(tag('전체', () => sel.targets.includes('company'), () => {
-            if (sel.targets.includes('company')) sel.targets = sel.targets.filter(x => x !== 'company'); else sel.targets.push('company');
+            if (sel.targets.includes('company')) sel.targets = sel.targets.filter(x => x !== 'company');
+            else { sel.targets.push('company'); sel.companies = []; }
           }));
         }));
+        if ((companies || []).length) {
+          chipsBox.appendChild(group('학습기업(개별)', row => {
+            row.style.maxHeight = '132px'; row.style.overflow = 'auto';
+            (companies || []).forEach(co => row.appendChild(tag(co, () => sel.companies.includes(co), () => {
+              sel.targets = sel.targets.filter(x => x !== 'company');
+              if (sel.companies.includes(co)) sel.companies = sel.companies.filter(x => x !== co); else sel.companies.push(co);
+            })));
+          }));
+        }
         chipsBox.appendChild(group('유형', row => {
           (window.TYPES || []).forEach(t => row.appendChild(tag(t, () => sel.types.includes(t), () => {
             if (sel.types.includes(t)) sel.types = sel.types.filter(x => x !== t); else sel.types.push(t);
@@ -325,6 +361,7 @@
           if (sel.targets.includes('student')) p.push('매칭학생 전체');
           if (sel.jobs.length) p.push(sel.jobs.join('·'));
           if (sel.targets.includes('company')) p.push('기업담당자 전체');
+          if (sel.companies.length) p.push(sel.companies.join('·'));
           if (sel.types.length) p.push(sel.types.join('·'));
           return p.join(' / ');
         },
@@ -334,7 +371,7 @@
     }
     let nPicker = null, lPicker = null, cPicker = null;
     async function initPickers() {
-      await loadJobs();
+      await loadJobs(); await loadCompanies();
       if (!nPicker) nPicker = buildPicker('n-tgt', '전체 발송', '가입자 모두');
       if (!lPicker) lPicker = buildPicker('l-tgt', '전체 공개', '가입자 모두 열람');
       if (!cPicker) cPicker = buildPicker('c-tgt', '전체', '가입자 모두에게 표시');
@@ -360,8 +397,7 @@
       const { data } = await supabase.from('notices').select('id,title,target_scope,target_value,created_at,published').order('created_at', { ascending: false }).limit(20);
       const el = $('n-list'); el.innerHTML = (data && data.length) ? '' : '<p class="note">없음</p>';
       (data || []).forEach(n => {
-        const k = { all: '전체', job: '직무', company: '기업', target: '대상', type: '유형', custom: '상세 지정' }[n.target_scope] || n.target_scope;
-        const t = (n.target_scope === 'all' || n.target_scope === 'custom') ? k : `${k}: ${n.target_value}`;
+        const t = fmtTarget(n.target_scope, n.target_value);
         const e = document.createElement('div'); e.textContent = n.title;
         const row = document.createElement('div'); row.style.cssText = 'padding:9px 0;border-bottom:1px solid var(--gray-100);display:flex;justify-content:space-between;gap:8px;align-items:center';
         const info = document.createElement('div'); info.innerHTML = `<b>${e.innerHTML}</b>${n.published ? '' : ' <span class="note">(내려짐)</span>'}<br/><span class="note">${t} · ${new Date(n.created_at).toLocaleString('ko-KR')}</span>`;
@@ -380,11 +416,18 @@
       el.innerHTML = (data && data.length) ? '' : '<p class="note">아직 발송 기록이 없습니다.</p>';
       (data || []).forEach(p => {
         const e = document.createElement('div'); e.textContent = p.title;
-        const tgt = p.scope === 'all' ? '전체' : (p.scope === 'custom' ? '상세 지정' : p.scope + ': ' + p.target);
+        const tgt = fmtTarget(p.scope, p.target);
         const row = document.createElement('div'); row.style.cssText = 'padding:9px 0;border-bottom:1px solid var(--gray-100)';
         row.innerHTML = `<b>${e.innerHTML}</b><br/><span class="note">${tgt} · 대상 ${p.recipient_count ?? '?'} / 성공 ${p.success_count ?? '?'} · ${new Date(p.sent_at).toLocaleString('ko-KR')}</span>`;
         el.appendChild(row);
       });
+    }
+
+    // 자료/일정을 같은 대상으로 '공지로도' 발행 → 기존 푸시 파이프라인이 발송(푸시만 보는 사용자 도달)
+    async function pushAsNotice(picker, title, body) {
+      const scope = picker.mode === 'all' ? 'all' : 'custom';
+      const value = picker.mode === 'all' ? null : JSON.stringify(picker.sel);
+      await supabase.from('notices').insert({ title, body, target_scope: scope, target_value: value, published: true, created_by: null });
     }
 
     // ===== 자료실 =====
@@ -399,7 +442,9 @@
       const { error } = await supabase.from('library').insert({ title, url, kind, job_key: job, published: true });
       $('l-add').disabled = false;
       if (error) { setStatus($('l-status'), '오류: ' + error.message, 'error'); return; }
-      setStatus($('l-status'), '✅ 등록되었습니다.', 'ok'); logAction('자료등록', title + ' · ' + lPicker.label()); $('l-title').value = ''; $('l-url').value = ''; lPicker.reset(); lLoad();
+      if ($('l-push').checked) { try { await pushAsNotice(lPicker, '[새 자료] ' + title, '자료실에 「' + title + '」 자료가 등록됐어요. 앱 자료실에서 확인하세요.'); } catch (_) {} }
+      setStatus($('l-status'), $('l-push').checked ? '✅ 등록 + 공지 발행 (5분 내 푸시).' : '✅ 등록되었습니다.', 'ok');
+      logAction('자료등록', title + ' · ' + lPicker.label() + ($('l-push').checked ? ' (+공지)' : '')); $('l-title').value = ''; $('l-url').value = ''; $('l-push').checked = false; lPicker.reset(); lLoad();
     });
     async function lLoad() {
       const { data } = await supabase.from('library').select('title,kind,job_key,created_at').order('created_at', { ascending: false }).limit(30);
@@ -418,7 +463,9 @@
       const { error } = await supabase.from('calendar_events').insert({ title, event_date: date, kind, job_key: job, memo });
       $('c-add').disabled = false;
       if (error) { setStatus($('c-status'), '오류: ' + error.message, 'error'); return; }
-      setStatus($('c-status'), '✅ 등록되었습니다.', 'ok'); logAction('일정등록', title + ' · ' + cPicker.label()); $('c-title').value = ''; $('c-memo').value = ''; cPicker.reset(); cLoad();
+      if ($('c-push').checked) { try { await pushAsNotice(cPicker, '[일정] ' + title, title + ' — ' + date + (memo ? ' · ' + memo : '') + '. 앱 일정에서 확인하세요.'); } catch (_) {} }
+      setStatus($('c-status'), $('c-push').checked ? '✅ 등록 + 공지 발행 (5분 내 푸시).' : '✅ 등록되었습니다.', 'ok');
+      logAction('일정등록', title + ' · ' + cPicker.label() + ($('c-push').checked ? ' (+공지)' : '')); $('c-title').value = ''; $('c-memo').value = ''; $('c-push').checked = false; cPicker.reset(); cLoad();
     });
     async function cLoad() {
       const { data } = await supabase.from('calendar_events').select('title,event_date,kind,job_key').order('event_date', { ascending: true }).limit(50);
@@ -482,7 +529,7 @@
     async function regLoad() {
       const { data, error } = await supabase.from('registrations').select('id,name,phone,target_type,job_key,company,created_at').order('created_at', { ascending: false }).limit(500);
       if (error) { $('rg-list').innerHTML = '<p class="note">가입자 조회 권한이 없습니다 — supabase_migration_R12_ops.sql 실행 필요</p>'; return; }
-      regCache = data || []; regRender();
+      regCache = data || []; regDims = null; regRender();
     }
     function regRender() {
       const q = ($('rg-search').value || '').trim().toLowerCase();
@@ -504,7 +551,7 @@
           if (!confirm(`'${r.name}' (${r.target_type === 'company' ? '기업' : '학생'} · ${r.job_key || r.company || '-'} · 번호뒤 ${(r.phone || '').slice(-4)}) 가입을 삭제할까요?`)) return;
           const { error } = await supabase.from('registrations').delete().eq('id', r.id);
           if (error) { setStatus($('rg-status'), '삭제 오류: ' + error.message, 'error'); return; }
-          logAction('가입자삭제', r.name); regCache = regCache.filter(x => x.id !== r.id); regRender();
+          logAction('가입자삭제', r.name); regCache = regCache.filter(x => x.id !== r.id); regDims = null; regRender();
         });
         row.appendChild(info); row.appendChild(ph); row.appendChild(del); el.appendChild(row);
       });
