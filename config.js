@@ -18,9 +18,9 @@ window.APP_CONFIG = {
   PRIVACY_RETENTION: '훈련 종료 후 3년',          // 보유기간 (기관 규정에 맞게 수정)
   PRIVACY_TRANSFER:  'Supabase Inc.(미국), Google LLC(미국)', // 국외 이전받는 자
   // ⚠️ 학생 배포 전 반드시 실제값으로 — 개인정보보호법 게시의무(privacy.html에 표시됨):
-  PRIVACY_OFFICER:         '○○○ (직책)',                          // 개인정보 보호책임자 성명·직책
-  PRIVACY_OFFICER_CONTACT: '전화 000-0000-0000 / 이메일 ○○○@○○○',  // 보호책임자 연락처(열람·삭제·철회 창구)
-  PRIVACY_EFFECTIVE_DATE:  '2026-○○-○○',                          // 처리방침 시행일
+  PRIVACY_OFFICER:         '권순천 (일학습병행운영팀)',                // 개인정보 보호책임자 성명·직책
+  PRIVACY_OFFICER_CONTACT: '전화 031-324-1228 / 이메일 cherry905@mju.ac.kr',  // 보호책임자 연락처(열람·삭제·철회 창구)
+  PRIVACY_EFFECTIVE_DATE:  '2026. 6. 11.',                        // 처리방침 시행일
 };
 
 /* ── 4) 훈련 직무 (1차 분류축) ─ 노션 "2026 직무" 미러 ─────────────────
