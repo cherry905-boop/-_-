@@ -5,55 +5,70 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>만족도 조사 · 일학습병행 앱</title>
   <link rel="manifest" href="./manifest.json" />
-  <meta name="theme-color" content="#1f4e8c" />
+  <meta name="theme-color" content="#002968" />
   <link rel="apple-touch-icon" href="./icons/icon-192.png" />
   <link rel="stylesheet" href="./styles.css" />
   <script src="./config.js"></script>
   <style>
-    .rate{display:flex;gap:6px;margin-top:6px}
-    .rate label{flex:1;text-align:center;padding:10px 0;margin:0;border:1px solid var(--line);border-radius:10px;font-weight:600;cursor:pointer;font-size:15px}
-    .rate input{display:none}
-    .rate input:checked + span{color:#fff}
-    .rate label:has(input:checked){background:var(--brand);border-color:var(--brand);color:#fff}
-    .q{margin-top:18px}
-    .q>label{font-weight:700;font-size:15px}
-    .scale{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:4px}
+    /* 만족도 척도: 라디오를 scale-btn 룩으로 표현(쿼리 보존을 위해 radio 유지) */
+    .scale-row label{flex:1;margin:0;position:relative;cursor:pointer}
+    .scale-row label input{position:absolute;opacity:0;width:0;height:0}
+    .scale-row label span{display:flex;align-items:center;justify-content:center;height:46px;
+      border-radius:11px;border:1.5px solid var(--border-default);background:#fff;
+      font-weight:700;font-size:15px;color:var(--text-default);transition:.12s}
+    .scale-row label:has(input:checked) span{background:var(--blue-600);border-color:var(--blue-600);color:#fff}
   </style>
 </head>
 <body>
-  <div class="topbar"><h1>📊 만족도 조사</h1><p id="who"></p></div>
-  <div class="wrap">
-    <div class="card" id="form">
-      <p class="note">센터 운영 개선을 위한 <b>자체 설문</b>입니다(공단 공식 만족도와 별개). 익명으로 집계됩니다.</p>
-      <label>학기</label>
-      <select id="semester"><option>2026 1학기</option><option>2026 2학기</option></select>
-      <div id="questions"></div>
-      <div class="q">
-        <label>개선 의견 (선택)</label>
-        <textarea id="comment" rows="3" style="width:100%;padding:12px;font-size:16px;border:1px solid var(--line);border-radius:10px;margin-top:6px" placeholder="바라는 점·불편한 점을 자유롭게"></textarea>
+  <div class="app">
+    <header class="ph-header">
+      <img class="wm" src="./assets/logo-mono-white.png" alt="" />
+      <div class="ph-lockup"><img src="./assets/logo-mono-white.png" alt="" /><span>일학습병행 공동훈련센터</span></div>
+      <div class="ph-title-row"><a class="ph-back" href="./index.html" aria-label="뒤로"><i data-lucide="chevron-left"></i></a><h1 class="ph-title">만족도 조사</h1></div>
+      <p class="ph-sub"><span id="who"></span> 센터 운영 개선을 위한 자체 설문입니다</p>
+    </header>
+    <main class="ph-body">
+      <div class="card" id="form">
+        <div class="mju-alert mju-alert--info">
+          <span class="mju-alert__icon">i</span>
+          <div class="mju-alert__body">
+            <div class="mju-alert__title">센터 자체 설문</div>
+            <div class="mju-alert__text">공단 공식 만족도와 별개이며, 익명으로 집계됩니다.</div>
+          </div>
+        </div>
+        <p class="ph-card-title" style="margin-top:14px">학기</p>
+        <select id="semester" class="ph-select"><option>2026 1학기</option><option>2026 2학기</option></select>
+        <div id="questions"></div>
+        <div style="margin-top:18px">
+          <span class="field-label">개선 의견 (선택)</span>
+          <textarea id="comment" class="ph-ta" rows="3" placeholder="바라는 점·불편한 점을 자유롭게"></textarea>
+        </div>
+        <button class="mju-btn mju-btn--full" id="submit" style="margin-top:16px">제출하기</button>
+        <div class="status" id="status"></div>
       </div>
-      <button class="btn" id="submit">제출하기</button>
-      <div class="status" id="status"></div>
-    </div>
-    <div class="card" id="done" style="display:none;text-align:center">
-      <h2>제출 완료</h2>
-      <p class="note">소중한 의견 감사합니다.</p>
-      <a href="./index.html" class="btn" style="text-decoration:none">홈으로</a>
-    </div>
-    <a href="./index.html" class="btn ghost" id="homeBtn" style="text-decoration:none;text-align:center;margin-top:20px">홈으로</a>
+      <div class="card accent" id="done" style="display:none;text-align:center">
+        <span class="ei" style="margin:0 auto 10px"><i data-lucide="check"></i></span>
+        <p class="ph-card-title">제출 완료</p>
+        <p class="ph-note">소중한 의견 감사합니다.</p>
+      </div>
+      <a href="./index.html" class="mju-btn mju-btn--secondary mju-btn--full" id="homeBtn" style="margin-top:auto">홈으로</a>
+    </main>
   </div>
 
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   <script type="module">
     import { supabase, configReady, setStatus, friendlyError } from './app.js';
+    if (window.lucide) window.lucide.createIcons();
     const $ = id => document.getElementById(id);
     let profile = {}; try { profile = JSON.parse(localStorage.getItem('ilhak_profile') || '{}'); } catch (_) {}
-    $('who').textContent = profile.name ? `${profile.name}님` : '';
+    $('who').textContent = profile.name ? `${profile.name}님 ·` : '';
 
     // 만족도는 학습근로자(재학생) 대상 — 그 외 대상은 안내만
     if (profile.target_type && profile.target_type !== 'student') {
       $('form').style.display = 'none'; $('homeBtn').style.display = 'none';
       $('done').style.display = 'block';
-      $('done').innerHTML = '<h2>안내</h2><p class="note">이 만족도 설문은 학습근로자(재학생) 대상입니다.</p><a href="./index.html" class="btn" style="text-decoration:none">홈으로</a>';
+      $('done').innerHTML = '<span class="ei" style="margin:0 auto 10px"><i data-lucide="shield"></i></span><p class="ph-card-title">안내</p><p class="ph-note">이 만족도 설문은 학습근로자(재학생) 대상입니다.</p><a href="./index.html" class="mju-btn mju-btn--secondary mju-btn--full" style="margin-top:14px">홈으로</a>';
+      window.lucide?.createIcons();
     }
 
     const QS = [
@@ -64,10 +79,10 @@
       { key: 'r_overall', label: '전반 만족도' },
     ];
     QS.forEach(q => {
-      const div = document.createElement('div'); div.className = 'q';
+      const div = document.createElement('div'); div.style.marginTop = '18px';
       let radios = '';
       for (let i = 1; i <= 5; i++) radios += `<label><input type="radio" name="${q.key}" value="${i}"><span>${i}</span></label>`;
-      div.innerHTML = `<label>${q.label} <span class="req">*</span></label><div class="rate">${radios}</div><div class="scale"><span>매우 불만족</span><span>매우 만족</span></div>`;
+      div.innerHTML = `<span class="field-label">${q.label} <span class="req">*</span></span><div class="scale-row">${radios}</div><div class="scale-ends"><span>매우 불만족</span><span>매우 만족</span></div>`;
       $('questions').appendChild(div);
     });
 
@@ -87,6 +102,7 @@
       if (error) { setStatus($('status'), friendlyError(error), 'error'); return; }
       try { localStorage.setItem(dupKey, '1'); } catch (_) {}
       $('form').style.display = 'none'; $('homeBtn').style.display = 'none'; $('done').style.display = 'block';
+      window.lucide?.createIcons();
     });
   </script>
 </body>

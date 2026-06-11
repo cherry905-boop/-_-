@@ -5,30 +5,44 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>익명 건의함 · 일학습병행 앱</title>
   <link rel="manifest" href="./manifest.json" />
-  <meta name="theme-color" content="#1f4e8c" />
+  <meta name="theme-color" content="#002968" />
   <link rel="apple-touch-icon" href="./icons/icon-192.png" />
   <link rel="stylesheet" href="./styles.css" />
   <script src="./config.js"></script>
 </head>
 <body>
-  <div class="topbar"><h1>🙈 익명 건의함</h1><p>남긴 글은 담당자만 봅니다 (다른 분께는 안 보여요)</p></div>
-  <div class="wrap">
-    <div class="card">
-      <textarea id="body" rows="4" style="width:100%;padding:12px;font-size:16px;border:1px solid var(--line);border-radius:10px" placeholder="건의·고민·불편한 점을 익명으로 남겨주세요"></textarea>
-      <button class="btn" id="post">익명으로 보내기</button>
-      <div class="status" id="status"></div>
-      <p class="note">작성자 정보는 저장하지 않습니다. <b>담당자(관리자)만</b> 확인하며, 다른 학생에게는 보이지 않습니다.</p>
-    </div>
-    <div class="card" id="done" style="display:none;text-align:center">
-      <h2>전달됐어요</h2>
-      <p class="note">소중한 의견 감사합니다. 담당자가 확인합니다.</p>
-      <button class="btn ghost" id="again">하나 더 남기기</button>
-    </div>
-    <a href="./index.html" class="btn ghost" id="homeBtn" style="text-decoration:none;text-align:center;margin-top:20px">홈으로</a>
+  <div class="app">
+    <header class="ph-header">
+      <img class="wm" src="./assets/logo-mono-white.png" alt="" />
+      <div class="ph-lockup"><img src="./assets/logo-mono-white.png" alt="" /><span>일학습병행 공동훈련센터</span></div>
+      <div class="ph-title-row"><a class="ph-back" href="./index.html" aria-label="뒤로"><i data-lucide="chevron-left"></i></a><h1 class="ph-title">익명 건의함</h1></div>
+      <p class="ph-sub">남긴 글은 담당자만 봅니다 (다른 분께는 안 보여요)</p>
+    </header>
+    <main class="ph-body">
+      <div class="card accent">
+        <p class="ph-card-title">익명으로 글 남기기</p>
+        <span class="field-label">건의·고민·불편한 점</span>
+        <textarea id="body" class="ph-ta" rows="5" placeholder="건의·고민·불편한 점을 익명으로 남겨주세요"></textarea>
+        <button class="mju-btn mju-btn--full" id="post"><i data-lucide="shield"></i> 익명으로 보내기</button>
+        <div class="status" id="status"></div>
+        <p class="ph-note">작성자 정보는 저장하지 않습니다. <b>담당자(관리자)만</b> 확인하며, 다른 학생에게는 보이지 않습니다.</p>
+      </div>
+      <div class="card" id="done" style="display:none">
+        <div class="empty-state">
+          <span class="ei"><i data-lucide="shield-check"></i></span>
+          <div class="et">익명으로 전달됐어요</div>
+          <p class="es">소중한 의견 감사합니다. 담당자가 확인합니다.</p>
+        </div>
+        <button class="mju-btn mju-btn--secondary mju-btn--full" id="again"><i data-lucide="message-circle"></i> 하나 더 남기기</button>
+      </div>
+      <a href="./index.html" class="mju-btn mju-btn--secondary mju-btn--full" id="homeBtn" style="text-decoration:none;text-align:center;margin-top:auto">홈으로</a>
+    </main>
   </div>
 
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   <script type="module">
     import { supabase, configReady, setStatus, friendlyError } from './app.js';
+    if (window.lucide) window.lucide.createIcons();
     const $ = id => document.getElementById(id);
 
     $('post').addEventListener('click', async () => {
@@ -42,6 +56,7 @@
       $('body').value = '';
       document.querySelector('.card').style.display = 'none';
       $('done').style.display = 'block';
+      window.lucide?.createIcons();
     });
 
     $('again').addEventListener('click', () => {

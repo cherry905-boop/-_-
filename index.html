@@ -5,106 +5,120 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>일학습병행 앱 · 가입</title>
   <link rel="manifest" href="./manifest.json" />
-  <meta name="theme-color" content="#1f4e8c" />
+  <meta name="theme-color" content="#002968" />
   <link rel="apple-touch-icon" href="./icons/icon-192.png" />
   <link rel="stylesheet" href="./styles.css" />
   <script src="./config.js"></script>
 </head>
 <body>
-  <div class="topbar">
-    <h1 id="t-title">일학습병행 앱</h1>
-    <p id="t-center">공동훈련센터</p>
+  <div class="app">
+    <header class="ph-header">
+      <img class="wm" src="./assets/logo-mono-white.png" alt="" />
+      <div class="ph-lockup"><img src="./assets/logo-mono-white.png" alt="" /><span id="t-center">공동훈련센터</span></div>
+      <div class="ph-title-row"><h1 class="ph-title" id="t-title">일학습병행 앱</h1></div>
+      <p class="ph-sub">가입하면 공지·자료·일정을 푸시 알림으로 받아볼 수 있어요</p>
+      <hr class="ph-gold" />
+    </header>
+
+    <main class="ph-body">
+      <!-- 카카오톡/인스타 인앱브라우저 경고 (아이폰 푸시·설치 불가) -->
+      <div class="warn" id="inapp" style="display:none">
+        지금 <b>카카오톡 등 앱 안의 브라우저</b>로 열려 있어요. 알림(푸시)과 홈 화면 추가가 안 됩니다.
+        <b>오른쪽 위 메뉴 → "다른 브라우저로 열기"(Safari/크롬)</b>로 다시 열어주세요.<br/>
+        <button type="button" class="mju-btn mju-btn--sm mju-btn--secondary" id="copyUrl" style="margin-top:10px">주소 복사 → Safari/크롬에 붙여넣기</button>
+      </div>
+
+      <!-- 대상별 '이달의 할 일' 카드 (renderTodo가 주입; 항목 없으면 비어있음) -->
+      <div id="todo"></div>
+
+      <!-- 이미 가입한 기기에 보이는 홈 메뉴 -->
+      <div id="home" style="display:none">
+        <div class="greet-row"><span class="greet" id="home-name"></span></div>
+        <div class="menu-grid" style="margin-top:14px">
+          <a href="./notice.html"   class="menu-tile"><span class="mi"><i data-lucide="megaphone"></i></span><span class="ml">공지사항</span></a>
+          <a href="./library.html"  class="menu-tile"><span class="mi"><i data-lucide="folder"></i></span><span class="ml">자료실</span></a>
+          <a href="./calendar.html" class="menu-tile"><span class="mi"><i data-lucide="calendar-days"></i></span><span class="ml">일정</span></a>
+          <a href="./consult.html"  class="menu-tile"><span class="mi"><i data-lucide="message-circle"></i></span><span class="ml">1:1 상담</span></a>
+          <a href="./board.html"  id="m-board"  class="menu-tile"><span class="mi"><i data-lucide="shield"></i></span><span class="ml">익명 건의함</span></a>
+          <a href="./survey.html" id="m-survey" class="menu-tile"><span class="mi"><i data-lucide="clipboard-list"></i></span><span class="ml">만족도 조사</span></a>
+          <a href="./install.html"  class="menu-tile"><span class="mi"><i data-lucide="bell"></i></span><span class="ml">알림 설정</span></a>
+        </div>
+        <div class="ph-foot-links" style="margin-top:16px">
+          <a href="./privacy.html">개인정보 처리방침</a><span>·</span><a href="#" id="resignup">다른 정보로 다시 가입</a>
+        </div>
+      </div>
+
+      <div class="card" id="signupCard">
+        <p class="ph-card-title">간편 가입</p>
+        <p class="ph-note" style="margin-bottom:6px">이름·휴대폰을 입력하면 명단 확인 후 가입됩니다.</p>
+
+        <form id="form">
+          <label>이름 <span class="req">*</span></label>
+          <input type="text" id="name" autocomplete="name" placeholder="홍길동" required />
+
+          <label>휴대폰 번호 <span class="req">*</span></label>
+          <input type="tel" id="phone" inputmode="numeric" autocomplete="tel" placeholder="010-1234-5678" required />
+
+          <label>대상 구분 <span class="req">*</span></label>
+          <div class="radios" id="targets"></div>
+
+          <!-- 조건부: 훈련 직무 -->
+          <div class="cond" id="grp-job" hidden>
+            <label>훈련 직무 <span class="req">*</span></label>
+            <select id="job"><option value="">— 선택하세요 —</option></select>
+          </div>
+
+          <!-- 조건부: 학습기업 -->
+          <div class="cond" id="grp-company" hidden>
+            <label>소속 학습기업 <span class="req">*</span></label>
+            <select id="company">
+              <option value="">— 선택하세요 —</option>
+              <option value="__other__">▷ 목록에 없음 (직접 입력)</option>
+            </select>
+            <input type="text" id="company-other" placeholder="기업명을 직접 입력" hidden style="margin-top:8px" />
+          </div>
+
+          <!-- 개인정보 동의 -->
+          <div class="consent">
+            <b>개인정보 수집·이용 안내</b>
+            <ul style="margin:8px 0 10px;padding-left:16px">
+              <li>수집 항목: 이름, 휴대폰 번호, 대상 구분 (+직무/기업/유형 등 선택 항목)</li>
+              <li>이용 목적: 일학습병행 공지·자료·상담 등 운영 안내</li>
+              <li>보유 기간: <span id="c-retention">훈련 종료 후 3년</span></li>
+              <li>동의를 거부할 수 있으며, 거부 시 앱 가입이 제한됩니다.</li>
+            </ul>
+            <a href="./privacy.html" target="_blank">개인정보 처리방침 전문 보기</a>
+            <div class="row">
+              <input type="checkbox" id="c1" />
+              <label for="c1">(필수) 위 개인정보 수집·이용에 동의합니다.</label>
+            </div>
+            <div class="row">
+              <input type="checkbox" id="c2" />
+              <label for="c2">(필수) 데이터 보관을 위한 국외 이전(<span id="c-transfer">해외 클라우드</span>)에 동의합니다.</label>
+            </div>
+          </div>
+
+          <button class="btn" id="submit" type="submit">가입하기</button>
+          <div class="status" id="status"></div>
+          <div id="help" class="warn" style="display:none;margin-top:14px">
+            명단 확인이 안 되면 담당자에게 문의하거나, 아래로 도움을 요청해주세요.
+            <b id="help-contact" style="display:block;margin-top:4px"></b>
+            <button type="button" class="mju-btn mju-btn--sm mju-btn--secondary" id="help-send" style="margin-top:10px">가입 도움 요청 보내기</button>
+            <div class="status" id="help-status"></div>
+          </div>
+          <p class="note" id="cfgwarn" style="display:none;color:var(--err)">
+            ⚠️ 아직 Supabase 연결이 설정되지 않았습니다. config.js 를 먼저 채워주세요(README_SETUP.md 참고).
+          </p>
+        </form>
+      </div>
+    </main>
   </div>
 
-  <div class="wrap">
-    <!-- 카카오톡/인스타 인앱브라우저 경고 (아이폰 푸시·설치 불가) -->
-    <div class="warn" id="inapp" style="display:none">
-      ⚠️ 지금 <b>카카오톡 등 앱 안의 브라우저</b>로 열려 있어요.<br/>
-      알림(푸시)과 홈 화면 추가가 안 됩니다. <b>오른쪽 위 메뉴 → "다른 브라우저로 열기"(Safari/크롬)</b>로 다시 열어주세요.<br/>
-      <button type="button" id="copyUrl" style="margin-top:8px;padding:9px 14px;border:1px solid #8a4b00;border-radius:8px;background:#fff;cursor:pointer">📋 주소 복사 → Safari/크롬에 붙여넣기</button>
-    </div>
-
-    <!-- 대상별 '이달의 할 일' 카드 (renderTodo가 주입; 항목 없으면 비어있음) -->
-    <div id="todo"></div>
-
-    <!-- 이미 가입한 기기에 보이는 홈 메뉴 -->
-    <div class="card" id="home" style="display:none">
-      <h2 id="home-name"></h2>
-      <a href="./notice.html"   class="btn"       style="text-decoration:none;text-align:center">📢 공지사항</a>
-      <a href="./library.html"  class="btn ghost" style="text-decoration:none;text-align:center">📁 자료실</a>
-      <a href="./calendar.html" class="btn ghost" style="text-decoration:none;text-align:center">📅 일정</a>
-      <a href="./consult.html"  class="btn ghost" style="text-decoration:none;text-align:center">💬 1:1 상담</a>
-      <a href="./board.html" id="m-board" class="btn ghost" style="text-decoration:none;text-align:center">🙈 익명 건의함</a>
-      <a href="./survey.html" id="m-survey"  class="btn ghost" style="text-decoration:none;text-align:center">📊 만족도 조사</a>
-      <a href="./install.html"  class="btn ghost" style="text-decoration:none;text-align:center">🔔 알림 설정</a>
-      <p class="note" style="text-align:center;margin-top:14px"><a href="./privacy.html">개인정보 처리방침</a> · <a href="#" id="resignup">다른 정보로 다시 가입</a></p>
-    </div>
-
-    <div class="card" id="signupCard">
-      <h2>간편 가입</h2>
-      <p class="note">이름·휴대폰을 입력하면 명단 확인 후 가입됩니다. 가입 후 공지를 푸시 알림으로 받아볼 수 있어요.</p>
-
-      <form id="form">
-        <label>이름 <span class="req">*</span></label>
-        <input type="text" id="name" autocomplete="name" placeholder="홍길동" required />
-
-        <label>휴대폰 번호 <span class="req">*</span></label>
-        <input type="tel" id="phone" inputmode="numeric" autocomplete="tel" placeholder="010-1234-5678" required />
-
-        <label>대상 구분 <span class="req">*</span></label>
-        <div class="radios" id="targets"></div>
-
-        <!-- 조건부: 훈련 직무 -->
-        <div class="cond" id="grp-job" hidden>
-          <label>훈련 직무 <span class="req">*</span></label>
-          <select id="job"><option value="">— 선택하세요 —</option></select>
-        </div>
-
-        <!-- 조건부: 학습기업 -->
-        <div class="cond" id="grp-company" hidden>
-          <label>소속 학습기업 <span class="req">*</span></label>
-          <select id="company">
-            <option value="">— 선택하세요 —</option>
-            <option value="__other__">▷ 목록에 없음 (직접 입력)</option>
-          </select>
-          <input type="text" id="company-other" placeholder="기업명을 직접 입력" hidden style="margin-top:8px" />
-        </div>
-
-        <!-- 개인정보 동의 -->
-        <div class="consent">
-          <b>개인정보 수집·이용 안내</b><br/>
-          · 수집 항목: 이름, 휴대폰 번호, 대상 구분(+직무/기업/유형 등 선택 항목)<br/>
-          · 이용 목적: 일학습병행 공지·자료·상담 등 운영 안내<br/>
-          · 보유 기간: <span id="c-retention">훈련 종료 후 3년</span><br/>
-          · 동의를 거부할 수 있으며, 거부 시 앱 가입이 제한됩니다.<br/>
-          · <a href="./privacy.html" target="_blank">개인정보 처리방침 전문 보기</a>
-          <div class="row">
-            <input type="checkbox" id="c1" />
-            <label for="c1" style="margin:0;font-weight:500">(필수) 위 개인정보 수집·이용에 동의합니다.</label>
-          </div>
-          <div class="row">
-            <input type="checkbox" id="c2" />
-            <label for="c2" style="margin:0;font-weight:500">(필수) 데이터 보관을 위한 국외 이전(<span id="c-transfer">해외 클라우드</span>)에 동의합니다.</label>
-          </div>
-        </div>
-
-        <button class="btn" id="submit" type="submit">가입하기</button>
-        <div class="status" id="status"></div>
-        <div id="help" class="warn" style="display:none;margin-top:14px">
-          명단 확인이 안 되면 담당자에게 문의하거나, 아래로 도움을 요청해주세요.
-          <b id="help-contact" style="display:block;margin-top:4px"></b>
-          <button type="button" class="btn ghost" id="help-send" style="margin-top:10px">가입 도움 요청 보내기</button>
-          <div class="status" id="help-status"></div>
-        </div>
-        <p class="note" id="cfgwarn" style="display:none;color:var(--err)">
-          ⚠️ 아직 Supabase 연결이 설정되지 않았습니다. config.js 를 먼저 채워주세요(README_SETUP.md 참고).
-        </p>
-      </form>
-    </div>
-  </div>
-
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   <script type="module">
     import { supabase, configReady, getQueryParam, isInAppBrowser, setStatus, friendlyError } from './app.js';
+
+    if (window.lucide) window.lucide.createIcons();
 
     const cfg = window.APP_CONFIG || {};
     document.getElementById('t-title').textContent  = cfg.APP_TITLE  || '일학습병행 앱';
@@ -155,9 +169,9 @@
         const today = new Date(); today.setHours(0, 0, 0, 0);
         const d = new Date(dateStr + 'T00:00:00');
         const diff = Math.round((d - today) / 86400000);
-        if (diff === 0) return { label: 'D-DAY', color: '#c1121f' };
-        if (diff > 0) return { label: 'D-' + diff, color: diff <= 7 ? '#c1121f' : '#1f4e8c' };
-        return { label: '종료', color: '#94a3b8' };
+        if (diff === 0) return { label: 'D-DAY', cls: 'urgent' };
+        if (diff > 0) return { label: 'D-' + diff, cls: diff <= 7 ? 'urgent' : '' };
+        return { label: '종료', cls: 'muted' };
       }
       const esc = (s) => { const e = document.createElement('div'); e.textContent = s || ''; return e.innerHTML; };
 
@@ -167,18 +181,16 @@
 
       const rows = shown.map(r => {
         const badge = r.due_date
-          ? (() => { const dd = dday(r.due_date); return `<span style="background:${dd.color};color:#fff;font-size:12px;font-weight:700;padding:2px 10px;border-radius:10px;white-space:nowrap">${dd.label}</span>`; })()
-          : `<span style="background:#94a3b8;color:#fff;font-size:12px;font-weight:700;padding:2px 10px;border-radius:10px;white-space:nowrap">미정</span>`;
-        const memo = r.memo ? `<p class="note" style="margin:4px 0 0">${esc(r.memo)}</p>` : '';
+          ? (() => { const dd = dday(r.due_date); return `<span class="dday ${dd.cls}">${dd.label}</span>`; })()
+          : `<span class="dday muted">미정</span>`;
+        const memo = r.memo ? `<div class="td">${esc(r.memo)}</div>` : '';
         const safeLink = (r.link && /^https?:\/\//i.test(r.link)) ? r.link : null;
-        const link = safeLink ? `<p class="note" style="margin:4px 0 0"><a href="${encodeURI(safeLink)}" target="_blank" rel="noopener">바로가기 ↗</a></p>` : '';
-        return `<div style="padding:8px 0;border-top:1px solid var(--line)">` +
-          `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px">` +
-          `<b style="font-size:15px">${esc(r.title)}</b>${badge}</div>${memo}${link}</div>`;
+        const link = safeLink ? `<a class="tlink" href="${encodeURI(safeLink)}" target="_blank" rel="noopener">바로가기 ↗</a>` : '';
+        return `<div class="todo-item"><div style="flex:1"><div class="tt">${esc(r.title)}</div>${memo}${link}</div>${badge}</div>`;
       }).join('');
 
       document.getElementById('todo').innerHTML =
-        `<div class="card"><h2 style="margin-top:0">이달의 할 일</h2>${rows}</div>`;
+        `<div class="card accent"><p class="ph-card-title">이달의 할 일</p>${rows}</div>`;
     }
 
     // 기업 드롭다운만 노션 동기화(companies)에서 채움 (직무는 매칭학생 확인 후 '본인 직무'만 동적 노출)

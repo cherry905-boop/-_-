@@ -5,21 +5,34 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>자료실 · 일학습병행 앱</title>
   <link rel="manifest" href="./manifest.json" />
-  <meta name="theme-color" content="#1f4e8c" />
+  <meta name="theme-color" content="#002968" />
   <link rel="apple-touch-icon" href="./icons/icon-192.png" />
   <link rel="stylesheet" href="./styles.css" />
   <script src="./config.js"></script>
 </head>
 <body>
-  <div class="topbar"><h1>📁 자료실</h1><p id="who"></p></div>
-  <div class="wrap">
-    <div id="list"></div>
-    <p class="note" id="empty" style="display:none;text-align:center;margin-top:30px">등록된 자료가 없습니다.</p>
-    <a href="./index.html" class="btn ghost" style="text-decoration:none;text-align:center;margin-top:20px">홈으로</a>
+  <div class="app">
+    <header class="ph-header">
+      <img class="wm" src="./assets/logo-mono-white.png" alt="" />
+      <div class="ph-lockup"><img src="./assets/logo-mono-white.png" alt="" /><span>일학습병행 공동훈련센터</span></div>
+      <div class="ph-title-row"><a class="ph-back" href="./index.html" aria-label="뒤로"><i data-lucide="chevron-left"></i></a><h1 class="ph-title">자료실</h1></div>
+      <p class="ph-sub"><span id="who"></span> 학습안내서·서식·일정표를 한곳에서 확인하세요</p>
+    </header>
+    <main class="ph-body">
+      <div id="list"></div>
+      <div class="empty-state" id="empty" style="display:none">
+        <span class="ei"><i data-lucide="folder"></i></span>
+        <div class="et">아직 등록된 자료가 없어요</div>
+        <p class="es">새 자료가 등록되면 여기에 표시됩니다.</p>
+      </div>
+      <a href="./index.html" class="mju-btn mju-btn--secondary mju-btn--full" style="margin-top:auto;text-decoration:none">홈으로</a>
+    </main>
   </div>
 
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   <script type="module">
     import { supabase, configReady } from './app.js';
+    if (window.lucide) window.lucide.createIcons();
 
     let profile = {};
     try { profile = JSON.parse(localStorage.getItem('ilhak_profile') || '{}'); } catch (_) {}
@@ -35,11 +48,16 @@
       if (!configReady()) { document.getElementById('empty').style.display = 'block'; return; }
       const { data, error } = await supabase.from('library')
         .select('title,kind,url,job_key,created_at').eq('published', true).order('created_at', { ascending: false });
-      if (error) { const e = document.getElementById('empty'); e.style.display = 'block'; e.textContent = '일시적 오류로 불러오지 못했습니다. 잠시 후 새로고침해주세요.'; console.error(error); return; }
+      if (error) {
+        const e = document.getElementById('empty'); e.style.display = 'block';
+        e.innerHTML = '<span class="ei"><i data-lucide="folder"></i></span><div class="et">불러오지 못했어요</div><p class="es">일시적 오류로 불러오지 못했습니다. 잠시 후 새로고침해주세요.</p>';
+        window.lucide?.createIcons(); console.error(error); return;
+      }
       const shown = (data || []).filter(visible);
       if (!shown.length) {
         const em = document.getElementById('empty'); em.style.display = 'block';
-        if (!profile.name) em.innerHTML = '내 정보가 이 기기에 없어 맞춤 자료가 안 보일 수 있어요.<br/><a href="./index.html">홈에서 정보 입력하기</a>';
+        if (!profile.name) em.innerHTML = '<span class="ei"><i data-lucide="folder"></i></span><div class="et">맞춤 자료가 없어요</div><p class="es">내 정보가 이 기기에 없어 맞춤 자료가 안 보일 수 있어요.</p><a href="./index.html" class="mju-btn mju-btn--sm mju-btn--secondary" style="text-decoration:none;margin-top:12px">홈에서 정보 입력하기</a>';
+        window.lucide?.createIcons();
         return;
       }
       shown.forEach(r => {
@@ -47,12 +65,13 @@
         card.className = 'card';
         const color = KIND_COLOR[r.kind] || '#64748b';
         card.innerHTML =
-          `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">` +
-          `<span style="background:${color};color:#fff;font-size:11px;padding:2px 8px;border-radius:10px">${esc(r.kind)}</span>` +
-          `<b style="font-size:15px">${esc(r.title)}</b></div>` +
-          `<a href="${encodeURI(r.url)}" target="_blank" rel="noopener" class="btn" style="text-decoration:none;text-align:center;padding:11px">열기 / 다운로드</a>`;
+          `<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">` +
+          `<span class="mju-badge" style="background:${color};color:#fff">${esc(r.kind)}</span>` +
+          `<p class="ph-card-title" style="margin:0">${esc(r.title)}</p></div>` +
+          `<a href="${encodeURI(r.url)}" target="_blank" rel="noopener" class="mju-btn mju-btn--sm mju-btn--full" style="text-decoration:none"><i data-lucide="external-link"></i>열기 / 다운로드</a>`;
         listEl.appendChild(card);
       });
+      window.lucide?.createIcons();
     })();
   </script>
 </body>

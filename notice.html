@@ -5,21 +5,30 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>공지 · 일학습병행 앱</title>
   <link rel="manifest" href="./manifest.json" />
-  <meta name="theme-color" content="#1f4e8c" />
+  <meta name="theme-color" content="#002968" />
   <link rel="apple-touch-icon" href="./icons/icon-192.png" />
   <link rel="stylesheet" href="./styles.css" />
   <script src="./config.js"></script>
 </head>
 <body>
-  <div class="topbar"><h1>📢 공지사항</h1><p id="who"></p></div>
-  <div class="wrap">
-    <div id="list"></div>
-    <p class="note" id="empty" style="display:none;text-align:center;margin-top:30px">표시할 공지가 없습니다.</p>
-    <a href="./index.html" class="btn ghost" style="text-decoration:none;text-align:center;margin-top:20px">처음으로</a>
+  <div class="app">
+    <header class="ph-header">
+      <img class="wm" src="./assets/logo-mono-white.png" alt="" />
+      <div class="ph-lockup"><img src="./assets/logo-mono-white.png" alt="" /><span>일학습병행 공동훈련센터</span></div>
+      <div class="ph-title-row"><a class="ph-back" href="./index.html" aria-label="뒤로"><i data-lucide="chevron-left"></i></a><h1 class="ph-title">공지사항</h1></div>
+      <p class="ph-sub" id="who"></p>
+    </header>
+    <main class="ph-body">
+      <div id="list"></div>
+      <p class="note" id="empty" style="display:none;text-align:center;margin-top:30px">표시할 공지가 없습니다.</p>
+      <a href="./index.html" class="mju-btn mju-btn--secondary mju-btn--full" style="margin-top:auto;text-decoration:none">홈으로</a>
+    </main>
   </div>
 
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   <script type="module">
     import { supabase, configReady } from './app.js';
+    if (window.lucide) window.lucide.createIcons();
 
     // 이 기기의 프로필(가입 때 저장) — 공지 필터링용
     let profile = {};
@@ -41,6 +50,9 @@
     function fmt(d) { try { return new Date(d).toLocaleString('ko-KR', { dateStyle: 'medium', timeStyle: 'short' }); } catch (_) { return d; } }
     function esc(s) { const e = document.createElement('div'); e.textContent = s || ''; return e.innerHTML; }
 
+    // 새 공지(NEW) 판단 — 최근 3일 이내 작성
+    function isNew(d) { try { return (Date.now() - new Date(d).getTime()) < 3 * 24 * 60 * 60 * 1000; } catch (_) { return false; } }
+
     const listEl = document.getElementById('list');
     (async () => {
       if (!configReady()) { document.getElementById('empty').style.display = 'block'; document.getElementById('empty').textContent = 'Supabase 연결이 필요합니다(config.js).'; return; }
@@ -58,11 +70,13 @@
       shown.forEach(n => {
         const card = document.createElement('div');
         card.className = 'card';
-        card.innerHTML = `<h2 style="margin-bottom:6px">${esc(n.title)}</h2>` +
-          `<p class="note" style="margin:0 0 10px">${fmt(n.created_at)}</p>` +
-          `<div style="white-space:pre-wrap;font-size:15px">${esc(n.body)}</div>`;
+        card.innerHTML = `<p class="ph-card-title">${esc(n.title)}` +
+          (isNew(n.created_at) ? ` <span class="mju-badge mju-badge--coral">NEW</span>` : ``) + `</p>` +
+          `<p class="notice-card-time">${fmt(n.created_at)}</p>` +
+          `<p class="notice-body">${esc(n.body)}</p>`;
         listEl.appendChild(card);
       });
+      window.lucide?.createIcons();
     })();
   </script>
 </body>
