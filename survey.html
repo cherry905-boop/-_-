@@ -86,8 +86,13 @@
       $('questions').appendChild(div);
     });
 
+    // 기기 식별값(랜덤, PII 아님) — 서버측 1인1표(device_id+semester 유일)용
+    const deviceId = (() => {
+      try { let d = localStorage.getItem('ilhak_device_id'); if (!d) { d = 'dev_' + Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem('ilhak_device_id', d); } return d; }
+      catch (_) { return null; }
+    })();
     $('submit').addEventListener('click', async () => {
-      const row = { semester: $('semester').value, job_key: profile.job_key || null, comment: $('comment').value.trim() || null };
+      const row = { semester: $('semester').value, job_key: profile.job_key || null, comment: $('comment').value.trim() || null, device_id: deviceId };
       const dupKey = 'ilhak_survey_' + row.semester;
       if (localStorage.getItem(dupKey)) { setStatus($('status'), '이미 이 학기 만족도를 제출하셨어요. 감사합니다.', 'ok'); return; }
       for (const q of QS) {
@@ -97,9 +102,12 @@
       }
       if (!configReady()) { setStatus($('status'), 'Supabase 연결이 필요합니다.', 'error'); return; }
       $('submit').disabled = true; setStatus($('status'), '제출 중...', 'info');
-      const { error } = await supabase.from('survey_responses').insert(row);
+      let { error } = await supabase.from('survey_responses').insert(row);
+      // device_id 컬럼이 아직 없으면(마이그레이션 실행 전) device_id 빼고 재시도 → 배포 순서 무관
+      if (error && /device_id/i.test(error.message || '')) { const r2 = { ...row }; delete r2.device_id; ({ error } = await supabase.from('survey_responses').insert(r2)); }
       $('submit').disabled = false;
-      if (error) { setStatus($('status'), friendlyError(error), 'error'); return; }
+      // 23505 = 이 기기가 이 학기에 이미 제출(서버측 유일 제약) → 정상 처리
+      if (error && error.code !== '23505') { setStatus($('status'), friendlyError(error), 'error'); return; }
       try { localStorage.setItem(dupKey, '1'); } catch (_) {}
       $('form').style.display = 'none'; $('homeBtn').style.display = 'none'; $('done').style.display = 'block';
       window.lucide?.createIcons();

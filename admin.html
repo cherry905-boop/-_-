@@ -350,8 +350,8 @@
       const n = await nPicker.count();
       if (!confirm(`[${lbl}] 대상 약 ${n}명 (그중 알림 켠 사람에게 푸시).\n발행할까요?`)) return;
       $('n-publish').disabled = true; setStatus($('n-status'), '발행 중...', 'info');
-      const { data: { session } } = await supabase.auth.getSession();
-      const { error } = await supabase.from('notices').insert({ title, body, target_scope: scope, target_value: value, published: true, created_by: session?.user?.email || null });
+      // created_by(이메일)는 공개 읽기 테이블에 노출되므로 저장하지 않음 — '누가 발행했나'는 admin_logs(관리자 전용)가 기록
+      const { error } = await supabase.from('notices').insert({ title, body, target_scope: scope, target_value: value, published: true, created_by: null });
       $('n-publish').disabled = false;
       if (error) { setStatus($('n-status'), '오류: ' + error.message, 'error'); return; }
       setStatus($('n-status'), '✅ 발행되었습니다 (5분 내 푸시).', 'ok'); logAction('공지발행', lbl + ' · ' + title); $('n-title').value = ''; $('n-body').value = ''; nPicker.reset(); nLoad();
