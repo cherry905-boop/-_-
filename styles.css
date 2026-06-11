@@ -29,6 +29,9 @@
   --text-primary:var(--ink-900); --text-secondary:var(--gray-600); --text-muted:var(--gray-500);
   --border-subtle:var(--gray-200); --border-default:var(--gray-300);
   --focus-ring:var(--blue-400); --brand-gold:var(--gold-500);
+  /* 파랑 틴트(연파랑 배경+네이비 전경)·액센트·링크 — 다크모드에서 이 4개만 뒤집힘 */
+  --tint-bg:var(--blue-50); --tint-fg:var(--blue-600); --accent:var(--blue-600); --link:var(--blue-500);
+  --tabbar-bg:rgba(255,255,255,.96);
 
   /* ── 타이포 ── */
   --font-sans:'Pretendard Variable',Pretendard,-apple-system,'Apple SD Gothic Neo','Malgun Gothic',system-ui,sans-serif;
@@ -65,7 +68,7 @@ body{
   -webkit-text-size-adjust:100%; -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
 }
 ::selection{background:var(--blue-200)}
-a{color:var(--blue-500); text-underline-offset:3px}
+a{color:var(--link); text-underline-offset:3px}
 
 /* ── 앱 컨테이너(폰 컬럼) ── */
 .app{max-width:480px; margin:0 auto; min-height:100vh; background:var(--paper);
@@ -127,9 +130,9 @@ h2{font-size:16px; font-weight:800; color:var(--text-primary); margin:0 0 12px; 
 .todo-item:first-of-type{border-top:0; padding-top:2px}
 .todo-item .tt{font-size:14.5px; font-weight:750; line-height:1.4; letter-spacing:-.01em}
 .todo-item .td{font-size:12.5px; color:var(--text-muted); margin-top:3px; line-height:1.55}
-.todo-item .tlink{display:inline-flex; align-items:center; gap:4px; font-size:12.5px; font-weight:700; color:var(--blue-500); margin-top:6px; cursor:pointer}
+.todo-item .tlink{display:inline-flex; align-items:center; gap:4px; font-size:12.5px; font-weight:700; color:var(--link); margin-top:6px; cursor:pointer}
 .dday{font-family:var(--mono); font-size:12px; font-weight:700; padding:4px 9px; border-radius:999px;
-  flex-shrink:0; background:var(--blue-50); color:var(--blue-600); white-space:nowrap}
+  flex-shrink:0; background:var(--tint-bg); color:var(--tint-fg); white-space:nowrap}
 .dday.urgent{color:#fff; background:var(--coral-500)}
 .dday.muted{background:var(--gray-200); color:var(--gray-500)}
 
@@ -142,7 +145,7 @@ h2{font-size:16px; font-weight:800; color:var(--text-primary); margin:0 0 12px; 
 .menu-tile:hover{transform:translateY(-3px); box-shadow:0 8px 20px rgba(7,22,72,.10); border-color:transparent}
 .menu-tile:active{transform:translateY(1px)}
 .menu-tile .mi{width:38px; height:38px; border-radius:11px; display:flex; align-items:center; justify-content:center;
-  background:var(--blue-50); color:var(--blue-600)}
+  background:var(--tint-bg); color:var(--tint-fg)}
 .menu-tile .ml{font-size:14.5px; font-weight:750; letter-spacing:-.01em; color:var(--text-primary)}
 .menu-tile .mbadge{position:absolute; top:12px; right:12px}
 .menu-group-label{font-size:11px; font-weight:800; letter-spacing:.1em; text-transform:uppercase;
@@ -155,12 +158,14 @@ h2{font-size:16px; font-weight:800; color:var(--text-primary); margin:0 0 12px; 
 label{display:block; font-size:13px; font-weight:750; color:var(--text-primary); margin:14px 0 6px; letter-spacing:-.01em}
 .field-label{font-size:13px; font-weight:750; margin:0 0 6px; display:block}
 .field-label .req,.req{color:var(--coral-600)}
-input[type=text],input[type=tel],input[type=email],input[type=password],input[type=number],input[type=date],select,textarea{
+input[type=text],input[type=tel],input[type=email],input[type=password],input[type=number],input[type=date],input[type=search],select,textarea{
   width:100%; padding:12px 14px; font-size:16px; /* 16px=iOS 자동확대 방지 */
-  border:1px solid var(--border-default); border-radius:12px; background:#fff; color:var(--text-primary);
+  border:1px solid var(--border-default); border-radius:12px; background:var(--surface-card); color:var(--text-primary);
   font-family:inherit; transition:border-color .15s, box-shadow .15s}
 input::placeholder,textarea::placeholder{color:var(--gray-400); opacity:1}
-input:focus,select:focus,textarea:focus{outline:none; border-color:var(--blue-500); box-shadow:0 0 0 3px var(--blue-50)}
+input:focus,select:focus,textarea:focus{outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--tint-bg)}
+input.invalid,textarea.invalid{border-color:var(--danger-500)}
+.f-err{display:block; font-size:12.5px; font-weight:600; color:var(--danger-500); margin-top:5px}
 textarea{line-height:1.6; min-height:120px; resize:vertical}
 textarea.ph-ta{min-height:120px}
 select.ph-select{height:46px; padding:0 12px}
@@ -168,20 +173,20 @@ select.ph-select{height:46px; padding:0 12px}
 /* ── 선택 카드(라디오) — role-card 룩 ── */
 .radios{display:flex; flex-direction:column; gap:8px; margin-top:6px}
 .radios label{display:flex; align-items:center; gap:10px; font-weight:750; color:var(--text-primary); margin:0;
-  padding:13px 14px; border:1.5px solid var(--border-default); border-radius:12px; background:#fff; cursor:pointer;
+  padding:13px 14px; border:1.5px solid var(--border-default); border-radius:12px; background:var(--surface-card); cursor:pointer;
   min-height:50px; font-size:14.5px; transition:border-color .12s, background .12s}
-.radios label:has(input:checked){border-color:var(--blue-600); background:var(--blue-50)}
-.radios input{width:18px; height:18px; accent-color:var(--blue-600); flex:0 0 auto}
+.radios label:has(input:checked){border-color:var(--accent); background:var(--tint-bg)}
+.radios input{width:18px; height:18px; accent-color:var(--accent); flex:0 0 auto}
 
 .role-card{display:flex; align-items:center; gap:10px; width:100%; border:1.5px solid var(--border-default);
-  border-radius:12px; background:#fff; padding:13px 14px; cursor:pointer; font-family:inherit; text-align:left;
+  border-radius:12px; background:var(--surface-card); padding:13px 14px; cursor:pointer; font-family:inherit; text-align:left;
   min-height:50px; transition:border-color 120ms ease, background 120ms ease}
 .role-card .rc-dot{width:20px; height:20px; border-radius:999px; border:2px solid var(--gray-300); flex-shrink:0;
   display:flex; align-items:center; justify-content:center; transition:border-color 120ms ease}
 .role-card .rc-dot i{width:10px; height:10px; border-radius:999px; background:transparent}
-.role-card.sel{border-color:var(--blue-600); background:var(--blue-50)}
-.role-card.sel .rc-dot{border-color:var(--blue-600)}
-.role-card.sel .rc-dot i{background:var(--blue-600)}
+.role-card.sel{border-color:var(--accent); background:var(--tint-bg)}
+.role-card.sel .rc-dot{border-color:var(--accent)}
+.role-card.sel .rc-dot i{background:var(--accent)}
 .role-card .rc-t{font-size:14.5px; font-weight:750}
 .role-card .rc-s{font-size:12px; color:var(--text-muted); margin-top:1px}
 
@@ -196,13 +201,13 @@ select.ph-select{height:46px; padding:0 12px}
 .check-row,.consent .row{display:flex; align-items:flex-start; gap:10px; padding:11px 0; min-height:44px;
   box-sizing:border-box; cursor:pointer; border-top:1px solid var(--gray-200); margin-top:10px}
 .consent .row:first-of-type{margin-top:10px}
-.check-row .box{width:21px; height:21px; border-radius:6px; border:1.5px solid var(--gray-400); background:#fff;
+.check-row .box{width:21px; height:21px; border-radius:6px; border:1.5px solid var(--gray-400); background:var(--surface-card);
   flex-shrink:0; margin-top:1px; display:flex; align-items:center; justify-content:center; color:#fff;
   transition:background 120ms ease, border-color 120ms ease}
-.check-row.on .box{background:var(--blue-600); border-color:var(--blue-600)}
+.check-row.on .box{background:var(--accent); border-color:var(--accent)}
 .check-row .ct{font-size:13px; line-height:1.6; color:var(--text-primary)}
 .check-row .ct b{font-weight:800}
-.consent .row input{width:19px; height:19px; flex:0 0 auto; accent-color:var(--blue-600); margin-top:1px}
+.consent .row input{width:19px; height:19px; flex:0 0 auto; accent-color:var(--accent); margin-top:1px}
 .consent .row label{margin:0; font-weight:500; font-size:13px; color:var(--text-primary)}
 
 /* ===================================================================
@@ -224,9 +229,9 @@ select.ph-select{height:46px; padding:0 12px}
 .mju-btn--sm{font-size:13px; padding:8px 14px; border-radius:var(--radius-sm)}
 .mju-btn--lg,.btn.lg{font-size:17px; padding:15px 28px}
 .mju-btn--full,.btn{width:100%}
-.mju-btn--secondary,.btn.ghost{--_bg:#fff; --_fg:var(--blue-600); --_bd:var(--blue-600); --_bgh:var(--blue-50)}
+.mju-btn--secondary,.btn.ghost{--_bg:var(--surface-card); --_fg:var(--tint-fg); --_bd:var(--accent); --_bgh:var(--tint-bg)}
 .btn.ghost{box-shadow:none}
-.mju-btn--ghost{--_bg:transparent; --_fg:var(--blue-600); --_bd:transparent; --_bgh:var(--blue-50)}
+.mju-btn--ghost{--_bg:transparent; --_fg:var(--tint-fg); --_bd:transparent; --_bgh:var(--tint-bg)}
 .mju-btn--gold,.btn.gold{--_bg:var(--gold-500); --_fg:var(--blue-700); --_bd:transparent; --_bgh:var(--gold-600)}
 .mju-btn--coral,.btn.coral{--_bg:var(--coral-500); --_fg:#fff; --_bd:transparent; --_bgh:var(--coral-600)}
 .mju-btn--onNavy{--_bg:#fff; --_fg:var(--blue-600); --_bd:transparent; --_bgh:var(--blue-50)}
@@ -236,7 +241,7 @@ select.ph-select{height:46px; padding:0 12px}
    =================================================================== */
 .mju-badge{display:inline-flex; align-items:center; gap:6px; font-family:var(--font-sans);
   font-weight:700; font-size:12px; line-height:1; padding:5px 10px; border-radius:var(--radius-pill);
-  white-space:nowrap; background:var(--blue-50); color:var(--blue-600)}
+  white-space:nowrap; background:var(--tint-bg); color:var(--tint-fg)}
 .mju-badge--navy{background:var(--blue-600); color:#fff}
 .mju-badge--sky{background:var(--blue-100); color:var(--blue-600)}
 .mju-badge--gold{background:var(--gold-300); color:var(--gold-600)}
@@ -246,10 +251,10 @@ select.ph-select{height:46px; padding:0 12px}
 
 .mju-tag{display:inline-flex; align-items:center; gap:6px; font-family:var(--font-sans); font-weight:600;
   font-size:13px; line-height:1; padding:8px 14px; border-radius:var(--radius-pill);
-  border:1.5px solid var(--border-default); background:#fff; color:var(--text-secondary); cursor:pointer;
+  border:1.5px solid var(--border-default); background:var(--surface-card); color:var(--text-secondary); cursor:pointer;
   transition:all var(--dur-fast) var(--ease-out); white-space:nowrap}
-.mju-tag:hover{border-color:var(--blue-400); color:var(--blue-600)}
-.mju-tag--selected{background:var(--blue-600); border-color:var(--blue-600); color:#fff}
+.mju-tag:hover{border-color:var(--blue-400); color:var(--tint-fg)}
+.mju-tag--selected{background:var(--accent); border-color:var(--accent); color:#fff}
 
 .mju-alert{display:flex; gap:12px; align-items:flex-start; font-family:var(--font-sans); padding:14px 16px;
   border-radius:var(--radius-md); border:1px solid transparent}
@@ -280,11 +285,11 @@ select.ph-select{height:46px; padding:0 12px}
 .steps li{position:relative; padding:11px 0 11px 40px; border-top:1px solid var(--gray-100)}
 .steps li:first-child{border-top:0}
 .steps li::before{counter-increment:s; content:counter(s); position:absolute; left:0; top:10px;
-  width:26px; height:26px; background:var(--blue-50); color:var(--blue-600); border-radius:999px;
+  width:26px; height:26px; background:var(--tint-bg); color:var(--tint-fg); border-radius:999px;
   display:flex; align-items:center; justify-content:center; font-family:var(--mono); font-size:12.5px; font-weight:700}
 .step-row{display:flex; gap:12px; align-items:flex-start; padding:10px 0; border-top:1px solid var(--gray-100)}
 .step-row:first-of-type{border-top:0}
-.step-num{width:26px; height:26px; border-radius:999px; flex-shrink:0; background:var(--blue-50); color:var(--blue-600);
+.step-num{width:26px; height:26px; border-radius:999px; flex-shrink:0; background:var(--tint-bg); color:var(--tint-fg);
   font-family:var(--mono); font-size:12.5px; font-weight:700; display:flex; align-items:center; justify-content:center; margin-top:1px}
 .step-row .st{font-size:13.5px; line-height:1.6; color:var(--text-primary)}
 .step-row .st b{font-weight:800}
@@ -295,16 +300,16 @@ select.ph-select{height:46px; padding:0 12px}
 
 /* ── 빈 상태 ── */
 .empty-state{text-align:center; padding:34px 18px}
-.empty-state .ei{width:52px; height:52px; border-radius:16px; margin:0 auto 14px; background:var(--blue-50);
-  color:var(--blue-300); display:flex; align-items:center; justify-content:center}
+.empty-state .ei{width:52px; height:52px; border-radius:16px; margin:0 auto 14px; background:var(--tint-bg);
+  color:var(--tint-fg); display:flex; align-items:center; justify-content:center}
 .empty-state .et{font-size:15px; font-weight:800; margin-bottom:6px}
 .empty-state .es{font-size:13px; line-height:1.65; color:var(--text-muted); max-width:250px; margin:0 auto}
 
 /* ── 만족도 5점 척도 ── */
 .scale-row{display:flex; gap:7px; margin-top:8px}
-.scale-btn{flex:1; height:46px; border-radius:11px; border:1.5px solid var(--border-default); background:#fff;
+.scale-btn{flex:1; height:46px; border-radius:11px; border:1.5px solid var(--border-default); background:var(--surface-card);
   font-family:inherit; font-size:15px; font-weight:700; color:var(--text-secondary); cursor:pointer; transition:all 120ms ease}
-.scale-btn.sel{background:var(--blue-600); border-color:var(--blue-600); color:#fff}
+.scale-btn.sel{background:var(--accent); border-color:var(--accent); color:#fff}
 .scale-ends{display:flex; justify-content:space-between; font-size:11px; color:var(--text-muted); margin-top:5px}
 
 /* ── 처리방침 문서 ── */
@@ -317,7 +322,7 @@ select.ph-select{height:46px; padding:0 12px}
 .pv-table th{background:var(--surface-sunken); font-weight:750}
 
 /* ── 보안 자가점검 ── */
-.mono{font-family:var(--mono); font-size:12px; background:var(--surface-sunken); padding:2px 7px; border-radius:6px; color:var(--blue-600)}
+.mono{font-family:var(--mono); font-size:12px; background:var(--surface-sunken); padding:2px 7px; border-radius:6px; color:var(--tint-fg)}
 .pass{color:var(--success-500); font-weight:700}
 .fail{color:var(--danger-500); font-weight:700}
 .sec-check-row{display:flex; align-items:center; gap:10px; padding:10px 0; border-top:1px solid var(--gray-100); font-size:13.5px}
@@ -325,7 +330,7 @@ select.ph-select{height:46px; padding:0 12px}
 .sec-check-row .tn{font-family:var(--mono); font-size:12.5px}
 
 /* ── 토스트 ── */
-.ph-toast{position:fixed; left:50%; bottom:28px; transform:translateX(-50%); background:var(--ink-800); color:#fff;
+.ph-toast{position:fixed; left:50%; bottom:28px; transform:translateX(-50%); background:var(--ink-800); color:var(--paper);
   font-size:13px; font-weight:600; padding:10px 18px; border-radius:999px; white-space:nowrap; z-index:1200;
   box-shadow:0 8px 24px rgba(7,22,72,.3); animation:toast-in 180ms ease}
 @keyframes toast-in{from{opacity:0; transform:translateX(-50%) translateY(8px)} to{opacity:1; transform:translateX(-50%) translateY(0)}}
@@ -384,10 +389,10 @@ select.ph-select{height:46px; padding:0 12px}
 .mem-row .md{font-size:12.5px; color:var(--text-muted); margin-top:2px}
 .mem-row .phone-btn{display:inline-flex; align-items:center; gap:5px; font-family:var(--mono); font-size:12px;
   color:var(--text-secondary); background:var(--surface-sunken); border:0; border-radius:7px; padding:4px 8px; cursor:pointer}
-.icon-btn{width:36px; height:36px; border-radius:10px; border:1px solid var(--border-default); background:#fff;
+.icon-btn{width:36px; height:36px; border-radius:10px; border:1px solid var(--border-default); background:var(--surface-card);
   color:var(--text-secondary); cursor:pointer; display:inline-flex; align-items:center; justify-content:center;
   transition:all 120ms ease; flex-shrink:0}
-.icon-btn:hover{border-color:var(--blue-600); color:var(--blue-600)}
+.icon-btn:hover{border-color:var(--accent); color:var(--tint-fg)}
 
 .agg-row{display:grid; grid-template-columns:130px 1fr 52px; gap:14px; align-items:center; padding:9px 0}
 .agg-row .al{font-size:13.5px; font-weight:750}
@@ -431,13 +436,14 @@ select.ph-select{height:46px; padding:0 12px}
 
 /* 하단 탭 네비게이션(app.js가 학생 페이지에 주입) */
 .tabbar{position:fixed; left:50%; transform:translateX(-50%); bottom:0; width:100%; max-width:480px; z-index:90;
-  display:flex; background:rgba(255,255,255,.96); backdrop-filter:blur(12px); border-top:1px solid var(--border-subtle);
+  display:flex; background:var(--tabbar-bg); backdrop-filter:blur(12px); border-top:1px solid var(--border-subtle);
   padding-bottom:env(safe-area-inset-bottom, 0px)}
 .tabbar a{flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; padding:8px 2px 7px;
-  text-decoration:none; color:var(--text-muted); font-size:11.5px; font-weight:700; letter-spacing:-.01em}
+  text-decoration:none; color:var(--text-muted); font-size:11.5px; font-weight:700; letter-spacing:-.01em; position:relative}
 .tabbar a [data-lucide]{width:22px; height:22px}
-.tabbar a.on{color:var(--blue-600)}
-.tabbar a:active{background:var(--blue-50)}
+.tabbar a.on{color:var(--tint-fg)}
+.tabbar a:active{background:var(--tint-bg)}
+.tabbar a:focus-visible{outline:2px solid var(--focus-ring); outline-offset:-2px; border-radius:8px}
 body.has-tabbar .ph-body{padding-bottom:84px}
 
 /* 모션 감소 선호 존중 */
@@ -445,6 +451,143 @@ body.has-tabbar .ph-body{padding-bottom:84px}
   *,*::before,*::after{animation-duration:.001ms!important; animation-iteration-count:1!important;
     transition-duration:.001ms!important; scroll-behavior:auto!important}
   .menu-tile:hover{transform:none}
+}
+
+/* ===================================================================
+   Tier 6 — 검색/필터칩/더보기 · 스켈레톤 · 미확인 배지 · 온보딩 · FAQ
+   =================================================================== */
+/* ── 검색바 ── */
+.searchbar{position:relative; margin-bottom:2px}
+.searchbar [data-lucide]{position:absolute; left:13px; top:50%; transform:translateY(-50%);
+  width:17px; height:17px; color:var(--text-muted); pointer-events:none}
+.searchbar input{padding-left:40px; border-radius:999px} /* font-size는 기본 16px 유지(iOS 자동확대 방지) */
+.searchbar input::-webkit-search-cancel-button,.searchbar input::-webkit-search-decoration{-webkit-appearance:none; appearance:none; display:none}
+.searchbar .sb-clear{position:absolute; right:6px; top:50%; transform:translateY(-50%); width:32px; height:32px;
+  border:0; border-radius:999px; background:none; color:var(--text-muted); cursor:pointer; font-size:16px; line-height:1}
+.searchbar .sb-clear:hover{background:var(--surface-sunken)}
+
+/* ── 필터 칩(가로 스크롤) ── */
+.filter-chips{display:flex; gap:7px; overflow-x:auto; padding:2px 2px 6px; -webkit-overflow-scrolling:touch;
+  scrollbar-width:none}
+.filter-chips::-webkit-scrollbar{display:none}
+.chip{flex-shrink:0; border:1.5px solid var(--border-default); background:var(--surface-card); color:var(--text-secondary);
+  font-family:inherit; font-size:13px; font-weight:700; padding:7px 14px; border-radius:999px; cursor:pointer;
+  min-height:34px; transition:all var(--dur-fast) var(--ease-out); white-space:nowrap}
+.chip:focus-visible{outline:2px solid var(--focus-ring); outline-offset:2px}
+.chip.on{background:var(--accent); border-color:var(--accent); color:#fff}
+
+/* ── 더보기 ── */
+.loadmore{margin-top:4px}
+.result-count{font-size:12.5px; color:var(--text-muted); margin:2px 2px 0}
+
+/* ── 스켈레톤 로딩 ── */
+.skel-card{background:var(--surface-card); border:1px solid var(--border-subtle); border-radius:var(--radius-lg); padding:18px 16px}
+.skel{position:relative; overflow:hidden; background:var(--surface-sunken); border-radius:7px}
+.skel::after{content:""; position:absolute; inset:0; transform:translateX(-100%);
+  background:linear-gradient(90deg, transparent, rgba(255,255,255,.45), transparent); animation:skel-sh 1.3s infinite}
+.skel-line{height:13px; margin-top:10px}
+.skel-line:first-child{margin-top:0}
+.skel-line.w60{width:60%} .skel-line.w40{width:40%} .skel-line.w80{width:80%}
+@keyframes skel-sh{to{transform:translateX(100%)}}
+@media (prefers-reduced-motion: reduce){.skel::after{animation:none}}
+
+/* ── 미확인(unread) ── */
+.count-badge{display:inline-flex; align-items:center; justify-content:center; min-width:18px; height:18px;
+  padding:0 5px; border-radius:999px; background:var(--coral-500); color:#fff; font-size:11px; font-weight:800;
+  font-family:var(--mono); line-height:1}
+.menu-tile .mbadge{position:absolute; top:12px; right:12px}
+.tabbar a .count-badge{position:absolute; top:4px; left:calc(50% + 6px)}
+.unread-dot{display:inline-block; width:8px; height:8px; border-radius:999px; background:var(--coral-500);
+  flex-shrink:0; vertical-align:2px}
+
+/* ── 온보딩 시트(첫 진입 1회) ── */
+.ob-veil{position:fixed; inset:0; background:rgba(7,22,72,.5); z-index:1300; display:flex; align-items:flex-end;
+  justify-content:center; backdrop-filter:blur(2px)}
+.ob-sheet{background:var(--surface-card); width:100%; max-width:480px; border-radius:22px 22px 0 0;
+  padding:26px 22px calc(20px + env(safe-area-inset-bottom, 0px)); animation:ob-up 240ms var(--ease-out)}
+@keyframes ob-up{from{transform:translateY(40px); opacity:0} to{transform:translateY(0); opacity:1}}
+.ob-art{width:58px; height:58px; border-radius:18px; background:var(--tint-bg); color:var(--tint-fg);
+  display:flex; align-items:center; justify-content:center; margin-bottom:14px}
+.ob-art [data-lucide]{width:28px; height:28px}
+.ob-t{font-size:18px; font-weight:800; letter-spacing:-.02em; margin:0 0 6px}
+.ob-s{font-size:14px; line-height:1.65; color:var(--text-secondary); margin:0 0 18px; min-height:69px}
+.ob-dots{display:flex; gap:6px; margin-bottom:16px}
+.ob-dots i{width:7px; height:7px; border-radius:999px; background:var(--gray-300); transition:all 160ms ease}
+.ob-dots i.on{width:20px; background:var(--accent)}
+.ob-row{display:flex; gap:10px; align-items:center}
+.ob-skip{background:none; border:0; font-family:inherit; font-size:14px; font-weight:700; color:var(--text-muted);
+  cursor:pointer; padding:12px 14px; min-height:44px}
+@media (prefers-reduced-motion: reduce){.ob-sheet{animation:none}}
+
+/* ── FAQ 아코디언 ── */
+.faq-item{border:1px solid var(--border-subtle); border-radius:var(--radius-lg); background:var(--surface-card);
+  margin-bottom:10px; overflow:hidden}
+.faq-item summary{display:flex; align-items:center; gap:10px; padding:15px 16px; cursor:pointer;
+  font-size:14.5px; font-weight:750; letter-spacing:-.01em; list-style:none; min-height:52px}
+.faq-item summary::-webkit-details-marker{display:none}
+.faq-item summary [data-lucide]{flex-shrink:0; color:var(--tint-fg)}
+.faq-item summary .fq-arrow{margin-left:auto; color:var(--text-muted); transition:transform 160ms ease}
+.faq-item[open] summary .fq-arrow{transform:rotate(180deg)}
+.faq-item summary:focus-visible{outline:2px solid var(--focus-ring); outline-offset:-2px}
+.faq-item .fq-a{padding:0 16px 15px 42px; font-size:13.5px; line-height:1.7; color:var(--text-secondary)}
+.faq-item .fq-a b{color:var(--text-primary)}
+
+/* ── 메뉴 타일 포커스 ── */
+.menu-tile:focus-visible{outline:2px solid var(--focus-ring); outline-offset:2px}
+
+/* ── 스크린리더 전용 텍스트 ── */
+.sr-only{position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden;
+  clip:rect(0 0 0 0); white-space:nowrap; border:0}
+
+/* ===================================================================
+   다크 모드 — OS 설정 자동 추종 (관리자 콘솔 body.adm 은 라이트 유지)
+   헤더는 두 모드 모두 네이비 브랜드 유지. 틴트/액센트/링크 4토큰 + 중립 스케일만 뒤집음.
+   =================================================================== */
+@media (prefers-color-scheme: dark){
+  body:not(.adm){
+    color-scheme:dark;
+    --white:#151C2B; --paper:#0B101B;
+    --gray-100:#1B2334; --gray-200:#27314A; --gray-300:#374259; --gray-400:#5C6781;
+    --gray-500:#8E99B3; --gray-600:#ABB5CC; --gray-700:#C7CFE0;
+    --ink-800:#E3E9F4; --ink-900:#EFF3FA;
+    --surface-sunken:#101726;
+    --border-subtle:#232D43; --border-default:#374259;
+    --success-50:#102A1A; --warning-50:#2B2110; --danger-50:#2D1414; --info-50:#13203A;
+    --success-500:#43C77E; --danger-500:#F07B7B; --warning-500:#EDB35B;
+    --tint-bg:#16253F; --tint-fg:#8AB6EC; --accent:#5D8FD0; --link:#7FB1E8;
+    --tabbar-bg:rgba(13,18,30,.96);
+    /* 시맨틱 토큰 재선언 — :root에서 var()가 라이트 값으로 고정되므로 body에서 다시 풀어줌 */
+    --surface-page:var(--paper); --surface-card:var(--white); --surface-sunken:#101726;
+    --text-primary:var(--ink-900); --text-secondary:var(--gray-600); --text-muted:var(--gray-500);
+    /* 기존 페이지 호환 별칭도 동일하게 재선언 */
+    --bg:var(--paper); --card:var(--white); --line:var(--gray-200);
+    --text:var(--ink-900); --muted:var(--gray-500); --note:var(--gray-600);
+    --ok:var(--success-500); --err:var(--danger-500);
+    --cream:var(--white); --sand-bg:var(--gray-100);
+    --shadow-sm:0 1px 3px rgba(0,0,0,.4),0 1px 2px rgba(0,0,0,.3);
+    --shadow-md:0 4px 12px rgba(0,0,0,.45),0 2px 4px rgba(0,0,0,.3);
+    --shadow-lg:0 12px 28px rgba(0,0,0,.55),0 6px 10px rgba(0,0,0,.35);
+  }
+  body:not(.adm) ::selection{background:#2A4A7A}
+  /* 라이트 전용 하드코딩 색 보정 */
+  body:not(.adm) .warn{background:var(--warning-50); border-color:#574117; color:#E9CD92}
+  body:not(.adm) .warn b{color:#F3DCA9}
+  body:not(.adm) .mju-alert--info{border-color:#27406B; color:#C9DDF6}
+  body:not(.adm) .mju-alert--success{border-color:#1E5234; color:#A9E3C2}
+  body:not(.adm) .mju-alert--warning{border-color:#574117; color:#E9CD92}
+  body:not(.adm) .mju-badge--sky{background:#1B2F52; color:#9CC3F0}
+  body:not(.adm) .mju-badge--coral{background:#3A1D18; color:#FF9C8C}
+  body:not(.adm) .mju-badge--gold{background:var(--gold-500); color:#142037}
+  body:not(.adm) .dday.muted{background:var(--gray-200); color:var(--gray-500)}
+  /* 네이비 채움 요소 — 다크 카드(#151C2B) 위에서 가라앉으므로 밝은 브랜드 블루로 */
+  body:not(.adm) .mju-badge--navy{background:#1A4FA0}
+  body:not(.adm) .msg.student{background:#1A4FA0}
+  body:not(.adm) .skel{background:#232E45}
+  body:not(.adm) .skel::after{background:linear-gradient(90deg, transparent, rgba(255,255,255,.08), transparent)}
+  body:not(.adm) .app{box-shadow:0 0 0 1px var(--gray-100)}
+  /* 네이비 채움 버튼은 다크에서 너무 가라앉음 → 살짝 밝은 브랜드 블루 */
+  body:not(.adm) .mju-btn:not(.mju-btn--secondary):not(.mju-btn--ghost):not(.mju-btn--gold):not(.mju-btn--coral):not(.mju-btn--onNavy),
+  body:not(.adm) .btn:not(.ghost):not(.gold):not(.coral){--_bg:#1A4FA0; --_bgh:#16438A}
 }
 
 /* ===== 관리자 가입자 표(정렬·필터·다중선택·개인지정) ===== */

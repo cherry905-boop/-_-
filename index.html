@@ -49,6 +49,7 @@
         <p class="menu-group-label">설정</p>
         <div class="menu-grid">
           <a href="./install.html"  class="menu-tile"><span class="mi"><i data-lucide="bell"></i></span><span class="ml">알림 설정</span></a>
+          <a href="./faq.html"      class="menu-tile"><span class="mi"><i data-lucide="circle-help"></i></span><span class="ml">자주 묻는 질문</span></a>
         </div>
         <div class="ph-foot-links" style="margin-top:16px">
           <a href="./privacy.html">개인정보 처리방침</a><span>·</span><a href="#" id="resignup">다른 정보로 다시 가입</a>
@@ -142,9 +143,23 @@
     </main>
   </div>
 
+  <!-- 첫 진입 온보딩 (가입 전 기기에서 1회) -->
+  <div class="ob-veil" id="ob" style="display:none" role="dialog" aria-modal="true" aria-labelledby="ob-t">
+    <div class="ob-sheet">
+      <div class="ob-art" id="ob-art"><i data-lucide="megaphone"></i></div>
+      <h2 class="ob-t" id="ob-t"></h2>
+      <p class="ob-s" id="ob-s"></p>
+      <div class="ob-dots" id="ob-dots" aria-hidden="true"></div>
+      <div class="ob-row">
+        <button type="button" class="ob-skip" id="ob-skip">건너뛰기</button>
+        <button type="button" class="mju-btn" id="ob-next" style="flex:1">다음</button>
+      </div>
+    </div>
+  </div>
+
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   <script type="module">
-    import { supabase, configReady, getQueryParam, isInAppBrowser, isStandalone, setStatus, friendlyError } from './app.js';
+    import { supabase, configReady, getQueryParam, isInAppBrowser, isStandalone, setStatus, friendlyError, attachPhoneFormat } from './app.js';
 
     if (window.lucide) window.lucide.createIcons();
 
@@ -172,6 +187,34 @@
         e.preventDefault();
         if (confirm('가입 정보를 지우고 다시 가입할까요?')) { localStorage.removeItem('ilhak_profile'); location.reload(); }
       });
+    }
+
+    // 첫 진입 온보딩 — 가입 전 기기에서 1회만 표시
+    // (홈 화면 추가 후 첫 실행은 '내 정보 불러오기' 복원이 우선이므로 제외)
+    const OB_KEY = 'ilhak_onboard_v1';
+    let _obSeen = true; try { _obSeen = !!localStorage.getItem(OB_KEY); } catch (_) {}
+    if (!(_prof && _prof.name) && !_obSeen && !isStandalone()) {
+      const slides = [
+        { icon: 'megaphone',  t: '공지·자료·일정을 한곳에서',      s: '공동훈련센터의 공지사항, 학습안내서·서식, 외부평가·마감 일정을 이 앱 하나로 확인해요.' },
+        { icon: 'user-check', t: '가입은 이름·휴대폰이면 끝',      s: '센터 명단과 자동으로 확인해 30초면 가입돼요. 직무·기업 정보는 명단에서 자동으로 채워집니다.' },
+        { icon: 'bell-ring',  t: '홈 화면에 추가하고 알림 받기',   s: '가입 후 "홈 화면에 추가"하면 앱처럼 쓰고, 새 공지를 푸시 알림으로 받아요. 아이폰은 Safari에서 열어주세요.' },
+      ];
+      let obIdx = 0;
+      const ob = document.getElementById('ob'), obDots = document.getElementById('ob-dots');
+      obDots.innerHTML = slides.map(() => '<i></i>').join('');
+      const obShow = () => {
+        const s = slides[obIdx];
+        document.getElementById('ob-art').innerHTML = `<i data-lucide="${s.icon}"></i>`;
+        document.getElementById('ob-t').textContent = s.t;
+        document.getElementById('ob-s').textContent = s.s;
+        [...obDots.children].forEach((d, i) => { d.className = i === obIdx ? 'on' : ''; });
+        document.getElementById('ob-next').textContent = obIdx === slides.length - 1 ? '시작하기' : '다음';
+        window.lucide?.createIcons();
+      };
+      const obDone = () => { try { localStorage.setItem(OB_KEY, '1'); } catch (_) {} ob.style.display = 'none'; };
+      document.getElementById('ob-next').addEventListener('click', () => { if (obIdx < slides.length - 1) { obIdx++; obShow(); } else obDone(); });
+      document.getElementById('ob-skip').addEventListener('click', obDone);
+      ob.style.display = 'flex'; obShow();
     }
 
     // 표준앱(홈 화면 추가)으로 처음 열었는데 프로필이 없음 = iOS 저장소 분리로 정보 소실
@@ -279,6 +322,35 @@
     // 기업 드롭다운만 노션 동기화(companies)에서 채움 (직무는 매칭학생 확인 후 '본인 직무'만 동적 노출)
     const nameEl = document.getElementById('name');
     const phoneEl = document.getElementById('phone');
+
+    // 휴대폰 자동 하이픈 (가입폼 + 복원폼)
+    attachPhoneFormat(phoneEl);
+    attachPhoneFormat(document.getElementById('r-phone'));
+
+    // 인라인 검증 — blur 시 필드 바로 아래 에러 표시(제출 전 실수를 즉시 안내)
+    function fieldErr(input, msg) {
+      if (!input) return;
+      let e = input.nextElementSibling;
+      const has = e && e.classList && e.classList.contains('f-err');
+      if (!msg) {
+        if (has) e.remove();
+        input.classList.remove('invalid'); input.removeAttribute('aria-invalid'); input.removeAttribute('aria-describedby');
+        return;
+      }
+      if (!has) { e = document.createElement('span'); e.className = 'f-err'; e.id = input.id + '-err'; input.after(e); }
+      e.textContent = msg;
+      input.classList.add('invalid'); input.setAttribute('aria-invalid', 'true'); input.setAttribute('aria-describedby', e.id);
+    }
+    const validPhone = v => { const d = v.replace(/\D/g, ''); return d.length >= 10 && d.length <= 11 && d.startsWith('01'); };
+    [[nameEl, v => v.trim().length >= 2, '이름을 정확히 입력해주세요.'],
+     [phoneEl, validPhone, '휴대폰 번호를 정확히 입력해주세요 (예: 010-1234-5678).'],
+     [document.getElementById('r-name'), v => v.trim().length >= 2, '이름을 정확히 입력해주세요.'],
+     [document.getElementById('r-phone'), validPhone, '휴대폰 번호를 정확히 입력해주세요 (예: 010-1234-5678).']]
+      .forEach(([el, ok, msg]) => {
+        if (!el) return;
+        el.addEventListener('blur', () => fieldErr(el, el.value.trim() && !ok(el.value) ? msg : ''));
+        el.addEventListener('input', () => fieldErr(el, ''));
+      });
     const jobSel = document.getElementById('job');
     const compSel = document.getElementById('company');
     const otherOpt = compSel.querySelector('option[value="__other__"]');

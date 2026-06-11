@@ -19,7 +19,14 @@
       <p class="ph-sub" id="who"></p>
     </header>
     <main class="ph-body">
+      <div class="searchbar" id="sb" style="display:none">
+        <i data-lucide="search"></i>
+        <input type="search" id="q" placeholder="공지 검색 (제목·내용)" aria-label="공지 검색" autocomplete="off" />
+        <button type="button" class="sb-clear" id="qClear" aria-label="검색어 지우기" style="display:none">✕</button>
+      </div>
+      <p class="result-count" id="rcount" style="display:none" aria-live="polite"></p>
       <div id="list"></div>
+      <button class="mju-btn mju-btn--secondary mju-btn--full loadmore" id="more" style="display:none">더 보기</button>
       <p class="note" id="empty" style="display:none;text-align:center;margin-top:30px">표시할 공지가 없습니다.</p>
       <a href="./index.html" class="mju-btn mju-btn--secondary mju-btn--full" style="margin-top:auto;text-decoration:none">홈으로</a>
     </main>
@@ -27,52 +34,75 @@
 
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   <script type="module">
-    import { supabase, configReady } from './app.js';
+    import { supabase, configReady, esc, getProfile, noticeMatches, skeletonList, clearSkeleton,
+             getReadSet, markNoticesRead, updateUnreadBadges } from './app.js';
     if (window.lucide) window.lucide.createIcons();
 
     // 이 기기의 프로필(가입 때 저장) — 공지 필터링용
-    let profile = {};
-    try { profile = JSON.parse(localStorage.getItem('ilhak_profile') || '{}'); } catch (_) {}
+    const profile = getProfile();
     document.getElementById('who').textContent = profile.name ? `${profile.name}님 맞춤 공지` : '전체 공지';
 
-    // 공지가 이 기기에 보여야 하는가?
-    const normCo = (s) => (s || '').replace(/㈜|\(주\)|주식회사|\s/g, '');  // 회사명 표기차이 흡수
-    // 상세 지정(custom) 매칭 — admin 작성 선택기와 동일 규칙(해당 세그먼트 중 하나라도 맞으면 표시)
-    function matchSel(sel) {
-      if (!sel) return false;
-      if (sel.targets && sel.targets.includes(profile.target_type)) return true;
-      if (sel.jobs && profile.job_key && sel.jobs.includes(profile.job_key)) return true;
-      if (sel.companies && profile.company && sel.companies.map(normCo).includes(normCo(profile.company))) return true;
-      if (sel.types && profile.type1 && sel.types.includes(profile.type1)) return true;
-      if (sel.managers && sel.managers.length && profile.manager && sel.managers.includes(profile.manager.trim())) return true;
-      return false;
-    }
-    function matches(n) {
-      switch (n.target_scope) {
-        case 'all':     return true;
-        case 'job':     return profile.job_key   === n.target_value;
-        case 'company': return normCo(profile.company) === normCo(n.target_value);
-        case 'target':  return profile.target_type === n.target_value;
-        case 'type':    return profile.type1       === n.target_value;
-        case 'custom':  { try { return matchSel(JSON.parse(n.target_value || '{}')); } catch (_) { return false; } }
-        default:        return false; // manager/status 등은 푸시 단계에서 처리
-      }
-    }
     function fmt(d) { try { return new Date(d).toLocaleString('ko-KR', { dateStyle: 'medium', timeStyle: 'short' }); } catch (_) { return d; } }
-    function esc(s) { const e = document.createElement('div'); e.textContent = s || ''; return e.innerHTML; }
-
     // 새 공지(NEW) 판단 — 최근 3일 이내 작성
     function isNew(d) { try { return (Date.now() - new Date(d).getTime()) < 3 * 24 * 60 * 60 * 1000; } catch (_) { return false; } }
 
-    const listEl = document.getElementById('list');
+    const $ = id => document.getElementById(id);
+    const listEl = $('list'), emptyEl = $('empty'), moreBtn = $('more');
+    const qEl = $('q'), qClear = $('qClear'), rcount = $('rcount');
+    const PAGE = 8;
+    let all = [];        // 매칭된 전체 공지(개인 안내 병합·정렬 완료)
+    let filtered = [];   // 검색 적용분
+    let shownCount = 0;
+    const readBefore = getReadSet();   // 이번 방문 '이전'의 읽음 — unread 표시 기준
+
+    function cardFor(n) {
+      const card = document.createElement('div');
+      card.className = 'card';
+      const unread = !readBefore.has(n.id) ? `<span class="unread-dot" aria-hidden="true"></span><span class="sr-only">안 읽음</span> ` : '';
+      card.innerHTML = `<p class="ph-card-title">${unread}${esc(n.title)}` +
+        (n._personal ? ` <span class="mju-badge mju-badge--coral">개인 안내</span>` : (isNew(n.created_at) ? ` <span class="mju-badge mju-badge--coral">NEW</span>` : ``)) + `</p>` +
+        `<p class="notice-card-time">${fmt(n.created_at)}</p>` +
+        `<p class="notice-body">${esc(n.body)}</p>`;
+      return card;
+    }
+    function renderMore() {
+      const slice = filtered.slice(shownCount, shownCount + PAGE);
+      slice.forEach(n => listEl.appendChild(cardFor(n)));
+      shownCount += slice.length;
+      moreBtn.style.display = shownCount < filtered.length ? 'block' : 'none';
+      moreBtn.textContent = `더 보기 (${filtered.length - shownCount}건 남음)`;
+    }
+    function applyFilter() {
+      const q = (qEl.value || '').trim().toLowerCase();
+      qClear.style.display = q ? 'block' : 'none';
+      filtered = !q ? all
+        : all.filter(n => (n.title || '').toLowerCase().includes(q) || (n.body || '').toLowerCase().includes(q));
+      listEl.innerHTML = ''; shownCount = 0;
+      if (!filtered.length) {
+        emptyEl.style.display = 'block';
+        emptyEl.textContent = q ? `'${qEl.value.trim()}' 검색 결과가 없습니다.` : '표시할 공지가 없습니다.';
+        moreBtn.style.display = 'none'; rcount.style.display = 'none';
+        return;
+      }
+      emptyEl.style.display = 'none';
+      rcount.style.display = q ? 'block' : 'none';
+      rcount.textContent = `검색 결과 ${filtered.length}건`;
+      renderMore();
+    }
+    qEl.addEventListener('input', applyFilter);
+    qClear.addEventListener('click', () => { qEl.value = ''; applyFilter(); qEl.focus(); });
+    moreBtn.addEventListener('click', renderMore);
+
     (async () => {
-      if (!configReady()) { document.getElementById('empty').style.display = 'block'; document.getElementById('empty').textContent = 'Supabase 연결이 필요합니다(config.js).'; return; }
+      if (!configReady()) { emptyEl.style.display = 'block'; emptyEl.textContent = 'Supabase 연결이 필요합니다(config.js).'; return; }
+      skeletonList(listEl, 3);
       const { data, error } = await supabase.from('notices')
         .select('id,title,body,target_scope,target_value,created_at')
         .eq('published', true).order('created_at', { ascending: false });
-      if (error) { document.getElementById('empty').style.display = 'block'; document.getElementById('empty').textContent = '불러오기 오류: ' + error.message; return; }
+      clearSkeleton(listEl);
+      if (error) { emptyEl.style.display = 'block'; emptyEl.textContent = '일시적 오류로 불러오지 못했어요. 잠시 후 새로고침해주세요.'; console.error(error); return; }
 
-      const shown = (data || []).filter(matches);
+      const shown = (data || []).filter(n => noticeMatches(n, profile));
       // 개인 지정 공지(비공개) — 서명토큰으로 '내 것'만 서버에서 받아 병합(본문은 anon 공개목록엔 없음)
       if (profile.token) {
         try {
@@ -84,20 +114,18 @@
           }
         } catch (_) {}
       }
-      if (!shown.length) {
-        const em = document.getElementById('empty'); em.style.display = 'block';
-        if (!profile.name) em.innerHTML = '내 정보가 이 기기에 없어 맞춤 공지가 안 보일 수 있어요.<br/><a href="./index.html">홈에서 정보 입력하기</a>';
+      all = shown;
+      if (!all.length) {
+        emptyEl.style.display = 'block';
+        if (!profile.name) emptyEl.innerHTML = '내 정보가 이 기기에 없어 맞춤 공지가 안 보일 수 있어요.<br/><a href="./index.html">홈에서 정보 입력하기</a>';
         return;
       }
-      shown.forEach(n => {
-        const card = document.createElement('div');
-        card.className = 'card';
-        card.innerHTML = `<p class="ph-card-title">${esc(n.title)}` +
-          (n._personal ? ` <span class="mju-badge mju-badge--coral">개인 안내</span>` : (isNew(n.created_at) ? ` <span class="mju-badge mju-badge--coral">NEW</span>` : ``)) + `</p>` +
-          `<p class="notice-card-time">${fmt(n.created_at)}</p>` +
-          `<p class="notice-body">${esc(n.body)}</p>`;
-        listEl.appendChild(card);
-      });
+      if (all.length > 3) $('sb').style.display = 'block';
+      applyFilter();
+      // 이 페이지를 본 것 = 읽음 처리 → 탭바·홈 배지 갱신
+      // (오래된 것부터 저장해, 저장 한도 초과 시 최신 공지가 먼저 밀려나지 않게)
+      markNoticesRead(all.map(n => n.id).reverse());
+      updateUnreadBadges();
       window.lucide?.createIcons();
     })();
   </script>

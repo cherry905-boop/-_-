@@ -19,6 +19,7 @@
       <p class="ph-sub" id="who"></p>
     </header>
     <main class="ph-body">
+      <div class="filter-chips" id="chips" style="display:none" role="group" aria-label="일정 종류 필터"></div>
       <div id="list"></div>
       <div id="empty" class="empty-state" style="display:none">
         <span class="ei"><i data-lucide="calendar-days"></i></span>
@@ -31,28 +32,17 @@
 
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   <script type="module">
-    import { supabase, configReady } from './app.js';
+    import { supabase, configReady, esc, getProfile, matchSel, skeletonList, clearSkeleton } from './app.js';
     if (window.lucide) window.lucide.createIcons();
 
-    let profile = {};
-    try { profile = JSON.parse(localStorage.getItem('ilhak_profile') || '{}'); } catch (_) {}
+    const profile = getProfile();
     document.getElementById('who').textContent = profile.name ? `${profile.name}님 일정` : '';
 
-    const normCo = (s) => (s || '').replace(/㈜|\(주\)|주식회사|\s/g, '');
-    function matchSel(sel) {
-      if (!sel) return false;
-      if (sel.targets && sel.targets.includes(profile.target_type)) return true;
-      if (sel.jobs && profile.job_key && sel.jobs.includes(profile.job_key)) return true;
-      if (sel.companies && profile.company && sel.companies.map(normCo).includes(normCo(profile.company))) return true;
-      if (sel.types && profile.type1 && sel.types.includes(profile.type1)) return true;
-      return false;
-    }
     const visible = (r) => {
       if (!r.job_key) return true;                                   // 전체
-      if (r.job_key.indexOf('custom:') === 0) { try { return matchSel(JSON.parse(r.job_key.slice(7))); } catch (_) { return false; } }
+      if (r.job_key.indexOf('custom:') === 0) { try { return matchSel(JSON.parse(r.job_key.slice(7)), profile); } catch (_) { return false; } }
       return r.job_key === profile.job_key;                          // 단일 직무(기존)
     };
-    const esc = (s) => { const e = document.createElement('div'); e.textContent = s || ''; return e.innerHTML; };
     const KIND_BADGE = { '외부평가': 'mju-badge--coral', '마감': 'mju-badge--gold', 'OT': 'mju-badge--navy', '특강': 'mju-badge--sky', '행사': 'mju-badge--navy', '기타': 'mju-badge--neutral' };
 
     // D-day 계산 (로컬 자정 기준)
@@ -67,18 +57,19 @@
     const fmtDate = (s) => { try { return new Date(s + 'T00:00:00').toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' }); } catch (_) { return s; } };
 
     const listEl = document.getElementById('list');
-    (async () => {
-      if (!configReady()) { document.getElementById('empty').style.display = 'block'; return; }
-      const todayStr = new Date().toISOString().slice(0, 10);
-      const { data, error } = await supabase.from('calendar_events')
-        .select('title,event_date,kind,job_key,memo').gte('event_date', todayStr).order('event_date', { ascending: true });
-      if (error) { const e = document.getElementById('empty'); e.style.display = 'block'; document.getElementById('emptyMsg').textContent = '일시적 오류로 불러오지 못했습니다. 잠시 후 새로고침해주세요.'; console.error(error); return; }
-      const shown = (data || []).filter(visible);
+    const chipsEl = document.getElementById('chips');
+    let all = [], kindSel = '';
+
+    function render() {
+      const shown = kindSel ? all.filter(r => r.kind === kindSel) : all;
+      listEl.innerHTML = '';
+      const em = document.getElementById('empty');
       if (!shown.length) {
-        const em = document.getElementById('empty'); em.style.display = 'block';
-        if (!profile.name) document.getElementById('emptyMsg').innerHTML = '내 정보가 이 기기에 없어 맞춤 일정이 안 보일 수 있어요.<br/><a href="./index.html">홈에서 정보 입력하기</a>';
+        em.style.display = 'block';
+        document.getElementById('emptyMsg').textContent = '이 종류의 예정된 일정이 없습니다.';
         return;
       }
+      em.style.display = 'none';
       shown.forEach(r => {
         const dd = dday(r.event_date);
         const badgeCls = KIND_BADGE[r.kind] || 'mju-badge--neutral';
@@ -94,6 +85,45 @@
         listEl.appendChild(card);
       });
       window.lucide?.createIcons();
+    }
+    function syncChips() { // 리빌드 없이 상태만 갱신 — 포커스·aria 낭독 보존
+      [...chipsEl.children].forEach(b => {
+        const on = b.dataset.val === kindSel;
+        b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+    }
+    function buildChips() {
+      const kinds = [...new Set(all.map(r => r.kind).filter(Boolean))];
+      if (kinds.length < 2) return;
+      chipsEl.innerHTML = '';
+      const mk = (label, val) => {
+        const b = document.createElement('button');
+        b.type = 'button'; b.className = 'chip'; b.textContent = label; b.dataset.val = val;
+        b.addEventListener('click', () => { kindSel = val; syncChips(); render(); });
+        chipsEl.appendChild(b);
+      };
+      mk('전체', '');
+      kinds.forEach(k => mk(k, k));
+      syncChips();
+      chipsEl.style.display = 'flex';
+    }
+
+    (async () => {
+      if (!configReady()) { document.getElementById('empty').style.display = 'block'; return; }
+      skeletonList(listEl, 3);
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const { data, error } = await supabase.from('calendar_events')
+        .select('title,event_date,kind,job_key,memo').gte('event_date', todayStr).order('event_date', { ascending: true });
+      clearSkeleton(listEl);
+      if (error) { const e = document.getElementById('empty'); e.style.display = 'block'; document.getElementById('emptyMsg').textContent = '일시적 오류로 불러오지 못했습니다. 잠시 후 새로고침해주세요.'; console.error(error); return; }
+      all = (data || []).filter(visible);
+      if (!all.length) {
+        const em = document.getElementById('empty'); em.style.display = 'block';
+        if (!profile.name) document.getElementById('emptyMsg').innerHTML = '내 정보가 이 기기에 없어 맞춤 일정이 안 보일 수 있어요.<br/><a href="./index.html">홈에서 정보 입력하기</a>';
+        return;
+      }
+      buildChips();
+      render();
     })();
   </script>
 </body>

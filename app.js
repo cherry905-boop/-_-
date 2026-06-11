@@ -54,6 +54,123 @@ export function setStatus(el, msg, type = 'info') {
   el.className = 'status ' + type; // info / ok / error
 }
 
+// HTML 이스케이프 (각 페이지에 흩어져 있던 esc()의 공용 버전)
+export function esc(s) {
+  const e = document.createElement('div'); e.textContent = s || ''; return e.innerHTML;
+}
+
+// 이 기기의 가입 프로필 (없으면 {})
+export function getProfile() {
+  try { return JSON.parse(localStorage.getItem('ilhak_profile') || '{}') || {}; } catch (_) { return {}; }
+}
+
+// 회사명 표기차이 흡수 — 공지/자료/일정 타게팅 매칭 공용
+export const normCo = (s) => (s || '').replace(/㈜|\(주\)|주식회사|\s/g, '');
+// withManagers: 담당자 세그먼트 매칭은 공지에서만 사용(자료/일정의 기존 동작 보존)
+export function matchSel(sel, profile, withManagers = false) {
+  if (!sel) return false;
+  if (sel.targets && sel.targets.includes(profile.target_type)) return true;
+  if (sel.jobs && profile.job_key && sel.jobs.includes(profile.job_key)) return true;
+  if (sel.companies && profile.company && sel.companies.map(normCo).includes(normCo(profile.company))) return true;
+  if (sel.types && profile.type1 && sel.types.includes(profile.type1)) return true;
+  if (withManagers && sel.managers && sel.managers.length && profile.manager && sel.managers.includes(profile.manager.trim())) return true;
+  return false;
+}
+// 공지(notices) 행이 이 기기에 보여야 하는가 — notice.html과 배지 카운트가 같은 규칙을 공유
+export function noticeMatches(n, profile) {
+  switch (n.target_scope) {
+    case 'all':     return true;
+    case 'job':     return profile.job_key === n.target_value;
+    case 'company': return normCo(profile.company) === normCo(n.target_value);
+    case 'target':  return profile.target_type === n.target_value;
+    case 'type':    return profile.type1 === n.target_value;
+    case 'custom':  { try { return matchSel(JSON.parse(n.target_value || '{}'), profile, true); } catch (_) { return false; } }
+    default:        return false;
+  }
+}
+
+// 휴대폰 입력 자동 하이픈 (010-1234-5678) — 중간 편집 시에도 커서 위치 보존
+export function attachPhoneFormat(el) {
+  if (!el) return;
+  el.addEventListener('input', () => {
+    const before = el.value;
+    const pos = el.selectionStart == null ? before.length : el.selectionStart;
+    const digitsBeforeCaret = before.slice(0, pos).replace(/\D/g, '').length;
+    const d = before.replace(/\D/g, '').slice(0, 11);
+    let v = d;
+    if (d.length > 7)      v = d.slice(0, 3) + '-' + d.slice(3, 7) + '-' + d.slice(7);
+    else if (d.length > 3) v = d.slice(0, 3) + '-' + d.slice(3);
+    if (before === v) return;
+    el.value = v;
+    // 커서 복원: 재포맷 전 커서 앞에 있던 '숫자 개수'가 같아지는 지점으로
+    let np = 0, cnt = 0;
+    while (np < v.length && cnt < digitsBeforeCaret) { if (/\d/.test(v[np])) cnt++; np++; }
+    try { el.setSelectionRange(np, np); } catch (_) {}
+  });
+}
+
+// 목록 로딩 스켈레톤 — 데이터 도착 전 자리표시
+export function skeletonList(el, n = 3) {
+  if (!el) return;
+  el.setAttribute('aria-busy', 'true');
+  el.innerHTML = Array.from({ length: n }, () =>
+    '<div class="skel-card" style="margin-bottom:14px"><div class="skel skel-line w40"></div>' +
+    '<div class="skel skel-line w80"></div><div class="skel skel-line w60"></div></div>').join('');
+}
+export function clearSkeleton(el) {
+  if (!el) return;
+  el.removeAttribute('aria-busy');
+  el.innerHTML = '';
+}
+
+/* ── 공지 읽음 추적 (이 기기 localStorage — 서버 변경 없음) ── */
+const READ_KEY = 'ilhak_read_notices';
+export function getReadSet() {
+  try { return new Set(JSON.parse(localStorage.getItem(READ_KEY) || '[]')); } catch (_) { return new Set(); }
+}
+export function markNoticesRead(ids) {
+  try {
+    const s = getReadSet();
+    ids.forEach(id => s.add(id));
+    localStorage.setItem(READ_KEY, JSON.stringify([...s].slice(-800))); // 무한 증식 방지
+  } catch (_) {}
+}
+// 내 대상 공지 중 아직 안 읽은 개수 (최근 100건 기준)
+export async function unreadNoticeCount() {
+  if (!supabase) return 0;
+  const profile = getProfile();
+  if (!profile.name) return 0;
+  try {
+    const { data, error } = await supabase.from('notices')
+      .select('id,target_scope,target_value')
+      .eq('published', true).order('created_at', { ascending: false }).limit(100);
+    if (error || !data) return 0;
+    const read = getReadSet();
+    return data.filter(n => noticeMatches(n, profile) && !read.has(n.id)).length;
+  } catch (_) { return 0; }
+}
+// 탭바 '공지' 탭과 홈 '공지사항' 타일에 미확인 배지 표시
+export async function updateUnreadBadges() {
+  const cnt = await unreadNoticeCount();
+  document.querySelectorAll('[data-unread-badge]').forEach(el => { el.remove(); });
+  if (!cnt) return;
+  const label = cnt > 99 ? '99+' : String(cnt);
+  const tab = document.querySelector('.tabbar a[href="./notice.html"]');
+  if (tab) {
+    const b = document.createElement('span');
+    b.className = 'count-badge'; b.dataset.unreadBadge = '1'; b.textContent = label;
+    b.setAttribute('aria-label', `안 읽은 공지 ${cnt}건`);
+    tab.appendChild(b);
+  }
+  const tile = document.querySelector('.menu-tile[href="./notice.html"]');
+  if (tile) {
+    const b = document.createElement('span');
+    b.className = 'count-badge mbadge'; b.dataset.unreadBadge = '1'; b.textContent = label;
+    b.setAttribute('aria-label', `안 읽은 공지 ${cnt}건`);
+    tile.appendChild(b);
+  }
+}
+
 // Supabase/네트워크 오류를 사용자 언어로 변환 (영문 원문은 콘솔로만)
 export function friendlyError(error) {
   const m = (error && (error.message || error.msg)) || String(error || '');
@@ -87,10 +204,22 @@ if ('serviceWorker' in navigator) {
     ];
     const nav = document.createElement('nav');
     nav.className = 'tabbar';
+    nav.setAttribute('aria-label', '주요 메뉴');
     nav.innerHTML = items.map(([href, ic, label]) =>
-      `<a href="./${href}"${page === href ? ' class="on"' : ''}><i data-lucide="${ic}"></i>${label}</a>`).join('');
+      `<a href="./${href}"${page === href ? ' class="on" aria-current="page"' : ''}><i data-lucide="${ic}"></i>${label}</a>`).join('');
     document.body.appendChild(nav);
     document.body.classList.add('has-tabbar');
     if (window.lucide && window.lucide.createIcons) window.lucide.createIcons();
+    // 가입된 기기면 '공지' 탭에 미확인 배지 (공지 페이지 자신은 읽음 처리 후 직접 갱신)
+    if (page !== 'notice.html') updateUnreadBadges();
+  } catch (_) {}
+})();
+
+// 접근성 — 상태 메시지를 스크린리더가 자동 낭독하도록
+(function a11yStatus() {
+  try {
+    document.querySelectorAll('.status').forEach(el => {
+      if (!el.hasAttribute('role')) { el.setAttribute('role', 'status'); el.setAttribute('aria-live', 'polite'); }
+    });
   } catch (_) {}
 })();

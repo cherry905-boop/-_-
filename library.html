@@ -19,7 +19,14 @@
       <p class="ph-sub"><span id="who"></span> 학습안내서·서식·일정표를 한곳에서 확인하세요</p>
     </header>
     <main class="ph-body">
+      <div class="searchbar" id="sb" style="display:none">
+        <i data-lucide="search"></i>
+        <input type="search" id="q" placeholder="자료 검색 (제목)" aria-label="자료 검색" autocomplete="off" />
+        <button type="button" class="sb-clear" id="qClear" aria-label="검색어 지우기" style="display:none">✕</button>
+      </div>
+      <div class="filter-chips" id="chips" style="display:none" role="group" aria-label="자료 종류 필터"></div>
       <div id="list"></div>
+      <button class="mju-btn mju-btn--secondary mju-btn--full loadmore" id="more" style="display:none">더 보기</button>
       <div class="empty-state" id="empty" style="display:none">
         <span class="ei"><i data-lucide="folder"></i></span>
         <div class="et">아직 등록된 자료가 없어요</div>
@@ -31,60 +38,108 @@
 
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   <script type="module">
-    import { supabase, configReady } from './app.js';
+    import { supabase, configReady, esc, getProfile, matchSel, skeletonList, clearSkeleton } from './app.js';
     if (window.lucide) window.lucide.createIcons();
 
-    let profile = {};
-    try { profile = JSON.parse(localStorage.getItem('ilhak_profile') || '{}'); } catch (_) {}
+    const profile = getProfile();
     document.getElementById('who').textContent = profile.name ? `${profile.name}님` : '';
 
     // 이 학생에게 보여야 하는 자료인가 (직무 타게팅 + 상세 지정 custom)
-    const normCo = (s) => (s || '').replace(/㈜|\(주\)|주식회사|\s/g, '');
-    function matchSel(sel) {
-      if (!sel) return false;
-      if (sel.targets && sel.targets.includes(profile.target_type)) return true;
-      if (sel.jobs && profile.job_key && sel.jobs.includes(profile.job_key)) return true;
-      if (sel.companies && profile.company && sel.companies.map(normCo).includes(normCo(profile.company))) return true;
-      if (sel.types && profile.type1 && sel.types.includes(profile.type1)) return true;
-      return false;
-    }
     const visible = (r) => {
       if (!r.job_key) return true;                                   // 전체 공개
-      if (r.job_key.indexOf('custom:') === 0) { try { return matchSel(JSON.parse(r.job_key.slice(7))); } catch (_) { return false; } }
+      if (r.job_key.indexOf('custom:') === 0) { try { return matchSel(JSON.parse(r.job_key.slice(7)), profile); } catch (_) { return false; } }
       return r.job_key === profile.job_key;                          // 단일 직무(기존)
     };
-    const esc = (s) => { const e = document.createElement('div'); e.textContent = s || ''; return e.innerHTML; };
     const KIND_BADGE = { '학습안내서': 'mju-badge--navy', 'OFF-JT공지': 'mju-badge--coral', '일정표': 'mju-badge--gold', '서식': 'mju-badge--sky', '기타': 'mju-badge--neutral' };
 
-    const listEl = document.getElementById('list');
+    const $ = id => document.getElementById(id);
+    const listEl = $('list'), emptyEl = $('empty'), moreBtn = $('more');
+    const qEl = $('q'), qClear = $('qClear'), chipsEl = $('chips');
+    const PAGE = 10;
+    let all = [], filtered = [], shownCount = 0, kindSel = '';
+
+    function cardFor(r) {
+      const card = document.createElement('div');
+      card.className = 'card';
+      const badgeCls = KIND_BADGE[r.kind] || 'mju-badge--neutral';
+      card.innerHTML =
+        `<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">` +
+        `<span class="mju-badge ${badgeCls}">${esc(r.kind)}</span>` +
+        `<p class="ph-card-title" style="margin:0">${esc(r.title)}</p></div>` +
+        `<a href="${encodeURI(r.url)}" target="_blank" rel="noopener" class="mju-btn mju-btn--sm mju-btn--full" style="text-decoration:none"><i data-lucide="external-link"></i>열기 / 다운로드</a>`;
+      return card;
+    }
+    function renderMore() {
+      const slice = filtered.slice(shownCount, shownCount + PAGE);
+      slice.forEach(r => listEl.appendChild(cardFor(r)));
+      shownCount += slice.length;
+      moreBtn.style.display = shownCount < filtered.length ? 'block' : 'none';
+      moreBtn.textContent = `더 보기 (${filtered.length - shownCount}건 남음)`;
+      window.lucide?.createIcons();
+    }
+    function applyFilter() {
+      const q = (qEl.value || '').trim().toLowerCase();
+      qClear.style.display = q ? 'block' : 'none';
+      filtered = all.filter(r =>
+        (!kindSel || r.kind === kindSel) &&
+        (!q || (r.title || '').toLowerCase().includes(q)));
+      listEl.innerHTML = ''; shownCount = 0;
+      if (!filtered.length) {
+        emptyEl.style.display = 'block';
+        emptyEl.innerHTML = '<span class="ei"><i data-lucide="search"></i></span><div class="et">조건에 맞는 자료가 없어요</div><p class="es">검색어나 종류 필터를 바꿔보세요.</p>';
+        moreBtn.style.display = 'none'; window.lucide?.createIcons();
+        return;
+      }
+      emptyEl.style.display = 'none';
+      renderMore();
+    }
+    qEl.addEventListener('input', applyFilter);
+    qClear.addEventListener('click', () => { qEl.value = ''; applyFilter(); qEl.focus(); });
+    moreBtn.addEventListener('click', renderMore);
+
+    function syncChips() { // 리빌드 없이 상태만 갱신 — 포커스·aria 낭독 보존
+      [...chipsEl.children].forEach(b => {
+        const on = b.dataset.val === kindSel;
+        b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+    }
+    function buildChips() {
+      const kinds = [...new Set(all.map(r => r.kind).filter(Boolean))];
+      if (kinds.length < 2) return;
+      chipsEl.innerHTML = '';
+      const mk = (label, val) => {
+        const b = document.createElement('button');
+        b.type = 'button'; b.className = 'chip'; b.textContent = label; b.dataset.val = val;
+        b.addEventListener('click', () => { kindSel = val; syncChips(); applyFilter(); });
+        chipsEl.appendChild(b);
+      };
+      mk('전체', '');
+      kinds.forEach(k => mk(k, k));
+      syncChips();
+      chipsEl.style.display = 'flex';
+    }
+
     (async () => {
-      if (!configReady()) { document.getElementById('empty').style.display = 'block'; return; }
+      if (!configReady()) { emptyEl.style.display = 'block'; return; }
+      skeletonList(listEl, 3);
       const { data, error } = await supabase.from('library')
         .select('title,kind,url,job_key,created_at').eq('published', true).order('created_at', { ascending: false });
+      clearSkeleton(listEl);
       if (error) {
-        const e = document.getElementById('empty'); e.style.display = 'block';
-        e.innerHTML = '<span class="ei"><i data-lucide="folder"></i></span><div class="et">불러오지 못했어요</div><p class="es">일시적 오류로 불러오지 못했습니다. 잠시 후 새로고침해주세요.</p>';
+        emptyEl.style.display = 'block';
+        emptyEl.innerHTML = '<span class="ei"><i data-lucide="folder"></i></span><div class="et">불러오지 못했어요</div><p class="es">일시적 오류로 불러오지 못했습니다. 잠시 후 새로고침해주세요.</p>';
         window.lucide?.createIcons(); console.error(error); return;
       }
-      const shown = (data || []).filter(visible);
-      if (!shown.length) {
-        const em = document.getElementById('empty'); em.style.display = 'block';
-        if (!profile.name) em.innerHTML = '<span class="ei"><i data-lucide="folder"></i></span><div class="et">맞춤 자료가 없어요</div><p class="es">내 정보가 이 기기에 없어 맞춤 자료가 안 보일 수 있어요.</p><a href="./index.html" class="mju-btn mju-btn--sm mju-btn--secondary" style="text-decoration:none;margin-top:12px">홈에서 정보 입력하기</a>';
+      all = (data || []).filter(visible);
+      if (!all.length) {
+        emptyEl.style.display = 'block';
+        if (!profile.name) emptyEl.innerHTML = '<span class="ei"><i data-lucide="folder"></i></span><div class="et">맞춤 자료가 없어요</div><p class="es">내 정보가 이 기기에 없어 맞춤 자료가 안 보일 수 있어요.</p><a href="./index.html" class="mju-btn mju-btn--sm mju-btn--secondary" style="text-decoration:none;margin-top:12px">홈에서 정보 입력하기</a>';
         window.lucide?.createIcons();
         return;
       }
-      shown.forEach(r => {
-        const card = document.createElement('div');
-        card.className = 'card';
-        const badgeCls = KIND_BADGE[r.kind] || 'mju-badge--neutral';
-        card.innerHTML =
-          `<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">` +
-          `<span class="mju-badge ${badgeCls}">${esc(r.kind)}</span>` +
-          `<p class="ph-card-title" style="margin:0">${esc(r.title)}</p></div>` +
-          `<a href="${encodeURI(r.url)}" target="_blank" rel="noopener" class="mju-btn mju-btn--sm mju-btn--full" style="text-decoration:none"><i data-lucide="external-link"></i>열기 / 다운로드</a>`;
-        listEl.appendChild(card);
-      });
-      window.lucide?.createIcons();
+      if (all.length > 3) $('sb').style.display = 'block';
+      buildChips();
+      applyFilter();
     })();
   </script>
 </body>
