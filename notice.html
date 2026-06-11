@@ -44,6 +44,7 @@
       if (sel.jobs && profile.job_key && sel.jobs.includes(profile.job_key)) return true;
       if (sel.companies && profile.company && sel.companies.map(normCo).includes(normCo(profile.company))) return true;
       if (sel.types && profile.type1 && sel.types.includes(profile.type1)) return true;
+      if (sel.managers && sel.managers.length && profile.manager && sel.managers.includes(profile.manager.trim())) return true;
       return false;
     }
     function matches(n) {
@@ -67,11 +68,22 @@
     (async () => {
       if (!configReady()) { document.getElementById('empty').style.display = 'block'; document.getElementById('empty').textContent = 'Supabase 연결이 필요합니다(config.js).'; return; }
       const { data, error } = await supabase.from('notices')
-        .select('title,body,target_scope,target_value,created_at')
+        .select('id,title,body,target_scope,target_value,created_at')
         .eq('published', true).order('created_at', { ascending: false });
       if (error) { document.getElementById('empty').style.display = 'block'; document.getElementById('empty').textContent = '불러오기 오류: ' + error.message; return; }
 
       const shown = (data || []).filter(matches);
+      // 개인 지정 공지(비공개) — 서명토큰으로 '내 것'만 서버에서 받아 병합(본문은 anon 공개목록엔 없음)
+      if (profile.token) {
+        try {
+          const { data: pers } = await supabase.rpc('my_personal_notices', { p_token: profile.token });
+          if (Array.isArray(pers) && pers.length) {
+            const seen = new Set(shown.map(r => r.id));
+            pers.forEach(p => { if (!seen.has(p.id)) shown.push({ ...p, _personal: true }); });
+            shown.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+          }
+        } catch (_) {}
+      }
       if (!shown.length) {
         const em = document.getElementById('empty'); em.style.display = 'block';
         if (!profile.name) em.innerHTML = '내 정보가 이 기기에 없어 맞춤 공지가 안 보일 수 있어요.<br/><a href="./index.html">홈에서 정보 입력하기</a>';
@@ -81,7 +93,7 @@
         const card = document.createElement('div');
         card.className = 'card';
         card.innerHTML = `<p class="ph-card-title">${esc(n.title)}` +
-          (isNew(n.created_at) ? ` <span class="mju-badge mju-badge--coral">NEW</span>` : ``) + `</p>` +
+          (n._personal ? ` <span class="mju-badge mju-badge--coral">개인 안내</span>` : (isNew(n.created_at) ? ` <span class="mju-badge mju-badge--coral">NEW</span>` : ``)) + `</p>` +
           `<p class="notice-card-time">${fmt(n.created_at)}</p>` +
           `<p class="notice-body">${esc(n.body)}</p>`;
         listEl.appendChild(card);

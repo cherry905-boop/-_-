@@ -47,7 +47,7 @@
     const results = document.getElementById('results');
 
     // 익명이 절대 읽으면 안 되는 테이블들 (개인정보 포함)
-    const MUST_BE_BLOCKED = ['students', 'registrations', 'push_logs', 'push_tokens', 'consultations', 'consultation_messages', 'survey_responses', 'deletion_log', 'sync_log'];
+    const MUST_BE_BLOCKED = ['students', 'registrations', 'push_logs', 'push_tokens', 'consultations', 'consultation_messages', 'survey_responses', 'deletion_log', 'sync_log', 'notice_recipients'];
     // 익명이 "공개분만" 읽어야 하는 테이블 (의도된 공개 — 읽히는 게 정상)
     const PUBLIC_OK = ['notices', 'board_posts', 'library', 'calendar_events', 'jobs', 'companies'];
 

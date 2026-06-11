@@ -122,12 +122,18 @@
           return;
         }
         // 순수 INSERT (upsert의 on_conflict은 RLS와 충돌). 중복(23505)=이미 등록=정상.
-        const { error } = await supabase.from('push_tokens').insert({
+        const row = {
           token,
           target_type: prof.target_type || null, job_key: prof.job_key || null,
           company: prof.company || null, type1: prof.type1 || null,
+          manager: prof.manager || null, device_key: prof.token || null,
           platform: p, updated_at: new Date().toISOString()
-        });
+        };
+        let { error } = await supabase.from('push_tokens').insert(row);
+        if (error && /device_key|manager|column/i.test(error.message || '')) {   // R15 미적용 시 컬럼 없음 → 폴백
+          const r2 = { ...row }; delete r2.device_key; delete r2.manager;
+          ({ error } = await supabase.from('push_tokens').insert(r2));
+        }
         if (error && error.code !== '23505') { setStatus(statusEl, '토큰 저장 오류: ' + error.message, 'error'); return; }
 
         setStatus(statusEl, '✅ 알림이 켜졌어요! 이제 공지를 푸시 알림으로 받습니다.', 'ok');

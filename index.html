@@ -198,13 +198,13 @@
         // 기업 담당자 복원 경로
         if (!rCompGrp.hidden) {
           const c = rComp.value; if (!c) { setStatus(rStatus, '소속 학습기업을 선택해주세요.', 'error'); return; }
-          return saveAndHome({ name: nm, target_type: 'company', job_key: null, company: c, type1: null });
+          return saveAndHome({ name: nm, target_type: 'company', job_key: null, company: c, type1: null, manager: null, token: null });
         }
         // 매칭학생 2단계(본인 직무 선택)
         if (rPending) {
           const jk = rJob.value; if (!jk) { setStatus(rStatus, '본인 직무를 선택해주세요.', 'error'); return; }
           const s = rPending; rPending = null;
-          return saveAndHome({ name: s.name, target_type: 'student', job_key: jk, company: s.company, type1: s.type1 });
+          return saveAndHome({ name: s.name, target_type: 'student', job_key: jk, company: s.company, type1: s.type1, manager: s.manager || null, token: s.token || null });
         }
         // 1단계: 노션 명단(이름+휴대폰) 확인
         rGo.disabled = true; setStatus(rStatus, '명단 확인 중...', 'info');
@@ -221,7 +221,7 @@
             setStatus(rStatus, `${v.name}님 확인됐어요. 본인 직무를 선택하고 다시 눌러주세요.`, 'ok');
             return;
           }
-          return saveAndHome({ name: v.name, target_type: 'student', job_key: jobs[0] || null, company: v.company, type1: v.type1 });
+          return saveAndHome({ name: v.name, target_type: 'student', job_key: jobs[0] || null, company: v.company, type1: v.type1, manager: v.manager || null, token: v.token || null });
         }
         // 명단 미확인 → 기업 담당자 복원 경로 노출
         rCompGrp.hidden = false;
@@ -344,16 +344,21 @@
 
     async function doRegister(rec) {
       btn.disabled = true; setStatus(statusEl, '가입 중...', 'info');
-      const { error } = await supabase.from('registrations').insert({
+      const row = {
         name: rec.name, phone: rec.phone, target_type: rec.target_type,
         job_key: rec.job_key, company: rec.company, type1: rec.type1,
+        manager: rec.manager || null,
         src: getQueryParam('src'),
         consent_collect: true, consent_transfer: true, consent_at: new Date().toISOString(),
         user_agent: navigator.userAgent
-      });
+      };
+      let { error } = await supabase.from('registrations').insert(row);
+      if (error && /manager|column/i.test(error.message || '')) {   // R15 미적용 시 manager 컬럼 없음 → 폴백
+        const r2 = { ...row }; delete r2.manager; ({ error } = await supabase.from('registrations').insert(r2));
+      }
       if (error) { setStatus(statusEl, friendlyError(error), 'error'); btn.disabled = false; return; }
       // 기기 프로필 저장 — 공지 필터링에 사용(서버에서 명단을 읽지 않기 위함)
-      try { localStorage.setItem('ilhak_profile', JSON.stringify({ name: rec.name, target_type: rec.target_type, job_key: rec.job_key, company: rec.company, type1: rec.type1 })); } catch (_) {}
+      try { localStorage.setItem('ilhak_profile', JSON.stringify({ name: rec.name, target_type: rec.target_type, job_key: rec.job_key, company: rec.company, type1: rec.type1, manager: rec.manager || null, token: rec.token || null })); } catch (_) {}
       location.href = './install.html?joined=1';
     }
 
@@ -393,7 +398,7 @@
         const sel = compSel.value;
         const company = (sel === '__other__') ? (document.getElementById('company-other').value.trim() || null) : (sel || null);
         if (!company) { setStatus(statusEl, '소속 학습기업을 선택(또는 입력)해주세요.', 'error'); return; }
-        return doRegister({ name, phone, target_type: 'company', job_key: null, company, type1: null });
+        return doRegister({ name, phone, target_type: 'company', job_key: null, company, type1: null, manager: null, token: null });
       }
 
       // ── 매칭학생: 직무가 여러 개면 2단계(본인 직무 선택 후 완료) ──
@@ -401,7 +406,7 @@
         const job_key = jobSel.value || null;
         if (!job_key) { setStatus(statusEl, '본인 직무를 선택해주세요.', 'error'); return; }
         const s = pendingStudent; pendingStudent = null;
-        return doRegister({ name: s.name, phone, target_type: 'student', job_key, company: s.company, type1: s.type1 });
+        return doRegister({ name: s.name, phone, target_type: 'student', job_key, company: s.company, type1: s.type1, manager: s.manager || null, token: s.token || null });
       }
 
       // ── 매칭학생 1단계: 노션 명단(이름+휴대폰) 확인 ──
@@ -436,7 +441,7 @@
         return;
       }
       // 직무 0~1개 → 바로 가입 (직무·기업·유형은 노션 값 자동입력)
-      return doRegister({ name: v.name, phone, target_type: 'student', job_key: jobs[0] || null, company: v.company, type1: v.type1 });
+      return doRegister({ name: v.name, phone, target_type: 'student', job_key: jobs[0] || null, company: v.company, type1: v.type1, manager: v.manager || null, token: v.token || null });
     });
   </script>
 </body>

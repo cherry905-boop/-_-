@@ -193,14 +193,23 @@
 
       <!-- 가입자 관리 -->
       <div class="tabsec" id="sec-members" style="display:none">
-        <h2 class="adm-h2">가입자 관리 <span class="hint">휴대폰 번호는 운영자만 열람합니다</span></h2>
+        <h2 class="adm-h2">학생 명단 · 개인 지정 <span class="hint">정렬·필터 후 체크 → 선택한 사람에게 비공개 공지 / 휴대폰은 운영자만 열람</span></h2>
         <div class="card">
-          <div style="display:flex;gap:10px;align-items:center">
-            <input type="text" id="rg-search" placeholder="이름·기업·직무 검색" style="flex:1" />
+          <div class="mtbl-bar">
+            <input type="text" id="rg-search" placeholder="이름·기업·직무·담당직원 검색" style="flex:1;min-width:150px" />
+            <select id="rg-fmanager"><option value="">담당직원 전체</option></select>
+            <select id="rg-fjob"><option value="">직무 전체</option></select>
+            <select id="rg-ftype"><option value="">유형 전체</option></select>
+            <select id="rg-ftarget"><option value="">대상 전체</option><option value="student">학생</option><option value="company">기업담당자</option></select>
             <button class="mju-btn mju-btn--secondary mju-btn--sm" id="rg-refresh"><i data-lucide="refresh-cw"></i> 새로고침</button>
           </div>
+          <div class="selbar" id="rg-selbar" style="display:none">
+            <b id="rg-selcount">선택 0명</b>
+            <button class="mju-btn mju-btn--gold mju-btn--sm" id="rg-notify"><i data-lucide="send"></i> 선택한 사람에게 개인 공지</button>
+            <button class="mju-btn mju-btn--secondary mju-btn--sm" id="rg-clearsel">선택 해제</button>
+          </div>
           <p class="note" id="rg-count"></p>
-          <div id="rg-list"></div>
+          <div class="mtbl-wrap"><table class="mtbl" id="rg-table"></table></div>
           <div class="status" id="rg-status"></div>
         </div>
         <div class="card">
@@ -230,6 +239,24 @@
         <div style="display:flex;gap:10px;justify-content:flex-end">
           <button class="mju-btn mju-btn--secondary" id="nv-cancel">취소</button>
           <button class="mju-btn mju-btn--gold" id="nv-confirm">발행하기</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 개인 지정 공지 작성 모달 (가입자 표에서 선택한 사람들에게 비공개 발송) -->
+    <div class="modal-veil" id="pv-veil" style="display:none">
+      <div class="modal" style="width:480px">
+        <h3>선택한 <span id="pv-n">0</span>명에게 개인 공지</h3>
+        <p style="margin:0 0 12px">이 사람들에게만 <b>비공개</b>로 전달됩니다. 다른 학생·익명에겐 보이지 않아요.</p>
+        <label style="font-size:13px;font-weight:700">제목</label>
+        <input type="text" id="pv-title" placeholder="개인 공지 제목" style="width:100%;margin:4px 0 12px;padding:10px 12px;border:1px solid var(--line);border-radius:9px" />
+        <label style="font-size:13px;font-weight:700">내용</label>
+        <textarea id="pv-body" class="ph-ta" rows="4" style="width:100%"></textarea>
+        <p class="note" style="margin:8px 0 0">※ 푸시 알림엔 본문 대신 '개인 안내 도착'만 떠요(동료 잠금화면 노출 방지). 본문은 앱에서 본인만 열람.</p>
+        <div class="status" id="pv-status"></div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px">
+          <button class="mju-btn mju-btn--secondary" id="pv-cancel">취소</button>
+          <button class="mju-btn mju-btn--gold" id="pv-send">발송</button>
         </div>
       </div>
     </div>
@@ -282,7 +309,8 @@
     let regDims = null;
     async function loadRegDims() {
       if (regDims) return regDims;
-      const { data } = await supabase.from('registrations').select('target_type,job_key,company,type1').limit(3000);
+      let { data, error } = await supabase.from('registrations').select('target_type,job_key,company,type1,manager').limit(3000);
+      if (error) ({ data } = await supabase.from('registrations').select('target_type,job_key,company,type1').limit(3000));
       regDims = data || [];
       return regDims;
     }
@@ -302,13 +330,14 @@
       if (sel.jobs && p.job_key && sel.jobs.includes(p.job_key)) return true;
       if (sel.companies && sel.companies.length && p.company && sel.companies.some(c => normCo(c) === normCo(p.company))) return true;
       if (sel.types && p.type1 && sel.types.includes(p.type1)) return true;
+      if (sel.managers && sel.managers.length && p.manager && sel.managers.includes(p.manager)) return true;
       return false;
     }
-    const selEmpty = (sel) => !(sel.targets.length || sel.jobs.length || sel.companies.length || sel.types.length);
+    const selEmpty = (sel) => !(sel.targets.length || sel.jobs.length || sel.companies.length || sel.types.length || (sel.managers && sel.managers.length));
 
     // 작성 폼 대상 선택기: 전체/상세 토글 + 칩(매칭학생 전체·직무 / 기업담당자 전체 / 유형) + 예상 대상 N명
     function buildPicker(mountId, allLabel, allDesc) {
-      const sel = { jobs: [], companies: [], targets: [], types: [] };
+      const sel = { jobs: [], companies: [], targets: [], types: [], managers: [] };
       const st = { mode: 'all' };
       const mount = $(mountId);
       mount.innerHTML =
@@ -369,6 +398,11 @@
             if (sel.types.includes(t)) sel.types = sel.types.filter(x => x !== t); else sel.types.push(t);
           })));
         }));
+        chipsBox.appendChild(group('담당직원', row => {
+          (window.MANAGERS || []).forEach(m => row.appendChild(tag(m, () => sel.managers.includes(m), () => {
+            if (sel.managers.includes(m)) sel.managers = sel.managers.filter(x => x !== m); else sel.managers.push(m);
+          })));
+        }));
         recount();
       }
       allBtn.addEventListener('click', () => { st.mode = 'all'; allBtn.classList.add('sel'); cusBtn.classList.remove('sel'); chipsBox.style.display = 'none'; recount(); });
@@ -385,10 +419,11 @@
           if (sel.targets.includes('company')) p.push('기업담당자 전체');
           if (sel.companies.length) p.push(sel.companies.join('·'));
           if (sel.types.length) p.push(sel.types.join('·'));
+          if (sel.managers.length) p.push('담당 ' + sel.managers.join('·'));
           return p.join(' / ');
         },
         async count() { const d = await loadRegDims(); return st.mode === 'all' ? d.length : d.filter(r => matchSel(sel, r)).length; },
-        reset() { sel.jobs = []; sel.companies = []; sel.targets = []; sel.types = []; st.mode = 'all'; allBtn.classList.add('sel'); cusBtn.classList.remove('sel'); chipsBox.style.display = 'none'; recount(); },
+        reset() { sel.jobs = []; sel.companies = []; sel.targets = []; sel.types = []; sel.managers = []; st.mode = 'all'; allBtn.classList.add('sel'); cusBtn.classList.remove('sel'); chipsBox.style.display = 'none'; recount(); },
       };
     }
     let nPicker = null, lPicker = null, cPicker = null;
@@ -402,7 +437,8 @@
     let pushDims = null;
     async function loadPushDims() {
       if (pushDims) return pushDims;
-      const { data } = await supabase.from('push_tokens').select('target_type,job_key,company,type1').limit(5000);
+      let { data, error } = await supabase.from('push_tokens').select('target_type,job_key,company,type1,manager').limit(5000);
+      if (error) ({ data } = await supabase.from('push_tokens').select('target_type,job_key,company,type1').limit(5000));
       pushDims = data || [];
       return pushDims;
     }
@@ -577,38 +613,115 @@
 
     // ===== 가입자 관리 =====
     let regCache = [];
+    const regSel = new Set();                       // 선택된 학생 id(synthetic)
+    let regSort = { key: 'name', dir: 1 };
     async function regLoad() {
-      const { data, error } = await supabase.from('registrations').select('id,name,phone,target_type,job_key,company,created_at').order('created_at', { ascending: false }).limit(500);
-      if (error) { $('rg-list').innerHTML = '<p class="note">가입자 조회 권한이 없습니다 — supabase_migration_R12_ops.sql 실행 필요</p>'; return; }
-      regCache = data || []; regDims = null; regRender();
+      let rows;
+      const { data: roster, error: rerr } = await supabase.rpc('admin_students');   // 전체 학생 명단(R15)
+      if (!rerr && Array.isArray(roster)) {
+        rows = roster.map(s => ({ id: 'st:' + (s.name || '') + '|' + (s.phone || ''), name: s.name, phone: s.phone, target_type: 'student', job_key: s.job_key || null, company: s.company || null, type1: s.type1 || null, manager: s.manager || null, signed: !!s.signed }));
+      } else {
+        // 폴백(R15 admin_students 미적용): 앱 가입자(registrations)
+        let { data, error } = await supabase.from('registrations').select('id,name,phone,target_type,job_key,company,type1,manager,created_at').order('created_at', { ascending: false }).limit(1000);
+        if (error && /manager|column/i.test(error.message || '')) ({ data, error } = await supabase.from('registrations').select('id,name,phone,target_type,job_key,company,type1,created_at').order('created_at', { ascending: false }).limit(1000));
+        if (error) { $('rg-table').innerHTML = '<tbody><tr><td style="padding:10px;color:var(--text-muted)">명단 조회 권한이 없습니다 — R12/R15 SQL 실행 필요</td></tr></tbody>'; return; }
+        rows = (data || []).map(r => ({ ...r, signed: true }));
+      }
+      regCache = rows; regDims = null;
+      fillSel('rg-fmanager', (window.MANAGERS || []).slice());
+      fillSel('rg-fjob', [...new Set(regCache.map(r => r.job_key).filter(Boolean))].sort());
+      fillSel('rg-ftype', (window.TYPES || []).slice());
+      regRender();
+    }
+    function fillSel(id, vals) {
+      const el = $(id); if (!el) return; const keep = el.value, first = el.querySelector('option');
+      el.innerHTML = ''; el.appendChild(first);
+      vals.forEach(v => { const o = document.createElement('option'); o.value = v; o.textContent = v; el.appendChild(o); });
+      el.value = keep;
+    }
+    function regFiltered() {
+      const q = ($('rg-search').value || '').trim().toLowerCase();
+      const fm = $('rg-fmanager').value, fj = $('rg-fjob').value, ft = $('rg-ftype').value, fg = $('rg-ftarget').value;
+      const rows = regCache.filter(r =>
+        (!q || [r.name, r.company, r.job_key, r.manager].some(x => (x || '').toLowerCase().includes(q))) &&
+        (!fm || r.manager === fm) && (!fj || r.job_key === fj) && (!ft || r.type1 === ft) && (!fg || r.target_type === fg));
+      const k = regSort.key, dir = regSort.dir;
+      rows.sort((a, b) => { const va = a[k] || '', vb = b[k] || ''; return va < vb ? -dir : va > vb ? dir : 0; });
+      return rows;
+    }
+    function regSelBar() {
+      const n = regSel.size;
+      $('rg-selbar').style.display = n ? 'flex' : 'none';
+      $('rg-selcount').textContent = '선택 ' + n + '명';
     }
     function regRender() {
-      const q = ($('rg-search').value || '').trim().toLowerCase();
-      const rows = regCache.filter(r => !q || [r.name, r.company, r.job_key].some(x => (x || '').toLowerCase().includes(q)));
-      $('rg-count').textContent = '총 ' + regCache.length + '명' + (q ? ' · 검색 ' + rows.length + '명' : '');
-      const el = $('rg-list'); el.innerHTML = rows.length ? '' : '<p class="note">없음</p>';
+      const rows = regFiltered();
+      $('rg-count').textContent = '총 ' + regCache.length + '명' + (rows.length !== regCache.length ? ' · 필터 ' + rows.length + '명' : '');
+      const cols = [['name', '이름'], ['target_type', '대상'], ['manager', '담당직원'], ['job_key', '직무'], ['company', '기업'], ['type1', '유형'], ['signed', '가입']];
+      const arrow = k => regSort.key === k ? (regSort.dir < 0 ? ' ▼' : ' ▲') : '';
+      const allOn = rows.length && rows.every(r => regSel.has(r.id));
+      $('rg-table').innerHTML = '<thead><tr>' +
+        `<th class="nosort"><input type="checkbox" id="rg-all" ${allOn ? 'checked' : ''}></th>` +
+        cols.map(c => `<th data-k="${c[0]}">${c[1]}${arrow(c[0])}</th>`).join('') +
+        '<th class="nosort">전화</th></tr></thead>';
+      const tb = document.createElement('tbody');
+      if (!rows.length) tb.innerHTML = '<tr><td colspan="9" style="color:var(--text-muted)">없음</td></tr>';
       rows.forEach(r => {
+        const tr = document.createElement('tr'); if (regSel.has(r.id)) tr.className = 'on';
         const tt = r.target_type === 'company' ? '기업' : '학생';
-        const row = document.createElement('div'); row.style.cssText = 'padding:9px 0;border-bottom:1px solid var(--gray-100);display:flex;justify-content:space-between;gap:10px;align-items:center';
-        const info = document.createElement('div'); info.style.flex = '1';
-        info.innerHTML = `<b>${esc(r.name || '')}</b> <span class="note">[${tt}]</span><br/><span class="note">${esc(r.job_key || r.company || '')} · 가입 ${new Date(r.created_at).toLocaleDateString('ko-KR')}</span>`;
-        // 휴대폰 번호는 기본 마스킹, 눌러서 잠시 확인 (개인정보 보호)
-        const ph = document.createElement('button'); ph.type = 'button'; ph.className = 'phone-btn'; const pv = r.phone || ''; let revealed = false;
-        const drawPh = () => { ph.innerHTML = `<i data-lucide="${revealed ? 'eye-off' : 'eye'}"></i>${revealed ? esc(pv) : esc(maskPhone(pv))}`; if (window.lucide) window.lucide.createIcons(); };
-        ph.addEventListener('click', () => { revealed = !revealed; drawPh(); }); drawPh();
-        const del = document.createElement('button'); del.textContent = '삭제';
-        del.style.cssText = 'padding:5px 12px;font-size:13px;border:1px solid var(--err);color:var(--err);border-radius:8px;background:#fff;cursor:pointer;white-space:nowrap';
-        del.addEventListener('click', async () => {
-          if (!confirm(`'${r.name}' (${r.target_type === 'company' ? '기업' : '학생'} · ${r.job_key || r.company || '-'} · 번호뒤 ${(r.phone || '').slice(-4)}) 가입을 삭제할까요?`)) return;
-          const { error } = await supabase.from('registrations').delete().eq('id', r.id);
-          if (error) { setStatus($('rg-status'), '삭제 오류: ' + error.message, 'error'); return; }
-          logAction('가입자삭제', r.name); regCache = regCache.filter(x => x.id !== r.id); regDims = null; regRender();
-        });
-        row.appendChild(info); row.appendChild(ph); row.appendChild(del); el.appendChild(row);
+        const cb = document.createElement('td'); cb.innerHTML = `<input type="checkbox" ${regSel.has(r.id) ? 'checked' : ''}>`;
+        cb.querySelector('input').addEventListener('change', e => { e.target.checked ? regSel.add(r.id) : regSel.delete(r.id); tr.className = e.target.checked ? 'on' : ''; regSelBar(); });
+        tr.appendChild(cb);
+        const signed = r.signed ? '<span class="mju-badge mju-badge--success">가입</span>' : '<span class="note">미가입</span>';
+        [esc(r.name || ''), tt, esc(r.manager || '-'), esc(r.job_key || '-'), esc(r.company || '-'), esc(r.type1 || '-'), signed]
+          .forEach(v => { const td = document.createElement('td'); td.innerHTML = v; tr.appendChild(td); });
+        const tdp = document.createElement('td'); const ph = document.createElement('button'); ph.type = 'button'; ph.className = 'phone-btn'; const pv = r.phone || ''; let rv = false;
+        const dph = () => { ph.innerHTML = `<i data-lucide="${rv ? 'eye-off' : 'eye'}"></i>${rv ? esc(pv) : esc(maskPhone(pv))}`; if (window.lucide) window.lucide.createIcons(); };
+        ph.addEventListener('click', () => { rv = !rv; dph(); }); dph(); tdp.appendChild(ph); tr.appendChild(tdp);
+        tb.appendChild(tr);
       });
+      $('rg-table').appendChild(tb);
+      $('rg-table').querySelectorAll('th[data-k]').forEach(th => th.addEventListener('click', () => {
+        const k = th.dataset.k; if (regSort.key === k) regSort.dir = -regSort.dir; else regSort = { key: k, dir: 1 }; regRender();
+      }));
+      const all = $('rg-all'); if (all) all.addEventListener('change', e => { rows.forEach(r => e.target.checked ? regSel.add(r.id) : regSel.delete(r.id)); regRender(); });
+      regSelBar();
     }
-    $('rg-search').addEventListener('input', regRender);
+    ['rg-search', 'rg-fmanager', 'rg-fjob', 'rg-ftype', 'rg-ftarget'].forEach(id => { const e = $(id); if (e) e.addEventListener('input', regRender); });
     $('rg-refresh').addEventListener('click', regLoad);
+    $('rg-clearsel').addEventListener('click', () => { regSel.clear(); regRender(); });
+    // 선택한 사람에게 개인 공지(personal·비공개 수신자)
+    $('rg-notify').addEventListener('click', () => {
+      if (!regSel.size) return;
+      $('pv-n').textContent = regSel.size; $('pv-title').value = ''; $('pv-body').value = '';
+      setStatus($('pv-status'), '', 'info'); $('pv-veil').style.display = 'flex';
+    });
+    $('pv-cancel').addEventListener('click', () => { $('pv-veil').style.display = 'none'; });
+    $('pv-veil').addEventListener('click', e => { if (e.target === $('pv-veil')) $('pv-veil').style.display = 'none'; });
+    $('pv-send').addEventListener('click', async () => {
+      const title = $('pv-title').value.trim(), body = $('pv-body').value.trim();
+      if (!title || !body) { setStatus($('pv-status'), '제목·내용을 입력하세요.', 'error'); return; }
+      const people = regCache.filter(r => regSel.has(r.id)).map(r => ({ name: r.name, phone: r.phone }));
+      if (!people.length) { setStatus($('pv-status'), '선택된 사람이 없습니다.', 'error'); return; }
+      $('pv-send').disabled = true; setStatus($('pv-status'), '발송 중...', 'info');
+      try {
+        const { data: ins, error: e1 } = await supabase.from('notices')
+          .insert({ title: '개인 안내', body: '개인 안내가 도착했습니다. 앱에서 확인하세요.', target_scope: 'personal', target_value: null, published: false })
+          .select('id').single();
+        if (e1) throw e1;
+        const { error: e2 } = await supabase.rpc('add_notice_recipients', { p_notice_id: ins.id, p_people: people, p_body: body, p_title: title });
+        if (e2) throw e2;
+        const { error: e3 } = await supabase.from('notices').update({ published: true }).eq('id', ins.id);
+        if (e3) throw e3;
+        logAction('개인공지', people.length + '명 · ' + title);
+        setStatus($('pv-status'), `✅ ${people.length}명에게 개인 공지를 보냈어요 (5분 내 푸시).`, 'ok');
+        regSel.clear(); regRender(); nLoad();
+        setTimeout(() => { $('pv-veil').style.display = 'none'; }, 1500);
+      } catch (err) {
+        setStatus($('pv-status'), '오류: ' + (err.message || err) + ' — R15 SQL 실행 여부를 확인하세요.', 'error');
+      }
+      $('pv-send').disabled = false;
+    });
 
     // ===== 가입 도움 요청 (명단 매칭 실패자) =====
     async function uvLoad() {

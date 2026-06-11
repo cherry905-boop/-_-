@@ -446,3 +446,16 @@ body.has-tabbar .ph-body{padding-bottom:84px}
     transition-duration:.001ms!important; scroll-behavior:auto!important}
   .menu-tile:hover{transform:none}
 }
+
+/* ===== 관리자 가입자 표(정렬·필터·다중선택·개인지정) ===== */
+.mtbl-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:4px}
+.mtbl-bar input,.mtbl-bar select{padding:8px 10px;border:1px solid var(--line);border-radius:9px;font-size:13px;background:#fff}
+.selbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:10px 14px;background:var(--blue-50);border:1px solid var(--line);border-radius:12px;margin:8px 0}
+.mtbl-wrap{max-height:540px;overflow:auto;border:1px solid var(--gray-100);border-radius:12px;margin-top:8px}
+.mtbl{width:100%;border-collapse:collapse;font-size:13px}
+.mtbl th{position:sticky;top:0;background:var(--surface-sunken);text-align:left;padding:9px 10px;font-size:12px;font-weight:800;color:var(--text-muted);white-space:nowrap;cursor:pointer;user-select:none;border-bottom:1px solid var(--line)}
+.mtbl th.nosort{cursor:default}
+.mtbl td{padding:8px 10px;border-bottom:1px solid var(--gray-100);white-space:nowrap;vertical-align:middle}
+.mtbl tbody tr:hover{background:var(--surface-sunken)}
+.mtbl tbody tr.on{background:var(--blue-50)}
+.mtbl .phone-btn{font-size:12.5px}
