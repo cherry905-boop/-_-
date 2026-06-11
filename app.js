@@ -71,3 +71,26 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('./sw.js').catch(() => {});
   });
 }
+
+// 하단 탭 네비게이션 — .ph-body 가 있는 학생 페이지에만 주입(관리자 콘솔 등은 제외)
+(function injectTabbar() {
+  try {
+    if (!document.querySelector('.ph-body')) return;
+    if (document.querySelector('.tabbar')) return;
+    const page = location.pathname.split('/').pop() || 'index.html';
+    const items = [
+      ['index.html', 'home', '홈'],
+      ['notice.html', 'megaphone', '공지'],
+      ['library.html', 'folder', '자료'],
+      ['calendar.html', 'calendar-days', '일정'],
+      ['consult.html', 'message-circle', '상담'],
+    ];
+    const nav = document.createElement('nav');
+    nav.className = 'tabbar';
+    nav.innerHTML = items.map(([href, ic, label]) =>
+      `<a href="./${href}"${page === href ? ' class="on"' : ''}><i data-lucide="${ic}"></i>${label}</a>`).join('');
+    document.body.appendChild(nav);
+    document.body.classList.add('has-tabbar');
+    if (window.lucide && window.lucide.createIcons) window.lucide.createIcons();
+  } catch (_) {}
+})();

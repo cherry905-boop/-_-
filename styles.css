@@ -412,3 +412,37 @@ select.ph-select{height:46px; padding:0 12px}
   .adm-nav-item{width:auto}
   .stat-row{grid-template-columns:1fr 1fr}
 }
+
+/* ===================================================================
+   Tier 5 폴리시 — 접근성 · 노치(safe-area) · 하단 탭바 · 모션 감소
+   =================================================================== */
+/* 정보 담은 작은 글씨 키움(고령 가독성) */
+.ph-sub{font-size:13px}
+.notice-card-time{font-size:12.5px}
+.scale-ends{font-size:12px}
+.pv-sec p,.pv-sec li{font-size:13px}
+.pv-table th,.pv-table td{font-size:12px}
+/* 골드 배지 대비 개선(연골드 위 연골드 → 진골드 위 네이비) */
+.mju-badge--gold{background:var(--gold-500); color:var(--blue-700)}
+
+/* iOS 노치/다이나믹아일랜드 안전영역 */
+.ph-header{padding-top:max(54px, calc(env(safe-area-inset-top, 0px) + 14px))}
+.adm-header{padding-top:env(safe-area-inset-top, 0px)}
+
+/* 하단 탭 네비게이션(app.js가 학생 페이지에 주입) */
+.tabbar{position:fixed; left:50%; transform:translateX(-50%); bottom:0; width:100%; max-width:480px; z-index:90;
+  display:flex; background:rgba(255,255,255,.96); backdrop-filter:blur(12px); border-top:1px solid var(--border-subtle);
+  padding-bottom:env(safe-area-inset-bottom, 0px)}
+.tabbar a{flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; padding:8px 2px 7px;
+  text-decoration:none; color:var(--text-muted); font-size:11.5px; font-weight:700; letter-spacing:-.01em}
+.tabbar a [data-lucide]{width:22px; height:22px}
+.tabbar a.on{color:var(--blue-600)}
+.tabbar a:active{background:var(--blue-50)}
+body.has-tabbar .ph-body{padding-bottom:84px}
+
+/* 모션 감소 선호 존중 */
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation-duration:.001ms!important; animation-iteration-count:1!important;
+    transition-duration:.001ms!important; scroll-behavior:auto!important}
+  .menu-tile:hover{transform:none}
+}

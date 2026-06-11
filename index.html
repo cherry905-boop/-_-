@@ -215,7 +215,7 @@
         if (v && v.matched) {
           const jobs = Array.isArray(v.job_keys) ? v.job_keys.filter(Boolean) : [];
           if (jobs.length > 1) {
-            rPending = v; rJob.innerHTML = '<option value="">— 본인 직무 선택 —</option>';
+            rPending = v; rPhone.readOnly = true; rName.readOnly = true; rJob.innerHTML = '<option value="">— 본인 직무 선택 —</option>';
             jobs.forEach(j => { const o = document.createElement('option'); o.value = j; o.textContent = j; rJob.appendChild(o); });
             rJobGrp.hidden = false; rGo.textContent = '불러오기 완료';
             setStatus(rStatus, `${v.name}님 확인됐어요. 본인 직무를 선택하고 다시 눌러주세요.`, 'ok');
@@ -315,6 +315,7 @@
       document.getElementById('grp-company').hidden = !(VISIBLE[val] || []).includes('grp-company');
       document.getElementById('grp-job').hidden = true;   // 학생 직무 picker는 명단 확인 후에만
       pendingStudent = null; btn.textContent = '가입하기';
+      phoneEl.readOnly = false; nameEl.readOnly = false;   // 2단계 잠금 해제
     }
     targets.addEventListener('change', (e) => { if (e.target.name === 'target') applyTarget(e.target.value); });
 
@@ -425,6 +426,7 @@
       if (jobs.length > 1) {
         // 직무가 여러 개 → 본인 직무 중에서만 선택
         pendingStudent = v;
+        phoneEl.readOnly = true; nameEl.readOnly = true;   // 검증된 이름·번호 잠금(2단계서 변경 방지)
         jobSel.innerHTML = '<option value="">— 본인 직무 선택 —</option>';
         jobs.forEach(j => { const o = document.createElement('option'); o.value = j; o.textContent = j; jobSel.appendChild(o); });
         jobSel.disabled = false;
