@@ -111,6 +111,11 @@
 
         // 토큰 + 기기 프로필을 Supabase에 저장(타게팅 발송용)
         let prof = {}; try { prof = JSON.parse(localStorage.getItem('ilhak_profile') || '{}'); } catch (_) {}
+        // 프로필이 없으면(특히 iOS 표준앱 첫 진입) 메타가 전부 null로 저장돼 맞춤 푸시가 누락됨 → 먼저 복원 유도
+        if (!prof || !prof.name) {
+          setStatus(statusEl, '먼저 "홈으로" 가서 이름·휴대폰으로 내 정보를 불러온 뒤 알림을 켜주세요. 그래야 맞춤 공지가 정확히 도착합니다.', 'error');
+          return;
+        }
         // 순수 INSERT (upsert의 on_conflict은 RLS와 충돌). 중복(23505)=이미 등록=정상.
         const { error } = await supabase.from('push_tokens').insert({
           token,

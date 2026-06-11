@@ -48,6 +48,27 @@
         </div>
       </div>
 
+      <!-- 표준앱(홈 화면 추가) 첫 진입 + 프로필 없음 = iOS는 Safari와 저장소가 분리돼 정보가 사라짐 → 복원 게이트 -->
+      <div class="card" id="restoreCard" style="display:none">
+        <p class="ph-card-title">내 정보 불러오기</p>
+        <p class="ph-note" style="margin-bottom:6px">앱 아이콘에서 처음 여셨네요. <b>이미 가입하셨다면</b> 이름·휴대폰만 입력하면 정보를 불러옵니다 — 다시 가입 안 하셔도 돼요.</p>
+        <label>이름 <span class="req">*</span></label>
+        <input type="text" id="r-name" autocomplete="name" placeholder="홍길동" />
+        <label>휴대폰 번호 <span class="req">*</span></label>
+        <input type="tel" id="r-phone" inputmode="numeric" autocomplete="tel" placeholder="010-1234-5678" />
+        <div class="cond" id="r-jobGrp" hidden>
+          <label>본인 직무 <span class="req">*</span></label>
+          <select id="r-job"><option value="">— 선택 —</option></select>
+        </div>
+        <div class="cond" id="r-companyGrp" hidden>
+          <label>소속 학습기업 (기업 담당자) <span class="req">*</span></label>
+          <select id="r-company"><option value="">— 선택 —</option></select>
+        </div>
+        <button class="btn" id="r-go">내 정보 불러오기</button>
+        <div class="status" id="r-status"></div>
+        <p class="note" style="text-align:center;margin-top:10px"><a href="#" id="r-fresh">처음 가입하시나요? 새로 가입하기</a></p>
+      </div>
+
       <div class="card" id="signupCard">
         <p class="ph-card-title">간편 가입</p>
         <p class="ph-note" style="margin-bottom:6px">이름·휴대폰을 입력하면 명단 확인 후 가입됩니다.</p>
@@ -116,7 +137,7 @@
 
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   <script type="module">
-    import { supabase, configReady, getQueryParam, isInAppBrowser, setStatus, friendlyError } from './app.js';
+    import { supabase, configReady, getQueryParam, isInAppBrowser, isStandalone, setStatus, friendlyError } from './app.js';
 
     if (window.lucide) window.lucide.createIcons();
 
@@ -143,6 +164,61 @@
       document.getElementById('resignup').addEventListener('click', (e) => {
         e.preventDefault();
         if (confirm('가입 정보를 지우고 다시 가입할까요?')) { localStorage.removeItem('ilhak_profile'); location.reload(); }
+      });
+    }
+
+    // 표준앱(홈 화면 추가)으로 처음 열었는데 프로필이 없음 = iOS 저장소 분리로 정보 소실
+    // → 가입폼 대신 '내 정보 불러오기'(이름·휴대폰 → verify_student 복원, 중복가입 없음) 게이트
+    const _standaloneNoProfile = (() => { try { return isStandalone() && !(_prof && _prof.name); } catch (_) { return false; } })();
+    if (_standaloneNoProfile) {
+      document.getElementById('signupCard').style.display = 'none';
+      document.getElementById('restoreCard').style.display = 'block';
+      const rName = document.getElementById('r-name'), rPhone = document.getElementById('r-phone');
+      const rJobGrp = document.getElementById('r-jobGrp'), rJob = document.getElementById('r-job');
+      const rCompGrp = document.getElementById('r-companyGrp'), rComp = document.getElementById('r-company');
+      const rGo = document.getElementById('r-go'), rStatus = document.getElementById('r-status');
+      const saveAndHome = (prof) => { try { localStorage.setItem('ilhak_profile', JSON.stringify(prof)); } catch (_) {} location.href = './index.html'; };
+      document.getElementById('r-fresh').addEventListener('click', (e) => {
+        e.preventDefault();
+        document.getElementById('restoreCard').style.display = 'none';
+        document.getElementById('signupCard').style.display = 'block';
+      });
+      let rPending = null; // 직무 여러 개인 매칭학생 2단계용
+      rGo.addEventListener('click', async () => {
+        const nm = rName.value.trim(), ph = rPhone.value.trim();
+        if (!nm || ph.replace(/\D/g, '').length < 10) { setStatus(rStatus, '이름과 휴대폰 번호(숫자 10~11자리)를 정확히 입력해주세요.', 'error'); return; }
+        if (!configReady()) { setStatus(rStatus, 'Supabase 연결 설정이 필요합니다.', 'error'); return; }
+        // 기업 담당자 복원 경로
+        if (!rCompGrp.hidden) {
+          const c = rComp.value; if (!c) { setStatus(rStatus, '소속 학습기업을 선택해주세요.', 'error'); return; }
+          return saveAndHome({ name: nm, target_type: 'company', job_key: null, company: c, type1: null });
+        }
+        // 매칭학생 2단계(본인 직무 선택)
+        if (rPending) {
+          const jk = rJob.value; if (!jk) { setStatus(rStatus, '본인 직무를 선택해주세요.', 'error'); return; }
+          const s = rPending; rPending = null;
+          return saveAndHome({ name: s.name, target_type: 'student', job_key: jk, company: s.company, type1: s.type1 });
+        }
+        // 1단계: 노션 명단(이름+휴대폰) 확인
+        rGo.disabled = true; setStatus(rStatus, '명단 확인 중...', 'info');
+        let res; try { res = await supabase.rpc('verify_student', { p_name: nm, p_phone: ph }); } catch (err) { res = { error: err }; }
+        rGo.disabled = false;
+        if (res.error) { setStatus(rStatus, friendlyError(res.error), 'error'); return; }
+        const v = res.data;
+        if (v && v.matched) {
+          const jobs = Array.isArray(v.job_keys) ? v.job_keys.filter(Boolean) : [];
+          if (jobs.length > 1) {
+            rPending = v; rJob.innerHTML = '<option value="">— 본인 직무 선택 —</option>';
+            jobs.forEach(j => { const o = document.createElement('option'); o.value = j; o.textContent = j; rJob.appendChild(o); });
+            rJobGrp.hidden = false; rGo.textContent = '불러오기 완료';
+            setStatus(rStatus, `${v.name}님 확인됐어요. 본인 직무를 선택하고 다시 눌러주세요.`, 'ok');
+            return;
+          }
+          return saveAndHome({ name: v.name, target_type: 'student', job_key: jobs[0] || null, company: v.company, type1: v.type1 });
+        }
+        // 명단 미확인 → 기업 담당자 복원 경로 노출
+        rCompGrp.hidden = false;
+        setStatus(rStatus, "명단에서 못 찾았어요. 기업 담당자시면 아래 소속 기업을 선택해 불러오세요. (학생이면 이름·번호를 확인하거나 '새로 가입')", 'error');
       });
     }
 
@@ -199,7 +275,11 @@
     const jobSel = document.getElementById('job');
     const compSel = document.getElementById('company');
     const otherOpt = compSel.querySelector('option[value="__other__"]');
-    const addCompany = (name) => { const o = document.createElement('option'); o.value = name; o.textContent = name; compSel.insertBefore(o, otherOpt); };
+    const rCompSel = document.getElementById('r-company');
+    const addCompany = (name) => {
+      const o = document.createElement('option'); o.value = name; o.textContent = name; compSel.insertBefore(o, otherOpt);
+      if (rCompSel) { const o2 = document.createElement('option'); o2.value = name; o2.textContent = name; rCompSel.appendChild(o2); }
+    };
     (async () => {
       let compsLoaded = false;
       if (configReady()) {
