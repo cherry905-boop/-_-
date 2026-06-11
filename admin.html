@@ -211,6 +211,28 @@
       </div>
       </main>
     </div>
+
+    <!-- 공지 발행 확인 모달 -->
+    <div class="modal-veil" id="nv-veil" style="display:none">
+      <div class="modal" style="width:460px">
+        <h3>이렇게 발행할까요?</h3>
+        <p style="margin:0 0 12px">학생 화면에 아래처럼 보입니다.</p>
+        <div style="background:var(--surface-sunken);border-radius:14px;padding:16px 18px;margin-bottom:16px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <span class="mju-badge" style="background:var(--coral-500);color:#fff">NEW</span>
+            <span style="font-size:12px;color:var(--text-muted)">방금 전</span>
+          </div>
+          <p id="nv-ptitle" style="margin:0 0 6px;font-weight:800;font-size:15.5px;color:var(--text-primary)"></p>
+          <p id="nv-pbody" style="margin:0;font-size:13.5px;line-height:1.65;white-space:pre-wrap;color:var(--text-secondary)"></p>
+        </div>
+        <p style="margin:0 0 4px;font-size:13.5px;color:var(--text-primary)"><b>받는 대상</b> · <span id="nv-target"></span></p>
+        <p id="nv-count" style="margin:0 0 18px;font-size:13.5px;color:var(--text-secondary)">예상 인원 계산 중…</p>
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+          <button class="mju-btn mju-btn--secondary" id="nv-cancel">취소</button>
+          <button class="mju-btn mju-btn--gold" id="nv-confirm">발행하기</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
@@ -376,31 +398,60 @@
       if (!lPicker) lPicker = buildPicker('l-tgt', '전체 공개', '가입자 모두 열람');
       if (!cPicker) cPicker = buildPicker('c-tgt', '전체', '가입자 모두에게 표시');
     }
+    // 실제 푸시 대상(알림 켠 기기) 카운트 — registrations(가입자)와 별개
+    let pushDims = null;
+    async function loadPushDims() {
+      if (pushDims) return pushDims;
+      const { data } = await supabase.from('push_tokens').select('target_type,job_key,company,type1').limit(5000);
+      pushDims = data || [];
+      return pushDims;
+    }
+    async function pushCount(picker) {
+      const d = await loadPushDims();
+      return picker.mode === 'all' ? d.length : d.filter(r => matchSel(picker.sel, r)).length;
+    }
+    // 발행하기 → 확인 모달(학생 미리보기 + 대상 + 가입N·알림M)
     $('n-publish').addEventListener('click', async () => {
       const title = $('n-title').value.trim(), body = $('n-body').value.trim();
       if (!title || !body) { setStatus($('n-status'), '제목·내용을 입력하세요.', 'error'); return; }
       if (!nPicker || !nPicker.valid()) { setStatus($('n-status'), '받는 대상을 선택하세요.', 'error'); return; }
+      $('nv-ptitle').textContent = title;
+      $('nv-pbody').textContent = body;
+      $('nv-target').textContent = nPicker.label();
+      $('nv-count').textContent = '예상 인원 계산 중…';
+      $('nv-veil').style.display = 'flex';
+      try {
+        const [n, m] = await Promise.all([nPicker.count(), pushCount(nPicker)]);
+        $('nv-count').innerHTML = `앱 가입 <b>${n}명</b> 중 <b>알림 켠 ${m}명</b>에게 지금 푸시됩니다.`;
+      } catch (_) { $('nv-count').textContent = '인원 계산 실패 — 그래도 발행할 수 있어요.'; }
+    });
+    $('nv-cancel').addEventListener('click', () => { $('nv-veil').style.display = 'none'; });
+    $('nv-veil').addEventListener('click', (e) => { if (e.target === $('nv-veil')) $('nv-veil').style.display = 'none'; });
+    $('nv-confirm').addEventListener('click', async () => {
+      const title = $('n-title').value.trim(), body = $('n-body').value.trim();
+      if (!title || !body || !nPicker || !nPicker.valid()) { $('nv-veil').style.display = 'none'; return; }
       const scope = nPicker.mode === 'all' ? 'all' : 'custom';
       const value = nPicker.mode === 'all' ? null : JSON.stringify(nPicker.sel);
       const lbl = nPicker.label();
-      // 발행 전 예상 대상 미리보기 + 확인
-      const n = await nPicker.count();
-      if (!confirm(`[${lbl}] 대상 약 ${n}명 (그중 알림 켠 사람에게 푸시).\n발행할까요?`)) return;
-      $('n-publish').disabled = true; setStatus($('n-status'), '발행 중...', 'info');
-      // created_by(이메일)는 공개 읽기 테이블에 노출되므로 저장하지 않음 — '누가 발행했나'는 admin_logs(관리자 전용)가 기록
+      $('nv-confirm').disabled = true; setStatus($('n-status'), '발행 중...', 'info');
+      // created_by(이메일)는 공개 읽기 테이블에 노출되므로 저장하지 않음 — admin_logs(관리자 전용)가 기록
       const { error } = await supabase.from('notices').insert({ title, body, target_scope: scope, target_value: value, published: true, created_by: null });
-      $('n-publish').disabled = false;
+      $('nv-confirm').disabled = false; $('nv-veil').style.display = 'none';
       if (error) { setStatus($('n-status'), '오류: ' + error.message, 'error'); return; }
-      setStatus($('n-status'), '✅ 발행되었습니다 (5분 내 푸시).', 'ok'); logAction('공지발행', lbl + ' · ' + title); $('n-title').value = ''; $('n-body').value = ''; nPicker.reset(); nLoad();
+      setStatus($('n-status'), '✅ 발행되었습니다 (5분 내 푸시).', 'ok'); logAction('공지발행', lbl + ' · ' + title);
+      $('n-title').value = ''; $('n-body').value = ''; nPicker.reset(); nLoad();
     });
     async function nLoad() {
-      const { data } = await supabase.from('notices').select('id,title,target_scope,target_value,created_at,published').order('created_at', { ascending: false }).limit(20);
+      const { data } = await supabase.from('notices').select('id,title,target_scope,target_value,created_at,published,pushed').order('created_at', { ascending: false }).limit(20);
       const el = $('n-list'); el.innerHTML = (data && data.length) ? '' : '<p class="note">없음</p>';
       (data || []).forEach(n => {
         const t = fmtTarget(n.target_scope, n.target_value);
         const e = document.createElement('div'); e.textContent = n.title;
         const row = document.createElement('div'); row.style.cssText = 'padding:9px 0;border-bottom:1px solid var(--gray-100);display:flex;justify-content:space-between;gap:8px;align-items:center';
-        const info = document.createElement('div'); info.innerHTML = `<b>${e.innerHTML}</b>${n.published ? '' : ' <span class="note">(내려짐)</span>'}<br/><span class="note">${t} · ${new Date(n.created_at).toLocaleString('ko-KR')}</span>`;
+        const st = !n.published ? '<span class="mju-badge mju-badge--neutral">내려짐</span>'
+                 : n.pushed ? '<span class="mju-badge mju-badge--success">발송완료</span>'
+                 : '<span class="mju-badge mju-badge--gold">발송대기</span>';
+        const info = document.createElement('div'); info.innerHTML = `<b>${e.innerHTML}</b> ${st}<br/><span class="note">${t} · ${new Date(n.created_at).toLocaleString('ko-KR')}</span>`;
         const tg = document.createElement('button'); tg.textContent = n.published ? '내리기' : '올리기';
         tg.style.cssText = 'padding:5px 12px;font-size:13px;border:1px solid var(--line);border-radius:8px;background:#fff;cursor:pointer;white-space:nowrap';
         tg.addEventListener('click', async () => { await supabase.from('notices').update({ published: !n.published }).eq('id', n.id); logAction(n.published ? '공지내림' : '공지올림', n.title); nLoad(); });
