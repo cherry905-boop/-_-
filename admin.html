@@ -98,17 +98,7 @@
             <label>내용 <span class="req">*</span></label>
             <textarea id="n-body" class="ph-ta" rows="4"></textarea>
             <label>받는 대상 <span class="req">*</span></label>
-            <select id="n-scope" class="ph-select">
-              <option value="all">전체 발송</option>
-              <option value="job">직무별</option>
-              <option value="company">기업별</option>
-              <option value="target">대상별 (재학생/졸업생 등)</option>
-              <option value="type">유형별 (1/2/3유형)</option>
-            </select>
-            <div id="n-valueGrp" style="display:none">
-              <label>대상 선택 <span class="req">*</span></label>
-              <select id="n-value" class="ph-select"><option value="">— 선택 —</option></select>
-            </div>
+            <div id="n-tgt"></div>
             <button class="btn" id="n-publish">발행하기</button>
             <div class="status" id="n-status"></div>
             <p class="note">※ 발행 후 5분 내 자동으로 푸시 발송됩니다(트리거).</p>
@@ -134,7 +124,7 @@
             <input type="text" id="l-url" placeholder="구글드라이브 공유 링크 등 https://..." />
             <p class="note">※ 파일은 구글드라이브 등에 올린 뒤 '링크가 있는 모든 사용자' 공유 링크를 붙여넣으세요. (강사 연락처·정답 포함 원문 업로드 금지)</p>
             <label>대상</label>
-            <select id="l-job" class="ph-select"><option value="">전체 공개</option></select>
+            <div id="l-tgt"></div>
             <label style="display:flex;align-items:center;gap:8px;font-weight:500;margin-top:14px"><input type="checkbox" id="l-shared" style="width:18px;height:18px"> 구글드라이브 공유를 '링크 있는 모든 사용자'로 설정했습니다</label>
             <button class="btn" id="l-add">등록</button>
             <div class="status" id="l-status"></div>
@@ -156,7 +146,7 @@
             <label>종류</label>
             <select id="c-kind" class="ph-select"><option>외부평가</option><option>마감</option><option>OT</option><option>특강</option><option>행사</option><option selected>기타</option></select>
             <label>대상</label>
-            <select id="c-job" class="ph-select"><option value="">전체</option></select>
+            <div id="c-tgt"></div>
             <label>메모 (선택)</label>
             <input type="text" id="c-memo" placeholder="예: 접수기한 6/30" />
             <button class="btn" id="c-add">등록</button>
@@ -242,58 +232,136 @@
       ['dash', 'notice', 'library', 'calendar', 'consult', 'board', 'survey', 'members'].forEach(t => $('sec-' + t).style.display = (t === b.dataset.tab ? 'block' : 'none'));
     }));
 
-    // 직무 목록 캐시 → 대상 드롭다운 채우기
+    // ===== 받는 대상 상세 지정 (전체 / 상세 칩 조합 + 예상 대상 N명) =====
+    // 마이그레이션 없이: notices=target_scope 'custom'+target_value JSON / library·calendar=job_key 'custom:'+JSON
     let jobs = null;
     async function loadJobs() {
       if (jobs) return jobs;
       const { data } = await supabase.from('jobs').select('name').eq('active', true).order('name');
       jobs = (data || []).map(r => r.name);
-      jobs.forEach(j => { ['l-job', 'c-job'].forEach(id => { const o = document.createElement('option'); o.value = j; o.textContent = j; $(id).appendChild(o); }); });
       return jobs;
     }
-
-    // ===== 공지 =====
-    let jobsCache = null, compsCache = null;
-    async function nUpdateValue() {
-      const scope = $('n-scope').value, grp = $('n-valueGrp'), sel = $('n-value');
-      sel.innerHTML = '<option value="">— 선택 —</option>';
-      if (scope === 'all') { grp.style.display = 'none'; return; }
-      grp.style.display = 'block';
-      let opts = [];
-      if (scope === 'job') { opts = await loadJobs(); }
-      else if (scope === 'company') { if (!compsCache) { const { data } = await supabase.from('companies').select('name').eq('active', true).order('name'); compsCache = (data || []).map(r => r.name); } opts = compsCache; }
-      else if (scope === 'target') { opts = (window.TARGET_TYPES || []).map(t => ({ v: t.key, l: t.label })); }
-      else if (scope === 'type') { opts = window.TYPES || []; }
-      opts.forEach(o => { const opt = document.createElement('option'); if (typeof o === 'string') { opt.value = o; opt.textContent = o; } else { opt.value = o.v; opt.textContent = o.l; } sel.appendChild(opt); });
+    let regDims = null;
+    async function loadRegDims() {
+      if (regDims) return regDims;
+      const { data } = await supabase.from('registrations').select('target_type,job_key,company,type1').limit(3000);
+      regDims = data || [];
+      return regDims;
     }
-    $('n-scope').addEventListener('change', nUpdateValue);
+    // 한 가입자(p)가 선택(sel)에 해당하는가 — 학생 페이지 matchSel 과 동일 규칙(union)
+    function matchSel(sel, p) {
+      if (!p) return false;
+      if (sel.targets && sel.targets.includes(p.target_type)) return true;
+      if (sel.jobs && p.job_key && sel.jobs.includes(p.job_key)) return true;
+      if (sel.types && p.type1 && sel.types.includes(p.type1)) return true;
+      return false;
+    }
+    const selEmpty = (sel) => !(sel.targets.length || sel.jobs.length || sel.types.length);
+
+    // 작성 폼 대상 선택기: 전체/상세 토글 + 칩(매칭학생 전체·직무 / 기업담당자 전체 / 유형) + 예상 대상 N명
+    function buildPicker(mountId, allLabel, allDesc) {
+      const sel = { jobs: [], companies: [], targets: [], types: [] };
+      const st = { mode: 'all' };
+      const mount = $(mountId);
+      mount.innerHTML =
+        `<div style="display:flex;gap:8px">` +
+        `<button type="button" class="role-card pk-all sel" style="padding:10px 12px;min-height:0;flex:1"><span class="rc-dot"><i></i></span><span><span class="rc-t" style="font-size:13.5px">${allLabel}</span><div class="rc-s">${allDesc}</div></span></button>` +
+        `<button type="button" class="role-card pk-custom" style="padding:10px 12px;min-height:0;flex:1"><span class="rc-dot"><i></i></span><span><span class="rc-t" style="font-size:13.5px">상세 지정</span><div class="rc-s">직무·대상·유형</div></span></button>` +
+        `</div>` +
+        `<div class="pk-chips" style="display:none;margin-top:8px;background:var(--surface-sunken);border-radius:12px;padding:12px 14px"></div>` +
+        `<p class="pk-count note" style="margin:8px 0 0"></p>`;
+      const chipsBox = mount.querySelector('.pk-chips'), countEl = mount.querySelector('.pk-count');
+      const allBtn = mount.querySelector('.pk-all'), cusBtn = mount.querySelector('.pk-custom');
+      async function recount() {
+        const dims = await loadRegDims();
+        const n = (st.mode === 'all') ? dims.length : dims.filter(r => matchSel(sel, r)).length;
+        if (st.mode === 'custom' && selEmpty(sel)) { countEl.style.color = 'var(--coral-600)'; countEl.textContent = '받을 대상을 선택하세요'; }
+        else { countEl.style.color = ''; countEl.innerHTML = `예상 대상 <b>${n}명</b>`; }
+      }
+      function tag(label, isOn, onClick) {
+        const b = document.createElement('button'); b.type = 'button';
+        b.className = 'mju-tag' + (isOn() ? ' mju-tag--selected' : ''); b.textContent = label;
+        b.addEventListener('click', () => { onClick(); render(); }); return b;
+      }
+      function group(title, build) {
+        const wrap = document.createElement('div');
+        const h = document.createElement('p'); h.style.cssText = 'margin:0 0 6px;font-size:12px;font-weight:800;color:var(--text-muted)'; h.textContent = title;
+        const row = document.createElement('div'); row.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap'; build(row);
+        wrap.appendChild(h); wrap.appendChild(row); return wrap;
+      }
+      function render() {
+        chipsBox.innerHTML = '';
+        chipsBox.appendChild(group('매칭학생', row => {
+          row.appendChild(tag('전체', () => sel.targets.includes('student'), () => {
+            if (sel.targets.includes('student')) sel.targets = sel.targets.filter(x => x !== 'student');
+            else { sel.targets.push('student'); sel.jobs = []; }
+          }));
+          (jobs || []).forEach(j => row.appendChild(tag(j, () => sel.jobs.includes(j), () => {
+            sel.targets = sel.targets.filter(x => x !== 'student');
+            if (sel.jobs.includes(j)) sel.jobs = sel.jobs.filter(x => x !== j); else sel.jobs.push(j);
+          })));
+        }));
+        chipsBox.appendChild(group('기업담당자', row => {
+          row.appendChild(tag('전체', () => sel.targets.includes('company'), () => {
+            if (sel.targets.includes('company')) sel.targets = sel.targets.filter(x => x !== 'company'); else sel.targets.push('company');
+          }));
+        }));
+        chipsBox.appendChild(group('유형', row => {
+          (window.TYPES || []).forEach(t => row.appendChild(tag(t, () => sel.types.includes(t), () => {
+            if (sel.types.includes(t)) sel.types = sel.types.filter(x => x !== t); else sel.types.push(t);
+          })));
+        }));
+        recount();
+      }
+      allBtn.addEventListener('click', () => { st.mode = 'all'; allBtn.classList.add('sel'); cusBtn.classList.remove('sel'); chipsBox.style.display = 'none'; recount(); });
+      cusBtn.addEventListener('click', () => { st.mode = 'custom'; cusBtn.classList.add('sel'); allBtn.classList.remove('sel'); chipsBox.style.display = 'block'; render(); });
+      recount();
+      return {
+        get mode() { return st.mode; }, sel,
+        valid() { return st.mode === 'all' || !selEmpty(sel); },
+        label() {
+          if (st.mode === 'all') return '전체';
+          const p = [];
+          if (sel.targets.includes('student')) p.push('매칭학생 전체');
+          if (sel.jobs.length) p.push(sel.jobs.join('·'));
+          if (sel.targets.includes('company')) p.push('기업담당자 전체');
+          if (sel.types.length) p.push(sel.types.join('·'));
+          return p.join(' / ');
+        },
+        async count() { const d = await loadRegDims(); return st.mode === 'all' ? d.length : d.filter(r => matchSel(sel, r)).length; },
+        reset() { sel.jobs = []; sel.companies = []; sel.targets = []; sel.types = []; st.mode = 'all'; allBtn.classList.add('sel'); cusBtn.classList.remove('sel'); chipsBox.style.display = 'none'; recount(); },
+      };
+    }
+    let nPicker = null, lPicker = null, cPicker = null;
+    async function initPickers() {
+      await loadJobs();
+      if (!nPicker) nPicker = buildPicker('n-tgt', '전체 발송', '가입자 모두');
+      if (!lPicker) lPicker = buildPicker('l-tgt', '전체 공개', '가입자 모두 열람');
+      if (!cPicker) cPicker = buildPicker('c-tgt', '전체', '가입자 모두에게 표시');
+    }
     $('n-publish').addEventListener('click', async () => {
-      const title = $('n-title').value.trim(), body = $('n-body').value.trim(), scope = $('n-scope').value;
-      const value = scope === 'all' ? null : $('n-value').value;
+      const title = $('n-title').value.trim(), body = $('n-body').value.trim();
       if (!title || !body) { setStatus($('n-status'), '제목·내용을 입력하세요.', 'error'); return; }
-      if (scope !== 'all' && !value) { setStatus($('n-status'), '대상을 선택하세요.', 'error'); return; }
-      // 발행 전 예상 대상(알림 켠 인원) 미리보기 + 확인
-      let cq = supabase.from('push_tokens').select('token', { count: 'exact', head: true });
-      if (scope === 'job') cq = cq.eq('job_key', value);
-      else if (scope === 'company') cq = cq.eq('company', value);
-      else if (scope === 'target') cq = cq.eq('target_type', value);
-      else if (scope === 'type') cq = cq.eq('type1', value);
-      const { count } = await cq;
-      const lbl = scope === 'all' ? '전체' : `${scope}: ${value}`;
-      if (!confirm(`[${lbl}] 알림 켠 약 ${count ?? '?'}명에게 발송됩니다.\n발행할까요?`)) return;
+      if (!nPicker || !nPicker.valid()) { setStatus($('n-status'), '받는 대상을 선택하세요.', 'error'); return; }
+      const scope = nPicker.mode === 'all' ? 'all' : 'custom';
+      const value = nPicker.mode === 'all' ? null : JSON.stringify(nPicker.sel);
+      const lbl = nPicker.label();
+      // 발행 전 예상 대상 미리보기 + 확인
+      const n = await nPicker.count();
+      if (!confirm(`[${lbl}] 대상 약 ${n}명 (그중 알림 켠 사람에게 푸시).\n발행할까요?`)) return;
       $('n-publish').disabled = true; setStatus($('n-status'), '발행 중...', 'info');
       const { data: { session } } = await supabase.auth.getSession();
       const { error } = await supabase.from('notices').insert({ title, body, target_scope: scope, target_value: value, published: true, created_by: session?.user?.email || null });
       $('n-publish').disabled = false;
       if (error) { setStatus($('n-status'), '오류: ' + error.message, 'error'); return; }
-      setStatus($('n-status'), '✅ 발행되었습니다 (5분 내 푸시).', 'ok'); logAction('공지발행', lbl + ' · ' + title); $('n-title').value = ''; $('n-body').value = ''; nLoad();
+      setStatus($('n-status'), '✅ 발행되었습니다 (5분 내 푸시).', 'ok'); logAction('공지발행', lbl + ' · ' + title); $('n-title').value = ''; $('n-body').value = ''; nPicker.reset(); nLoad();
     });
     async function nLoad() {
       const { data } = await supabase.from('notices').select('id,title,target_scope,target_value,created_at,published').order('created_at', { ascending: false }).limit(20);
       const el = $('n-list'); el.innerHTML = (data && data.length) ? '' : '<p class="note">없음</p>';
       (data || []).forEach(n => {
-        const k = { all: '전체', job: '직무', company: '기업', target: '대상', type: '유형' }[n.target_scope] || n.target_scope;
-        const t = n.target_scope === 'all' ? '전체' : `${k}: ${n.target_value}`;
+        const k = { all: '전체', job: '직무', company: '기업', target: '대상', type: '유형', custom: '상세 지정' }[n.target_scope] || n.target_scope;
+        const t = (n.target_scope === 'all' || n.target_scope === 'custom') ? k : `${k}: ${n.target_value}`;
         const e = document.createElement('div'); e.textContent = n.title;
         const row = document.createElement('div'); row.style.cssText = 'padding:9px 0;border-bottom:1px dashed var(--line);display:flex;justify-content:space-between;gap:8px;align-items:center';
         const info = document.createElement('div'); info.innerHTML = `<b>${e.innerHTML}</b>${n.published ? '' : ' <span class="note">(내려짐)</span>'}<br/><span class="note">${t} · ${new Date(n.created_at).toLocaleString('ko-KR')}</span>`;
@@ -312,7 +380,7 @@
       el.innerHTML = (data && data.length) ? '' : '<p class="note">아직 발송 기록이 없습니다.</p>';
       (data || []).forEach(p => {
         const e = document.createElement('div'); e.textContent = p.title;
-        const tgt = p.scope === 'all' ? '전체' : (p.scope + ': ' + p.target);
+        const tgt = p.scope === 'all' ? '전체' : (p.scope === 'custom' ? '상세 지정' : p.scope + ': ' + p.target);
         const row = document.createElement('div'); row.style.cssText = 'padding:9px 0;border-bottom:1px dashed var(--line)';
         row.innerHTML = `<b>${e.innerHTML}</b><br/><span class="note">${tgt} · 대상 ${p.recipient_count ?? '?'} / 성공 ${p.success_count ?? '?'} · ${new Date(p.sent_at).toLocaleString('ko-KR')}</span>`;
         el.appendChild(row);
@@ -321,15 +389,17 @@
 
     // ===== 자료실 =====
     $('l-add').addEventListener('click', async () => {
-      const title = $('l-title').value.trim(), url = $('l-url').value.trim(), kind = $('l-kind').value, job = $('l-job').value || null;
+      const title = $('l-title').value.trim(), url = $('l-url').value.trim(), kind = $('l-kind').value;
       if (!title || !url) { setStatus($('l-status'), '제목·링크를 입력하세요.', 'error'); return; }
       if (!/^https?:\/\//.test(url)) { setStatus($('l-status'), '링크는 http(s)로 시작해야 합니다.', 'error'); return; }
       if (!$('l-shared').checked) { setStatus($('l-status'), "먼저 공유 설정을 '링크 있는 모든 사용자'로 하고 체크해주세요(안 하면 학생이 못 엽니다).", 'error'); return; }
+      if (!lPicker || !lPicker.valid()) { setStatus($('l-status'), '열람 대상을 선택하세요.', 'error'); return; }
+      const job = lPicker.mode === 'all' ? null : ('custom:' + JSON.stringify(lPicker.sel));
       $('l-add').disabled = true;
       const { error } = await supabase.from('library').insert({ title, url, kind, job_key: job, published: true });
       $('l-add').disabled = false;
       if (error) { setStatus($('l-status'), '오류: ' + error.message, 'error'); return; }
-      setStatus($('l-status'), '✅ 등록되었습니다.', 'ok'); logAction('자료등록', title); $('l-title').value = ''; $('l-url').value = ''; lLoad();
+      setStatus($('l-status'), '✅ 등록되었습니다.', 'ok'); logAction('자료등록', title + ' · ' + lPicker.label()); $('l-title').value = ''; $('l-url').value = ''; lPicker.reset(); lLoad();
     });
     async function lLoad() {
       const { data } = await supabase.from('library').select('title,kind,job_key,created_at').order('created_at', { ascending: false }).limit(30);
@@ -340,13 +410,15 @@
 
     // ===== 캘린더 =====
     $('c-add').addEventListener('click', async () => {
-      const title = $('c-title').value.trim(), date = $('c-date').value, kind = $('c-kind').value, job = $('c-job').value || null, memo = $('c-memo').value.trim() || null;
+      const title = $('c-title').value.trim(), date = $('c-date').value, kind = $('c-kind').value, memo = $('c-memo').value.trim() || null;
       if (!title || !date) { setStatus($('c-status'), '제목·날짜를 입력하세요.', 'error'); return; }
+      if (!cPicker || !cPicker.valid()) { setStatus($('c-status'), '표시 대상을 선택하세요.', 'error'); return; }
+      const job = cPicker.mode === 'all' ? null : ('custom:' + JSON.stringify(cPicker.sel));
       $('c-add').disabled = true;
       const { error } = await supabase.from('calendar_events').insert({ title, event_date: date, kind, job_key: job, memo });
       $('c-add').disabled = false;
       if (error) { setStatus($('c-status'), '오류: ' + error.message, 'error'); return; }
-      setStatus($('c-status'), '✅ 등록되었습니다.', 'ok'); logAction('일정등록', title); $('c-title').value = ''; $('c-memo').value = ''; cLoad();
+      setStatus($('c-status'), '✅ 등록되었습니다.', 'ok'); logAction('일정등록', title + ' · ' + cPicker.label()); $('c-title').value = ''; $('c-memo').value = ''; cPicker.reset(); cLoad();
     });
     async function cLoad() {
       const { data } = await supabase.from('calendar_events').select('title,event_date,kind,job_key').order('event_date', { ascending: true }).limit(50);
@@ -529,7 +601,7 @@
       $('panel').style.display = authed ? 'block' : 'none';
       adminEmail = authed ? session.user.email : ''; $('me').textContent = adminEmail;
       const _u = $('adm-user'); if (_u) _u.style.display = authed ? 'flex' : 'none';
-      if (authed) { dashLoad(); loadJobs(); nUpdateValue(); nLoad(); plLoad(); lLoad(); cLoad(); clLoad(); blLoad(); regLoad(); uvLoad(); }
+      if (authed) { dashLoad(); initPickers(); nLoad(); plLoad(); lLoad(); cLoad(); clLoad(); blLoad(); regLoad(); uvLoad(); }
     }
     $('loginBtn').addEventListener('click', async () => {
       const email = $('email').value.trim(), password = $('pw').value;

@@ -38,7 +38,20 @@
     try { profile = JSON.parse(localStorage.getItem('ilhak_profile') || '{}'); } catch (_) {}
     document.getElementById('who').textContent = profile.name ? `${profile.name}님 일정` : '';
 
-    const visible = (r) => !r.job_key || r.job_key === profile.job_key;
+    const normCo = (s) => (s || '').replace(/㈜|\(주\)|주식회사|\s/g, '');
+    function matchSel(sel) {
+      if (!sel) return false;
+      if (sel.targets && sel.targets.includes(profile.target_type)) return true;
+      if (sel.jobs && profile.job_key && sel.jobs.includes(profile.job_key)) return true;
+      if (sel.companies && profile.company && sel.companies.map(normCo).includes(normCo(profile.company))) return true;
+      if (sel.types && profile.type1 && sel.types.includes(profile.type1)) return true;
+      return false;
+    }
+    const visible = (r) => {
+      if (!r.job_key) return true;                                   // 전체
+      if (r.job_key.indexOf('custom:') === 0) { try { return matchSel(JSON.parse(r.job_key.slice(7))); } catch (_) { return false; } }
+      return r.job_key === profile.job_key;                          // 단일 직무(기존)
+    };
     const esc = (s) => { const e = document.createElement('div'); e.textContent = s || ''; return e.innerHTML; };
     const KIND_COLOR = { '외부평가': '#c1121f', '마감': '#b8860b', 'OT': '#1f4e8c', '특강': '#157347', '행사': '#6f42c1', '기타': '#64748b' };
 

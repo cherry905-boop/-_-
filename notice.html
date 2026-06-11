@@ -37,6 +37,15 @@
 
     // 공지가 이 기기에 보여야 하는가?
     const normCo = (s) => (s || '').replace(/㈜|\(주\)|주식회사|\s/g, '');  // 회사명 표기차이 흡수
+    // 상세 지정(custom) 매칭 — admin 작성 선택기와 동일 규칙(해당 세그먼트 중 하나라도 맞으면 표시)
+    function matchSel(sel) {
+      if (!sel) return false;
+      if (sel.targets && sel.targets.includes(profile.target_type)) return true;
+      if (sel.jobs && profile.job_key && sel.jobs.includes(profile.job_key)) return true;
+      if (sel.companies && profile.company && sel.companies.map(normCo).includes(normCo(profile.company))) return true;
+      if (sel.types && profile.type1 && sel.types.includes(profile.type1)) return true;
+      return false;
+    }
     function matches(n) {
       switch (n.target_scope) {
         case 'all':     return true;
@@ -44,6 +53,7 @@
         case 'company': return normCo(profile.company) === normCo(n.target_value);
         case 'target':  return profile.target_type === n.target_value;
         case 'type':    return profile.type1       === n.target_value;
+        case 'custom':  { try { return matchSel(JSON.parse(n.target_value || '{}')); } catch (_) { return false; } }
         default:        return false; // manager/status 등은 푸시 단계에서 처리
       }
     }
