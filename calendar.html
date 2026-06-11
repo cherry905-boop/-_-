@@ -117,6 +117,17 @@
       clearSkeleton(listEl);
       if (error) { const e = document.getElementById('empty'); e.style.display = 'block'; document.getElementById('emptyMsg').textContent = '일시적 오류로 불러오지 못했습니다. 잠시 후 새로고침해주세요.'; console.error(error); return; }
       all = (data || []).filter(visible);
+      // 나에게만 지정된 일정(명단 지정) — 토큰으로 서버에서 받아 병합 후 날짜순 정렬
+      if (profile.token) {
+        try {
+          const { data: mine } = await supabase.rpc('my_targeted_calendar', { p_token: profile.token });
+          if (Array.isArray(mine) && mine.length) {
+            const seen = new Set(all.map(r => r.title + '|' + r.event_date));
+            mine.forEach(r => { if (!seen.has(r.title + '|' + r.event_date)) all.push(r); });
+            all.sort((a, b) => (a.event_date < b.event_date ? -1 : a.event_date > b.event_date ? 1 : 0));
+          }
+        } catch (_) {}
+      }
       if (!all.length) {
         const em = document.getElementById('empty'); em.style.display = 'block';
         if (!profile.name) document.getElementById('emptyMsg').innerHTML = '내 정보가 이 기기에 없어 맞춤 일정이 안 보일 수 있어요.<br/><a href="./index.html">홈에서 정보 입력하기</a>';

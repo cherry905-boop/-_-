@@ -156,7 +156,13 @@
             <button class="btn" id="c-add">등록</button>
             <div class="status" id="c-status"></div>
           </div>
-          <div class="card"><p class="ph-card-title">등록된 일정</p><div id="c-list"></div></div>
+          <div class="card">
+            <div style="display:flex;align-items:center;gap:8px">
+              <p class="ph-card-title" style="margin:0;flex:1">등록된 일정</p>
+              <button class="mju-btn mju-btn--secondary mju-btn--sm" id="c-clean"><i data-lucide="trash-2"></i> 지난 일정 정리</button>
+            </div>
+            <div id="c-list"></div>
+          </div>
         </div>
       </div>
 
@@ -170,14 +176,15 @@
           <textarea id="cl-reply" class="ph-ta" rows="2" style="min-height:64px"></textarea>
           <button class="btn" id="cl-send">답변 보내기</button>
           <button class="mju-btn mju-btn--secondary mju-btn--full" id="cl-toqna" style="margin-top:8px"><i data-lucide="share-2"></i> 이 상담을 QnA 사례로 공개 (익명화)</button>
+          <button class="mju-btn mju-btn--secondary mju-btn--full" id="cl-del" style="margin-top:8px;color:var(--coral-600);border-color:var(--coral-500)"><i data-lucide="trash-2"></i> 이 상담 삭제 (완료된 상담 정리)</button>
           <div class="status" id="cl-status"></div>
         </div>
       </div>
 
       <!-- 게시판 -->
       <div class="tabsec" id="sec-board" style="display:none">
-        <h2 class="adm-h2">익명 건의함 <span class="hint">학생끼리는 못 봅니다 · 처리한 글은 '숨김'으로</span></h2>
-        <div class="card"><div id="bl-list"></div></div>
+        <h2 class="adm-h2">익명 건의함 <span class="hint">학생끼리는 못 봅니다 · 처리한 글은 '숨김' 또는 '삭제'로</span></h2>
+        <div class="card"><div class="status" id="bl-status"></div><div id="bl-list"></div></div>
       </div>
 
       <!-- 만족도 -->
@@ -362,9 +369,28 @@
     const $ = id => document.getElementById(id);
     const esc = s => { const e = document.createElement('div'); e.textContent = s || ''; return e.innerHTML; };
     const maskPhone = p => (p && p.length >= 7) ? (p.slice(0, 3) + '-****-' + p.slice(-4)) : (p || '');
+    // 삭제 버튼 공통 (다 쓴 콘텐츠 정리용 — 복구 불가 확인 후 실행)
+    const DEL_CSS = 'padding:5px 12px;font-size:13px;border:1px solid var(--coral-500);color:var(--coral-600);border-radius:8px;background:var(--surface-card);cursor:pointer;white-space:nowrap';
+    const delErr = e => {
+      const m = (e && e.message) || String(e || '');
+      if (/permission|policy|denied|42501|row-level/i.test(m)) return '삭제 권한이 없어요 — sql/07_admin_tools.sql 실행 필요';
+      if (/foreign key|23503/i.test(m)) return '연결된 데이터가 있어 삭제하지 못했어요 — sql/07_admin_tools.sql(및 R15) 실행 여부를 확인하세요.';
+      return '오류: ' + m;
+    };
+    function mkDelBtn(label, onDel) {
+      const b = document.createElement('button'); b.textContent = label || '삭제'; b.style.cssText = DEL_CSS;
+      b.addEventListener('click', async () => {
+        if (!confirm('정말 삭제할까요? 복구할 수 없습니다.')) return;
+        b.disabled = true;
+        try { await onDel(); } catch (e) { alert(delErr(e)); }
+        b.disabled = false;
+      });
+      return b;
+    }
     // 공지/발송기록의 대상 표기 — custom 은 JSON 을 사람이 읽는 라벨로 펼침
     function fmtTarget(scope, value) {
       if (scope === 'all') return '전체';
+      if (scope === 'personal') return '개인 지정(비공개)';
       if (scope !== 'custom') return ({ job: '직무', company: '기업', target: '대상', type: '유형' }[scope] || scope) + ': ' + value;
       try {
         const s = JSON.parse(value || '{}'); const p = [];
@@ -432,24 +458,58 @@
 
     // 작성 폼 대상 선택기: 전체/상세 토글 + 칩(매칭학생 전체·직무 / 기업담당자 전체 / 유형) + 예상 대상 N명
     function buildPicker(mountId, allLabel, allDesc) {
-      const sel = { jobs: [], companies: [], targets: [], types: [], managers: [] };
+      const sel = { jobs: [], companies: [], targets: [], types: [], managers: [], people: [] };
       const st = { mode: 'all' };
       const mount = $(mountId);
       mount.innerHTML =
-        `<div style="display:flex;gap:8px">` +
-        `<button type="button" class="role-card pk-all sel" style="padding:10px 12px;min-height:0;flex:1"><span class="rc-dot"><i></i></span><span><span class="rc-t" style="font-size:13.5px">${allLabel}</span><div class="rc-s">${allDesc}</div></span></button>` +
-        `<button type="button" class="role-card pk-custom" style="padding:10px 12px;min-height:0;flex:1"><span class="rc-dot"><i></i></span><span><span class="rc-t" style="font-size:13.5px">상세 지정</span><div class="rc-s">직무·대상·유형</div></span></button>` +
+        `<div style="display:flex;gap:8px;flex-wrap:wrap">` +
+        `<button type="button" class="role-card pk-all sel" style="padding:10px 12px;min-height:0;flex:1;min-width:120px"><span class="rc-dot"><i></i></span><span><span class="rc-t" style="font-size:13.5px">${allLabel}</span><div class="rc-s">${allDesc}</div></span></button>` +
+        `<button type="button" class="role-card pk-custom" style="padding:10px 12px;min-height:0;flex:1;min-width:120px"><span class="rc-dot"><i></i></span><span><span class="rc-t" style="font-size:13.5px">상세 지정</span><div class="rc-s">직무·대상·유형</div></span></button>` +
+        `<button type="button" class="role-card pk-people" style="padding:10px 12px;min-height:0;flex:1;min-width:120px"><span class="rc-dot"><i></i></span><span><span class="rc-t" style="font-size:13.5px">명단 지정</span><div class="rc-s">가입자에서 직접 선택</div></span></button>` +
         `</div>` +
         `<div class="pk-chips" style="display:none;margin-top:8px;background:var(--surface-sunken);border-radius:12px;padding:12px 14px"></div>` +
+        `<div class="pk-ppl" style="display:none;margin-top:8px;background:var(--surface-sunken);border-radius:12px;padding:12px 14px">` +
+        `<input type="text" class="pk-ppl-q" placeholder="이름·기업·직무·담당 검색" style="width:100%;padding:8px 10px;font-size:13px;border-radius:9px" />` +
+        `<div class="pk-ppl-list" style="max-height:220px;overflow:auto;margin-top:8px"></div>` +
+        `<p class="note" style="margin:6px 0 0">선택한 사람에게만 전달돼요. 공지는 비공개 개인 안내로, 자료·일정은 그 사람 화면에만 표시됩니다.</p>` +
+        `</div>` +
         `<p class="pk-count note" style="margin:8px 0 0"></p>`;
       const chipsBox = mount.querySelector('.pk-chips'), countEl = mount.querySelector('.pk-count');
-      const allBtn = mount.querySelector('.pk-all'), cusBtn = mount.querySelector('.pk-custom');
+      const allBtn = mount.querySelector('.pk-all'), cusBtn = mount.querySelector('.pk-custom'), pplBtn = mount.querySelector('.pk-people');
+      const pplBox = mount.querySelector('.pk-ppl'), pplQ = mount.querySelector('.pk-ppl-q'), pplList = mount.querySelector('.pk-ppl-list');
+      const pkey = p => (p.name || '') + '|' + (p.phone || '');
       async function recount() {
+        if (st.mode === 'people') {
+          if (!sel.people.length) { countEl.style.color = 'var(--coral-600)'; countEl.textContent = '명단에서 받을 사람을 선택하세요'; }
+          else { countEl.style.color = ''; countEl.innerHTML = `명단 지정 <b>${sel.people.length}명</b>`; }
+          return;
+        }
         const dims = await loadRegDims();
         const n = (st.mode === 'all') ? dims.length : dims.filter(r => matchSel(sel, r)).length;
         if (st.mode === 'custom' && selEmpty(sel)) { countEl.style.color = 'var(--coral-600)'; countEl.textContent = '받을 대상을 선택하세요'; }
         else { countEl.style.color = ''; countEl.innerHTML = `예상 대상 <b>${n}명</b>`; }
       }
+      async function renderPeople() {
+        if (!regCache.length) { pplList.innerHTML = '<p class="note">명단 불러오는 중…</p>'; try { await regLoad(); } catch (_) {} }
+        const q = (pplQ.value || '').trim().toLowerCase();
+        const rows = regCache.filter(r => r.target_type === 'student' &&
+          (!q || [r.name, r.company, r.job_key, r.manager].some(x => (x || '').toLowerCase().includes(q))));
+        pplList.innerHTML = '';
+        if (!rows.length) { pplList.innerHTML = '<p class="note">검색 결과 없음</p>'; return; }
+        rows.slice(0, 300).forEach(r => {
+          const id = pkey(r);
+          const lab = document.createElement('label');
+          lab.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 2px;font-size:13px;font-weight:500;margin:0;cursor:pointer';
+          lab.innerHTML = `<input type="checkbox" style="width:16px;height:16px;flex-shrink:0" ${sel.people.some(p => pkey(p) === id) ? 'checked' : ''}> <span>${esc(r.name || '')} <span class="note">· ${esc(r.job_key || '-')} · ${esc(r.company || '-')}</span></span>`;
+          lab.querySelector('input').addEventListener('change', e => {
+            if (e.target.checked) sel.people.push({ name: r.name, phone: r.phone });
+            else sel.people = sel.people.filter(p => pkey(p) !== id);
+            recount();
+          });
+          pplList.appendChild(lab);
+        });
+      }
+      pplQ.addEventListener('input', renderPeople);
       function tag(label, isOn, onClick) {
         const b = document.createElement('button'); b.type = 'button';
         b.className = 'mju-tag' + (isOn() ? ' mju-tag--selected' : ''); b.textContent = label;
@@ -500,14 +560,24 @@
         }));
         recount();
       }
-      allBtn.addEventListener('click', () => { st.mode = 'all'; allBtn.classList.add('sel'); cusBtn.classList.remove('sel'); chipsBox.style.display = 'none'; recount(); });
-      cusBtn.addEventListener('click', () => { st.mode = 'custom'; cusBtn.classList.add('sel'); allBtn.classList.remove('sel'); chipsBox.style.display = 'block'; render(); });
+      const setMode = (m) => {
+        st.mode = m;
+        allBtn.classList.toggle('sel', m === 'all'); cusBtn.classList.toggle('sel', m === 'custom'); pplBtn.classList.toggle('sel', m === 'people');
+        chipsBox.style.display = m === 'custom' ? 'block' : 'none';
+        pplBox.style.display = m === 'people' ? 'block' : 'none';
+      };
+      allBtn.addEventListener('click', () => { setMode('all'); recount(); });
+      cusBtn.addEventListener('click', () => { setMode('custom'); render(); });
+      pplBtn.addEventListener('click', () => { setMode('people'); renderPeople(); recount(); });
       recount();
+      // custom 직렬화 — people(이름·전화)은 절대 공개 행에 넣지 않음(화이트리스트)
+      const serial = () => JSON.stringify({ jobs: sel.jobs, companies: sel.companies, targets: sel.targets, types: sel.types, managers: sel.managers });
       return {
-        get mode() { return st.mode; }, sel,
-        valid() { return st.mode === 'all' || !selEmpty(sel); },
+        get mode() { return st.mode; }, sel, serial,
+        valid() { return st.mode === 'all' || (st.mode === 'people' ? sel.people.length > 0 : !selEmpty(sel)); },
         label() {
           if (st.mode === 'all') return '전체';
+          if (st.mode === 'people') return '명단 지정 ' + sel.people.length + '명';
           const p = [];
           if (sel.targets.includes('student')) p.push('매칭학생 전체');
           if (sel.jobs.length) p.push(sel.jobs.join('·'));
@@ -517,9 +587,39 @@
           if (sel.managers.length) p.push('담당 ' + sel.managers.join('·'));
           return p.join(' / ');
         },
-        async count() { const d = await loadRegDims(); return st.mode === 'all' ? d.length : d.filter(r => matchSel(sel, r)).length; },
-        reset() { sel.jobs = []; sel.companies = []; sel.targets = []; sel.types = []; sel.managers = []; st.mode = 'all'; allBtn.classList.add('sel'); cusBtn.classList.remove('sel'); chipsBox.style.display = 'none'; recount(); },
+        async count() { if (st.mode === 'people') return sel.people.length; const d = await loadRegDims(); return st.mode === 'all' ? d.length : d.filter(r => matchSel(sel, r)).length; },
+        reset() { sel.jobs = []; sel.companies = []; sel.targets = []; sel.types = []; sel.managers = []; sel.people = []; setMode('all'); recount(); },
       };
+    }
+
+    // 명단 지정 인원에게 비공개 개인 안내 발행 (개인지정 공지 파이프라인 재사용 → 푸시 도달)
+    async function notifyPeople(people, title, body) {
+      const { data: ins, error: e1 } = await supabase.from('notices')
+        .insert({ title: '개인 안내', body: '개인 안내가 도착했습니다. 앱에서 확인하세요.', target_scope: 'personal', target_value: null, published: false })
+        .select('id').single();
+      if (e1) throw e1;
+      const { error: e2 } = await supabase.rpc('add_notice_recipients', { p_notice_id: ins.id, p_people: people, p_body: body, p_title: title });
+      if (e2) throw e2;
+      const { error: e3 } = await supabase.from('notices').update({ published: true }).eq('id', ins.id);
+      if (e3) throw e3;
+    }
+    // 명단 지정 → 자료·일정 타게팅용 토큰 해시 (07 SQL). 누락 인원이 있으면 확인 후 진행.
+    async function peopleHashes(people, statusEl2) {
+      let r;
+      try { r = await supabase.rpc('admin_recipient_hashes', { p_people: people }); } catch (e) { r = { error: e }; }
+      if (r.error) {
+        setStatus(statusEl2, /function|does not exist|schema cache/i.test(r.error.message || '') ? '명단 지정 발송은 sql/07_admin_tools.sql 실행 후 사용할 수 있어요.' : '오류: ' + r.error.message, 'error');
+        return null;
+      }
+      const d = r.data || {};
+      const hashes = Array.isArray(d.hashes) ? d.hashes : [];
+      const missed = Array.isArray(d.missed) ? d.missed : [];
+      if (!hashes.length) { setStatus(statusEl2, '선택 인원 중 아무도 받을 수 없어요(미가입이거나 알림 미설정). 먼저 앱 가입·알림을 안내해주세요.', 'error'); return null; }
+      if (missed.length) {
+        const names = missed.map(m => m.name).filter(Boolean).slice(0, 5).join(', ');
+        if (!confirm(`${missed.length}명은 아직 못 받아요(미가입/알림 꺼짐): ${names}${missed.length > 5 ? ' 외' : ''}\n나머지 ${hashes.length}명에게만 전달할까요?`)) return null;
+      }
+      return hashes;
     }
     let nPicker = null, lPicker = null, cPicker = null;
     async function initPickers() {
@@ -551,6 +651,10 @@
       $('nv-target').textContent = nPicker.label();
       $('nv-count').textContent = '예상 인원 계산 중…';
       $('nv-veil').style.display = 'flex';
+      if (nPicker.mode === 'people') {
+        $('nv-count').innerHTML = `명단 지정 <b>${nPicker.sel.people.length}명</b>에게 <b>비공개 개인 안내</b>로 전송됩니다 (다른 사람에겐 안 보여요).`;
+        return;
+      }
       try {
         const [n, m] = await Promise.all([nPicker.count(), pushCount(nPicker)]);
         $('nv-count').innerHTML = `앱 가입 <b>${n}명</b> 중 <b>알림 켠 ${m}명</b>에게 지금 푸시됩니다.`;
@@ -561,8 +665,23 @@
     $('nv-confirm').addEventListener('click', async () => {
       const title = $('n-title').value.trim(), body = $('n-body').value.trim();
       if (!title || !body || !nPicker || !nPicker.valid()) { $('nv-veil').style.display = 'none'; return; }
+      // 명단 지정 → 비공개 개인 안내 경로 (가입자표 개인공지와 동일 파이프라인)
+      if (nPicker.mode === 'people') {
+        const people = nPicker.sel.people.map(p => ({ name: p.name, phone: p.phone }));
+        $('nv-confirm').disabled = true; setStatus($('n-status'), '발행 중...', 'info');
+        try {
+          await notifyPeople(people, title, body);
+          logAction('공지발행(명단)', people.length + '명 · ' + title);
+          setStatus($('n-status'), `✅ ${people.length}명에게 개인 안내로 발행했어요 (5분 내 푸시).`, 'ok');
+          $('n-title').value = ''; $('n-body').value = ''; nPicker.reset(); nLoad();
+        } catch (err) {
+          setStatus($('n-status'), '오류: ' + (err.message || err) + ' — R15 SQL 실행 여부를 확인하세요.', 'error');
+        }
+        $('nv-confirm').disabled = false; $('nv-veil').style.display = 'none';
+        return;
+      }
       const scope = nPicker.mode === 'all' ? 'all' : 'custom';
-      const value = nPicker.mode === 'all' ? null : JSON.stringify(nPicker.sel);
+      const value = nPicker.mode === 'all' ? null : nPicker.serial();
       const lbl = nPicker.label();
       $('nv-confirm').disabled = true; setStatus($('n-status'), '발행 중...', 'info');
       // created_by(이메일)는 공개 읽기 테이블에 노출되므로 저장하지 않음 — admin_logs(관리자 전용)가 기록
@@ -586,7 +705,18 @@
         const tg = document.createElement('button'); tg.textContent = n.published ? '내리기' : '올리기';
         tg.style.cssText = 'padding:5px 12px;font-size:13px;border:1px solid var(--line);border-radius:8px;background:#fff;cursor:pointer;white-space:nowrap';
         tg.addEventListener('click', async () => { await supabase.from('notices').update({ published: !n.published }).eq('id', n.id); logAction(n.published ? '공지내림' : '공지올림', n.title); nLoad(); });
-        row.appendChild(info); row.appendChild(tg); el.appendChild(row);
+        const del = mkDelBtn('삭제', async () => {
+          // 개인 지정 수신자 행 먼저 정리 (FK 제약 대비) — 오류는 표면화
+          const rcp = await supabase.from('notice_recipients').delete().eq('notice_id', n.id);
+          if (rcp.error && !/relation|does not exist|schema cache/i.test(rcp.error.message || '')) throw rcp.error;
+          const { data, error } = await supabase.from('notices').delete().eq('id', n.id).select('id');
+          if (error) throw error;
+          if (!data || !data.length) throw new Error('row-level security');
+          logAction('공지삭제', n.title); nLoad();
+        });
+        const btns = document.createElement('div'); btns.style.cssText = 'display:flex;gap:6px;flex-shrink:0';
+        btns.appendChild(tg); btns.appendChild(del);
+        row.appendChild(info); row.appendChild(btns); el.appendChild(row);
       });
     }
 
@@ -608,7 +738,7 @@
     // 자료/일정을 같은 대상으로 '공지로도' 발행 → 기존 푸시 파이프라인이 발송(푸시만 보는 사용자 도달)
     async function pushAsNotice(picker, title, body) {
       const scope = picker.mode === 'all' ? 'all' : 'custom';
-      const value = picker.mode === 'all' ? null : JSON.stringify(picker.sel);
+      const value = picker.mode === 'all' ? null : picker.serial();
       await supabase.from('notices').insert({ title, body, target_scope: scope, target_value: value, published: true, created_by: null });
     }
 
@@ -619,7 +749,22 @@
       if (!/^https?:\/\//.test(url)) { setStatus($('l-status'), '링크는 http(s)로 시작해야 합니다.', 'error'); return; }
       if (!$('l-shared').checked) { setStatus($('l-status'), "먼저 공유 설정을 '링크 있는 모든 사용자'로 하고 체크해주세요(안 하면 학생이 못 엽니다).", 'error'); return; }
       if (!lPicker || !lPicker.valid()) { setStatus($('l-status'), '열람 대상을 선택하세요.', 'error'); return; }
-      const job = lPicker.mode === 'all' ? null : ('custom:' + JSON.stringify(lPicker.sel));
+      // 명단 지정 → 토큰 해시로 그 사람들 화면에만 표시 + 푸시는 개인 안내로
+      if (lPicker.mode === 'people') {
+        const people = lPicker.sel.people.map(p => ({ name: p.name, phone: p.phone }));
+        $('l-add').disabled = true;
+        const hashes = await peopleHashes(people, $('l-status'));
+        if (!hashes) { $('l-add').disabled = false; return; }
+        const { error } = await supabase.from('library').insert({ title, url, kind, job_key: 'tokv:' + JSON.stringify({ tok: hashes }), published: true });
+        $('l-add').disabled = false;
+        if (error) { setStatus($('l-status'), '오류: ' + error.message, 'error'); return; }
+        if ($('l-push').checked) { try { await notifyPeople(people, '[새 자료] ' + title, '자료실에 「' + title + '」 자료가 등록됐어요. 앱 자료실에서 확인하세요.'); } catch (_) {} }
+        setStatus($('l-status'), `✅ ${hashes.length}명에게만 보이는 자료로 등록${$('l-push').checked ? ' + 개인 안내 발행' : ''}.`, 'ok');
+        logAction('자료등록(명단)', title + ' · ' + hashes.length + '명');
+        $('l-title').value = ''; $('l-url').value = ''; $('l-push').checked = false; lPicker.reset(); lLoad();
+        return;
+      }
+      const job = lPicker.mode === 'all' ? null : ('custom:' + lPicker.serial());
       $('l-add').disabled = true;
       const { error } = await supabase.from('library').insert({ title, url, kind, job_key: job, published: true });
       $('l-add').disabled = false;
@@ -629,10 +774,21 @@
       logAction('자료등록', title + ' · ' + lPicker.label() + ($('l-push').checked ? ' (+공지)' : '')); $('l-title').value = ''; $('l-url').value = ''; $('l-push').checked = false; lPicker.reset(); lLoad();
     });
     async function lLoad() {
-      const { data } = await supabase.from('library').select('title,kind,job_key,created_at').order('created_at', { ascending: false }).limit(30);
+      const { data } = await supabase.from('library').select('id,title,kind,job_key,created_at').order('created_at', { ascending: false }).limit(30);
       const el = $('l-list'); el.innerHTML = (data && data.length) ? '' : '<p class="note">없음</p>';
-      (data || []).forEach(r => { const e = document.createElement('div'); e.textContent = r.title; const row = document.createElement('div'); row.style.cssText = 'padding:9px 0;border-bottom:1px solid var(--gray-100)';
-        row.innerHTML = `<b>${e.innerHTML}</b><br/><span class="note">${r.kind} · ${r.job_key || '전체'} · ${new Date(r.created_at).toLocaleDateString('ko-KR')}</span>`; el.appendChild(row); });
+      (data || []).forEach(r => {
+        const e = document.createElement('div'); e.textContent = r.title;
+        const row = document.createElement('div'); row.style.cssText = 'padding:9px 0;border-bottom:1px solid var(--gray-100);display:flex;justify-content:space-between;gap:8px;align-items:center';
+        const tgt = (r.job_key || '').indexOf('tokv:') === 0 ? '명단 지정' : (r.job_key || '전체');
+        row.innerHTML = `<div style="min-width:0"><b>${e.innerHTML}</b><br/><span class="note">${r.kind} · ${esc(tgt)} · ${new Date(r.created_at).toLocaleDateString('ko-KR')}</span></div>`;
+        row.appendChild(mkDelBtn('삭제', async () => {
+          const { data, error } = await supabase.from('library').delete().eq('id', r.id).select('id');
+          if (error) throw error;
+          if (!data || !data.length) throw new Error('row-level security');
+          logAction('자료삭제', r.title); lLoad();
+        }));
+        el.appendChild(row);
+      });
     }
 
     // ===== 캘린더 =====
@@ -640,7 +796,22 @@
       const title = $('c-title').value.trim(), date = $('c-date').value, kind = $('c-kind').value, memo = $('c-memo').value.trim() || null;
       if (!title || !date) { setStatus($('c-status'), '제목·날짜를 입력하세요.', 'error'); return; }
       if (!cPicker || !cPicker.valid()) { setStatus($('c-status'), '표시 대상을 선택하세요.', 'error'); return; }
-      const job = cPicker.mode === 'all' ? null : ('custom:' + JSON.stringify(cPicker.sel));
+      // 명단 지정 → 그 사람들 일정에만 표시 + 푸시는 개인 안내로
+      if (cPicker.mode === 'people') {
+        const people = cPicker.sel.people.map(p => ({ name: p.name, phone: p.phone }));
+        $('c-add').disabled = true;
+        const hashes = await peopleHashes(people, $('c-status'));
+        if (!hashes) { $('c-add').disabled = false; return; }
+        const { error } = await supabase.from('calendar_events').insert({ title, event_date: date, kind, job_key: 'tokv:' + JSON.stringify({ tok: hashes }), memo });
+        $('c-add').disabled = false;
+        if (error) { setStatus($('c-status'), '오류: ' + error.message, 'error'); return; }
+        if ($('c-push').checked) { try { await notifyPeople(people, '[일정] ' + title, title + ' — ' + date + (memo ? ' · ' + memo : '') + '. 앱 일정에서 확인하세요.'); } catch (_) {} }
+        setStatus($('c-status'), `✅ ${hashes.length}명에게만 보이는 일정으로 등록${$('c-push').checked ? ' + 개인 안내 발행' : ''}.`, 'ok');
+        logAction('일정등록(명단)', title + ' · ' + hashes.length + '명');
+        $('c-title').value = ''; $('c-memo').value = ''; $('c-push').checked = false; cPicker.reset(); cLoad();
+        return;
+      }
+      const job = cPicker.mode === 'all' ? null : ('custom:' + cPicker.serial());
       $('c-add').disabled = true;
       const { error } = await supabase.from('calendar_events').insert({ title, event_date: date, kind, job_key: job, memo });
       $('c-add').disabled = false;
@@ -650,11 +821,37 @@
       logAction('일정등록', title + ' · ' + cPicker.label() + ($('c-push').checked ? ' (+공지)' : '')); $('c-title').value = ''; $('c-memo').value = ''; $('c-push').checked = false; cPicker.reset(); cLoad();
     });
     async function cLoad() {
-      const { data } = await supabase.from('calendar_events').select('title,event_date,kind,job_key').order('event_date', { ascending: true }).limit(50);
+      const { data } = await supabase.from('calendar_events').select('id,title,event_date,kind,job_key').order('event_date', { ascending: true }).limit(50);
       const el = $('c-list'); el.innerHTML = (data && data.length) ? '' : '<p class="note">없음</p>';
-      (data || []).forEach(r => { const e = document.createElement('div'); e.textContent = r.title; const row = document.createElement('div'); row.style.cssText = 'padding:9px 0;border-bottom:1px solid var(--gray-100)';
-        row.innerHTML = `<b>${e.innerHTML}</b><br/><span class="note">${r.event_date} · ${r.kind} · ${r.job_key || '전체'}</span>`; el.appendChild(row); });
+      const todayStr = new Date().toISOString().slice(0, 10);
+      (data || []).forEach(r => {
+        const e = document.createElement('div'); e.textContent = r.title;
+        const row = document.createElement('div'); row.style.cssText = 'padding:9px 0;border-bottom:1px solid var(--gray-100);display:flex;justify-content:space-between;gap:8px;align-items:center';
+        const tgt = (r.job_key || '').indexOf('tokv:') === 0 ? '명단 지정' : (r.job_key || '전체');
+        const past = r.event_date < todayStr ? ' <span class="mju-badge mju-badge--neutral">지남</span>' : '';
+        row.innerHTML = `<div style="min-width:0"><b>${e.innerHTML}</b>${past}<br/><span class="note">${r.event_date} · ${r.kind} · ${esc(tgt)}</span></div>`;
+        row.appendChild(mkDelBtn('삭제', async () => {
+          const { data, error } = await supabase.from('calendar_events').delete().eq('id', r.id).select('id');
+          if (error) throw error;
+          if (!data || !data.length) throw new Error('row-level security');
+          logAction('일정삭제', r.title); cLoad();
+        }));
+        el.appendChild(row);
+      });
     }
+    // 지난 일정 일괄 정리
+    $('c-clean').addEventListener('click', async () => {
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const { count } = await supabase.from('calendar_events').select('id', { count: 'exact', head: true }).lt('event_date', todayStr);
+      if (!count) { setStatus($('c-status'), '지난 일정이 없어요.', 'ok'); return; }
+      if (!confirm(`지난 일정 ${count}건을 모두 삭제할까요? 복구할 수 없습니다.`)) return;
+      const { data, error } = await supabase.from('calendar_events').delete().lt('event_date', todayStr).select('id');
+      if (error) { setStatus($('c-status'), delErr(error), 'error'); return; }
+      const n = (data || []).length;
+      if (!n) { setStatus($('c-status'), '삭제 권한이 없어요 — sql/07_admin_tools.sql 실행 필요', 'error'); return; }
+      logAction('지난일정정리', n + '건');
+      setStatus($('c-status'), `✅ 지난 일정 ${n}건을 정리했어요.`, 'ok'); cLoad();
+    });
 
     // ===== 상담 (관리자) =====
     let curConsult = null, curLabel = '';
@@ -711,6 +908,24 @@
       rcLoad();
       setTimeout(() => { $('qv-veil').style.display = 'none'; }, 1000);
     });
+    // 완료된 상담 삭제 (메시지 → 스레드 순, FK 대비)
+    $('cl-del').addEventListener('click', async () => {
+      if (!curConsult) return;
+      if (!confirm(`'${curLabel}' 상담을 삭제할까요? 대화 내용까지 모두 지워지며 복구할 수 없습니다.`)) return;
+      $('cl-del').disabled = true;
+      try {
+        const { error: e1 } = await supabase.from('consultation_messages').delete().eq('consultation_id', curConsult);
+        if (e1) throw e1;
+        const { data: d2, error: e2 } = await supabase.from('consultations').delete().eq('id', curConsult).select('id');
+        if (e2) throw e2;
+        if (!d2 || !d2.length) throw new Error('row-level security');
+        logAction('상담삭제', curLabel);
+        curConsult = null; curMsgs = [];
+        $('cl-thread').style.display = 'none';
+        clLoad();
+      } catch (e) { setStatus($('cl-status'), delErr(e), 'error'); }
+      $('cl-del').disabled = false;
+    });
     $('cl-send').addEventListener('click', async () => {
       const text = $('cl-reply').value.trim(); if (!text || !curConsult) return;
       $('cl-send').disabled = true;
@@ -729,10 +944,17 @@
         const e = document.createElement('div'); e.textContent = p.body;
         const row = document.createElement('div'); row.style.cssText = 'padding:10px 0;border-bottom:1px solid var(--gray-100)';
         const btn = document.createElement('button'); btn.textContent = p.hidden ? '표시' : '숨김';
-        btn.style.cssText = 'margin-top:6px;padding:5px 12px;font-size:13px;border:1px solid var(--line);border-radius:8px;background:#fff;cursor:pointer';
+        btn.style.cssText = 'margin-top:6px;margin-right:6px;padding:5px 12px;font-size:13px;border:1px solid var(--line);border-radius:8px;background:#fff;cursor:pointer';
         btn.addEventListener('click', async () => { await supabase.from('board_posts').update({ hidden: !p.hidden }).eq('id', p.id); logAction(p.hidden ? '게시판 표시' : '게시판 숨김', ''); blLoad(); });
+        const del = mkDelBtn('삭제', async () => {
+          const { data, error } = await supabase.from('board_posts').delete().eq('id', p.id).select('id');
+          if (error) throw error;
+          if (!data || !data.length) throw new Error('row-level security');
+          logAction('건의글삭제', ''); blLoad();
+        });
+        del.style.marginTop = '6px';
         row.innerHTML = `<div style="white-space:pre-wrap${p.hidden ? ';opacity:.45' : ''}">${e.innerHTML}</div><span class="note">${new Date(p.created_at).toLocaleString('ko-KR')}${p.hidden ? ' · 숨김' : ''}</span><br/>`;
-        row.appendChild(btn); el.appendChild(row);
+        row.appendChild(btn); row.appendChild(del); el.appendChild(row);
       });
     }
 

@@ -131,6 +131,16 @@
         window.lucide?.createIcons(); console.error(error); return;
       }
       all = (data || []).filter(visible);
+      // 나에게만 지정된 자료(명단 지정) — 토큰으로 서버에서 받아 병합
+      if (profile.token) {
+        try {
+          const { data: mine } = await supabase.rpc('my_targeted_library', { p_token: profile.token });
+          if (Array.isArray(mine) && mine.length) {
+            const seen = new Set(all.map(r => r.title + '|' + r.url));
+            mine.forEach(r => { if (!seen.has(r.title + '|' + r.url)) all.unshift(r); });
+          }
+        } catch (_) {}
+      }
       if (!all.length) {
         emptyEl.style.display = 'block';
         if (!profile.name) emptyEl.innerHTML = '<span class="ei"><i data-lucide="folder"></i></span><div class="et">맞춤 자료가 없어요</div><p class="es">내 정보가 이 기기에 없어 맞춤 자료가 안 보일 수 있어요.</p><a href="./index.html" class="mju-btn mju-btn--sm mju-btn--secondary" style="text-decoration:none;margin-top:12px">홈에서 정보 입력하기</a>';
