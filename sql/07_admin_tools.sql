@@ -46,7 +46,7 @@ end $$;
 -- 관리자: 선택 인원(이름·번호)을 명단 검증해 토큰 해시 배열로 — 인원별 결과 포함
 create or replace function public.admin_recipient_hashes(p_people jsonb)
 returns jsonb
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = public, extensions as $$
 declare
   p jsonb; v jsonb; tok text;
   hashes text[] := '{}';
@@ -74,7 +74,7 @@ grant execute on function public.admin_recipient_hashes(jsonb) to authenticated;
 -- 학생: 내 토큰으로 '나에게 지정된 자료/일정'만 받기 (anon 공개 차단을 우회하는 유일 경로)
 create or replace function public.my_targeted_library(p_token text)
 returns setof public.library
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = public, extensions as $$
 declare h text;
 begin
   if p_token is null or length(p_token) < 8 then return; end if;
@@ -88,7 +88,7 @@ grant execute on function public.my_targeted_library(text) to anon, authenticate
 
 create or replace function public.my_targeted_calendar(p_token text)
 returns setof public.calendar_events
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = public, extensions as $$
 declare h text;
 begin
   if p_token is null or length(p_token) < 8 then return; end if;
