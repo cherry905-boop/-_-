@@ -198,14 +198,16 @@
       <div class="tabsec" id="sec-survey" style="display:none">
         <h2 class="adm-h2">만족도 집계</h2>
         <div class="card">
-          <label>학기</label>
-          <select id="sv-sem" class="ph-select"><option value="">전체</option><option>2026 1학기</option><option>2026 2학기</option></select>
+          <div class="filter-chips" id="sv-seg" role="group" aria-label="설문 구분" style="margin-bottom:10px"></div>
+          <label id="sv-sem-label">학기</label>
+          <select id="sv-sem" class="ph-select"></select>
           <div style="display:flex;gap:8px;margin-top:14px">
             <button class="mju-btn mju-btn--full" id="sv-refresh">집계 보기</button>
             <button class="mju-btn mju-btn--secondary mju-btn--full" id="sv-print"><i data-lucide="file-text"></i> PDF로 저장(인쇄)</button>
           </div>
         </div>
         <div class="card" id="sv-report"><p class="note">'집계 보기'를 눌러주세요.</p></div>
+        <div class="card" id="sv-raw" style="display:none"></div>
       </div>
 
       <!-- 가입자 관리 -->
@@ -1260,8 +1262,98 @@
       });
     }
 
-    // ===== 만족도 집계 + PDF =====
+    // ===== 만족도 집계 + PDF (학생 / 기업현장교사 / HRD담당자 세그먼트) =====
+    let svSeg = 'student';
+    const SV_SEMS = ['2026 1학기', '2026 2학기'];
+    function svSegRender() {
+      const seg = $('sv-seg'); seg.innerHTML = ''; seg.style.display = 'flex';
+      [['student', '학생'], ['teacher', '기업현장교사'], ['hrd', 'HRD담당자']].forEach(([k, label]) => {
+        const b = document.createElement('button'); b.type = 'button';
+        b.className = 'chip' + (svSeg === k ? ' on' : '');
+        b.setAttribute('aria-pressed', svSeg === k ? 'true' : 'false');
+        b.textContent = label;
+        b.addEventListener('click', () => { if (svSeg !== k) { svSeg = k; svSegRender(); svFillSem(); svDispatch(); } });
+        seg.appendChild(b);
+      });
+    }
+    function svFillSem() {
+      const sel = $('sv-sem'); sel.innerHTML = '<option value="">전체</option>';
+      (svSeg === 'student' ? SV_SEMS : (window.COMPANY_SURVEY_ROUNDS || [])).forEach(v => { const o = document.createElement('option'); o.textContent = v; sel.appendChild(o); });
+      $('sv-sem-label').textContent = svSeg === 'student' ? '학기' : '회차';
+    }
+    function svDispatch() { return svSeg === 'student' ? svLoad() : svCoLoad(); }
+    svSegRender(); svFillSem();
+    // 보기 점수 환산 (config의 score 매핑, '해당없음' 등은 null=평균 제외)
+    function svScoreOf(qd, v) {
+      if (!qd.score || v == null || v === 'etc') return null;
+      const i = parseInt(v, 10); if (isNaN(i)) return null;
+      const s = qd.score[i]; return (s == null) ? null : s;
+    }
+    async function svCoLoad() {
+      const def = (window.COMPANY_SURVEYS || {})[svSeg];
+      const rep = $('sv-report'); const raw = $('sv-raw');
+      if (!def) { rep.innerHTML = '<p class="note">설문 정의가 없습니다 — config.js의 COMPANY_SURVEYS 확인.</p>'; return; }
+      const round = $('sv-sem').value;
+      let q = supabase.from('company_survey_responses').select('id,round,company,answers,comment,created_at').eq('survey_key', svSeg);
+      if (round) q = q.eq('round', round);
+      const { data, error } = await q.order('created_at', { ascending: false });
+      if (error) { rep.innerHTML = '<p class="note">' + (tblMissing(error.message) ? 'company_survey_responses 테이블이 없어요 — sql/10_company_survey.sql 실행 필요' : '오류: ' + esc(error.message)) + '</p>'; raw.style.display = 'none'; return; }
+      const rows = data || [];
+      if (!rows.length) { rep.innerHTML = '<p class="note">응답이 없습니다.</p>'; raw.style.display = 'none'; return; }
+      let html = `<h2 style="margin-bottom:4px">${esc(def.title)} 집계</h2>` +
+        `<p class="note">${esc(round || '전체 회차')} · 응답 ${rows.length}건 · 출력 ${new Date().toLocaleDateString('ko-KR')}</p>`;
+      // 기업별 전반 만족도
+      const ovq = def.questions.find(x => x.overall);
+      if (ovq) {
+        const byCo = {};
+        rows.forEach(r => { const c = r.company || '(미지정)'; (byCo[c] = byCo[c] || []).push(r); });
+        const coRows = Object.entries(byCo).map(([c, arr]) => {
+          const scores = arr.map(r => svScoreOf(ovq, (r.answers || {})[ovq.key])).filter(x => x != null);
+          return `<tr><td style="text-align:left">${esc(c)}</td><td>${arr.length}</td><td>${scores.length ? (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(2) : '-'}</td></tr>`;
+        }).join('');
+        html += `<h2 style="margin:14px 0 0;font-size:15px">기업별 전반 만족도</h2>` +
+          `<table class="rep"><tr><th>기업</th><th>응답</th><th>전반 평균(5점)</th></tr>${coRows}</table>`;
+      }
+      // 문항별 분포
+      def.questions.forEach((qd, qi) => {
+        const counts = qd.options.map(() => 0); let etcCount = 0; const etcTexts = [];
+        let sSum = 0, sN = 0;
+        rows.forEach(r => {
+          const a = (r.answers || {})[qd.key]; if (a == null) return;
+          (Array.isArray(a) ? a : [a]).forEach(v => {
+            if (v === 'etc') { etcCount++; const t = (r.answers || {})[qd.key + '_etc']; if (t) etcTexts.push({ t, c: r.company }); return; }
+            const i = parseInt(v, 10); if (!isNaN(i) && counts[i] != null) counts[i]++;
+            const s = svScoreOf(qd, v); if (s != null) { sSum += s; sN++; }
+          });
+        });
+        const max = Math.max(1, ...counts, etcCount);
+        html += `<h2 style="margin:18px 0 4px;font-size:14px">${qi + 2}. ${esc(qd.label)}${qd.score && sN ? ` <span class="note">· 평균 ${(sSum / sN).toFixed(2)}/5</span>` : ''}</h2>` +
+          `<table class="rep">` +
+          qd.options.map((opt, i) => `<tr><td style="text-align:left">${esc(opt)}</td><td style="width:44px">${counts[i]}</td><td style="width:38%"><div class="agg-bar"><i style="width:${Math.round(counts[i] / max * 100)}%"></i></div></td></tr>`).join('') +
+          (qd.etc ? `<tr><td style="text-align:left">기타 (직접입력)</td><td>${etcCount}</td><td><div class="agg-bar"><i style="width:${Math.round(etcCount / max * 100)}%"></i></div></td></tr>` : '') +
+          `</table>` +
+          (etcTexts.length ? `<ul style="padding-left:18px;margin:6px 0 0">${etcTexts.map(e => `<li style="margin:3px 0;font-size:13px">${esc(e.t)} <span class="note">(${esc(e.c || '-')})</span></li>`).join('')}</ul>` : '');
+      });
+      const comments = rows.filter(r => r.comment).map(r => `<li style="margin:4px 0">${esc(r.comment)} <span class="note">(${esc(r.company || '-')})</span></li>`).join('');
+      if (comments) html += `<h2 style="margin:18px 0 6px;font-size:15px">바라는 점·건의</h2><ul style="padding-left:18px;margin:0">${comments}</ul>`;
+      rep.innerHTML = html;
+      // 응답 원자료 (삭제용 — 인쇄에는 안 들어감)
+      raw.style.display = 'block';
+      raw.innerHTML = '<p class="ph-card-title">응답 목록 (테스트 정리용)</p>';
+      rows.forEach(r => {
+        const row = document.createElement('div'); row.style.cssText = 'padding:8px 0;border-bottom:1px solid var(--gray-100);display:flex;justify-content:space-between;gap:8px;align-items:center;font-size:13.5px';
+        row.innerHTML = `<div style="min-width:0"><b>${esc(r.company || '(미지정)')}</b> <span class="note">${esc(r.round || '-')} · ${new Date(r.created_at).toLocaleString('ko-KR')}</span></div>`;
+        row.appendChild(mkDelBtn('삭제', async () => {
+          const { data: del, error: derr } = await supabase.from('company_survey_responses').delete().eq('id', r.id).select('id');
+          if (derr) throw derr;
+          if (!del || !del.length) throw new Error('row-level security');
+          logAction('기업설문응답삭제', (r.company || '') + ' · ' + svSeg); svCoLoad();
+        }));
+        raw.appendChild(row);
+      });
+    }
     async function svLoad() {
+      $('sv-raw').style.display = 'none';
       const sem = $('sv-sem').value;
       let q = supabase.from('survey_responses').select('semester,job_key,r_train,r_facility,r_teacher,r_ops,r_overall,comment');
       if (sem) q = q.eq('semester', sem);
@@ -1285,8 +1377,8 @@
         `<table class="rep"><tr><th>직무</th><th>응답</th><th>전반 평균</th></tr>${jobRows}</table>` +
         (comments ? `<h2 style="margin:18px 0 6px;font-size:15px">개선 의견</h2><ul style="padding-left:18px;margin:0">${comments}</ul>` : '');
     }
-    $('sv-refresh').addEventListener('click', svLoad);
-    $('sv-sem').addEventListener('change', svLoad);
+    $('sv-refresh').addEventListener('click', svDispatch);
+    $('sv-sem').addEventListener('change', svDispatch);
     $('sv-print').addEventListener('click', () => window.print());
 
     // ===== 운영 요약(대시보드) =====

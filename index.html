@@ -241,11 +241,12 @@
       } else {
         document.getElementById('home').style.display = 'block';
         document.getElementById('home-name').textContent = `${_prof.name}님, 환영합니다`;
-        // 만족도 설문은 재학생 대상 → 그 외 대상은 메뉴에서 숨김
-        if (_prof.target_type && _prof.target_type !== 'student') { const s = document.getElementById('m-survey'); if (s) s.style.display = 'none'; }
-        // 기업 담당자: 익명게시판(학생용 소통 채널) 숨김 + 이름 옆 역할 표기 + 진행단계 카드
+        // 만족도 설문: 학생=survey.html, 기업담당자=company-survey.html, 그 외(지원자 등)는 숨김
+        if (_prof.target_type && _prof.target_type !== 'student' && _prof.target_type !== 'company') { const s = document.getElementById('m-survey'); if (s) s.style.display = 'none'; }
+        // 기업 담당자: 익명게시판(학생용 소통 채널) 숨김 + 이름 옆 역할 표기 + 진행단계 카드 + 기업용 만족도
         if (_prof.target_type === 'company') {
           const b = document.getElementById('m-board'); if (b) b.style.display = 'none';
+          const s = document.getElementById('m-survey'); if (s) s.href = './company-survey.html';
           const hn = document.getElementById('home-name'); if (hn) hn.textContent += ' (기업 담당자)';
           renderCompanyStage(_prof);
         }
