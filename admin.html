@@ -59,7 +59,6 @@
         <button class="adm-nav-item" data-tab="library"><i data-lucide="folder"></i>자료</button>
         <button class="adm-nav-item" data-tab="calendar"><i data-lucide="calendar-days"></i>일정</button>
         <button class="adm-nav-item" data-tab="consult"><i data-lucide="message-circle"></i>상담</button>
-        <button class="adm-nav-item" data-tab="board"><i data-lucide="inbox"></i>건의함</button>
         <button class="adm-nav-item" data-tab="survey"><i data-lucide="clipboard-list"></i>만족도</button>
         <button class="adm-nav-item" data-tab="members"><i data-lucide="users"></i>가입자</button>
         <button class="adm-nav-item" data-tab="recruit"><i data-lucide="briefcase"></i>모집</button>
@@ -188,11 +187,6 @@
         </div>
       </div>
 
-      <!-- 게시판 -->
-      <div class="tabsec" id="sec-board" style="display:none">
-        <h2 class="adm-h2">익명 건의함 <span class="hint">학생끼리는 못 봅니다 · 처리한 글은 '숨김' 또는 '삭제'로</span></h2>
-        <div class="card"><div class="status" id="bl-status"></div><div id="bl-list"></div></div>
-      </div>
 
       <!-- 만족도 -->
       <div class="tabsec" id="sec-survey" style="display:none">
@@ -426,7 +420,7 @@
     // 탭 전환
     document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => {
       document.querySelectorAll('.tabs button').forEach(x => x.classList.toggle('on', x === b));
-      ['dash', 'notice', 'library', 'calendar', 'consult', 'board', 'survey', 'members', 'recruit', 'stages'].forEach(t => $('sec-' + t).style.display = (t === b.dataset.tab ? 'block' : 'none'));
+      ['dash', 'notice', 'library', 'calendar', 'consult', 'survey', 'members', 'recruit', 'stages'].forEach(t => $('sec-' + t).style.display = (t === b.dataset.tab ? 'block' : 'none'));
     }));
 
     // ===== 받는 대상 상세 지정 (전체 / 상세 칩 조합 + 예상 대상 N명) =====
@@ -1009,28 +1003,6 @@
       if (error) { setStatus($('cl-status'), '오류: ' + error.message, 'error'); return; }
       $('cl-reply').value = ''; setStatus($('cl-status'), '✅ 답변 전송', 'ok'); logAction('상담답변', curLabel); openConsult(curConsult, curLabel); clLoad();
     });
-
-    // ===== 게시판 (관리자) =====
-    async function blLoad() {
-      const { data } = await supabase.from('board_posts').select('id,body,hidden,created_at').order('created_at', { ascending: false }).limit(100);
-      const el = $('bl-list'); el.innerHTML = (data && data.length) ? '' : '<p class="note">글 없음</p>';
-      (data || []).forEach(p => {
-        const e = document.createElement('div'); e.textContent = p.body;
-        const row = document.createElement('div'); row.style.cssText = 'padding:10px 0;border-bottom:1px solid var(--gray-100)';
-        const btn = document.createElement('button'); btn.textContent = p.hidden ? '표시' : '숨김';
-        btn.style.cssText = 'margin-top:6px;margin-right:6px;padding:5px 12px;font-size:13px;border:1px solid var(--line);border-radius:8px;background:#fff;cursor:pointer';
-        btn.addEventListener('click', async () => { await supabase.from('board_posts').update({ hidden: !p.hidden }).eq('id', p.id); logAction(p.hidden ? '게시판 표시' : '게시판 숨김', ''); blLoad(); });
-        const del = mkDelBtn('삭제', async () => {
-          const { data, error } = await supabase.from('board_posts').delete().eq('id', p.id).select('id');
-          if (error) throw error;
-          if (!data || !data.length) throw new Error('row-level security');
-          logAction('건의글삭제', ''); blLoad();
-        });
-        del.style.marginTop = '6px';
-        row.innerHTML = `<div style="white-space:pre-wrap${p.hidden ? ';opacity:.45' : ''}">${e.innerHTML}</div><span class="note">${new Date(p.created_at).toLocaleString('ko-KR')}${p.hidden ? ' · 숨김' : ''}</span><br/>`;
-        row.appendChild(btn); row.appendChild(del); el.appendChild(row);
-      });
-    }
 
     // ===== 가입자 관리 =====
     let regCache = [];
@@ -1728,7 +1700,7 @@
       $('panel').style.display = authed ? 'block' : 'none';
       adminEmail = authed ? session.user.email : ''; $('me').textContent = adminEmail;
       const _u = $('adm-user'); if (_u) _u.style.display = authed ? 'flex' : 'none';
-      if (authed) { dashLoad(); initPickers().then(fillRecruitPickers); nLoad(); plLoad(); lLoad(); cLoad(); clLoad(); blLoad(); regLoad(); uvLoad(); rcLoad(); stLoad(); }
+      if (authed) { dashLoad(); initPickers().then(fillRecruitPickers); nLoad(); plLoad(); lLoad(); cLoad(); clLoad(); regLoad(); uvLoad(); rcLoad(); stLoad(); }
     }
     $('loginBtn').addEventListener('click', async () => {
       const email = $('email').value.trim(), password = $('pw').value;
