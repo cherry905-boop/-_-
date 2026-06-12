@@ -42,21 +42,21 @@
         <!-- 1. 진행 현황 (my_company_stage, 데이터 없으면 미표시) -->
         <div id="stage-mount"></div>
         <!-- 2. 담당자 -->
-        <div class="card" id="card-contacts" style="display:none">
+        <div class="card" id="card-contacts">
           <p class="ph-card-title"><i data-lucide="users"></i> 우리 회사 담당자</p>
-          <div id="contacts"></div>
+          <div id="contacts"><p class="note">담당자 명단을 불러오는 중...</p></div>
           <p class="note" style="margin-top:8px">연락이 필요하면 운영팀 <a href="./consult.html">1:1 상담</a>을 이용해주세요.</p>
         </div>
-        <!-- 3. 회사·학습 안내 -->
-        <div class="card" id="card-info" style="display:none">
+        <!-- 3. 회사·학습 안내 — 항목은 항상 표시, 입력 전엔 자리만 -->
+        <div class="card" id="card-info">
           <p class="ph-card-title"><i data-lucide="info"></i> 회사·학습 안내</p>
           <div id="info"></div>
           <p class="note" style="margin-top:10px">출퇴근·비콘 안내는 참고용 정보예요 (앱은 출결을 기록하지 않습니다).</p>
         </div>
-        <!-- 4. 우리 회사 자료 (내부평가 문제지 등) -->
-        <div class="card" id="card-lib" style="display:none">
-          <p class="ph-card-title"><i data-lucide="folder"></i> 우리 회사 자료</p>
-          <div id="lib"></div>
+        <!-- 4. 내부평가·우리 회사 자료 -->
+        <div class="card" id="card-lib">
+          <p class="ph-card-title"><i data-lucide="file-check-2"></i> 내부평가·우리 회사 자료</p>
+          <div id="lib"><p class="note">불러오는 중...</p></div>
           <p class="note" style="margin-top:8px"><a href="./library.html">자료실 전체 보기</a></p>
         </div>
         <!-- 5. 우리 회사 소식 (기업별 공지방) -->
@@ -114,16 +114,31 @@
 
     // 2+3. 담당자 이름·직책 + 회사·학습 안내 (my_company_info RPC — 연락처는 서버에서 반환하지 않음)
     const ROLE_LABEL = r => r === 'hrd' ? 'HRD담당자' : /^teacher/.test(r || '') ? '기업현장교사' : (r || '담당자');
+    const INFO_BLOCKS = [
+      ['schedule', 'calendar-clock', '훈련시간표'],
+      ['beacon', 'radio', '비콘 시간표 안내'],
+      ['commute', 'clock', '출퇴근 안내'],
+      ['extra', 'sticky-note', '기타 안내'],
+    ];
+    // 입력 전에도 레이아웃이 보이도록 자리부터 렌더
+    function renderInfoBlocks(info) {
+      $('info').innerHTML = INFO_BLOCKS.map(([k, ic, label]) =>
+        `<div class="info-block"><div class="ib-t"><i data-lucide="${ic}"></i>${label}</div>` +
+        (info[k] ? `<div class="ib-b">${esc(info[k])}</div>`
+                 : `<div class="ib-b" style="color:var(--text-muted)">아직 입력 전이에요 — 운영팀이 등록하면 여기에 표시돼요.</div>`) +
+        `</div>`).join('');
+      window.lucide?.createIcons();
+    }
+    renderInfoBlocks({});
     async function loadInfo() {
       let d = null;
       try {
         const res = await supabase.rpc('my_company_info', { p_company: profile.company });
-        if (res.error || !res.data) return;
+        if (res.error || !res.data) { $('contacts').innerHTML = '<p class="note">담당자 명단 준비 중이에요.</p>'; return; }
         d = res.data;
-      } catch (_) { return; }
+      } catch (_) { $('contacts').innerHTML = '<p class="note">담당자 명단 준비 중이에요.</p>'; return; }
       const cts = d.contacts || [];
       if (cts.length) {
-        $('card-contacts').style.display = 'block';
         let teacherN = 0;
         const tTotal = cts.filter(c => /^teacher/.test(c.role || '')).length;
         $('contacts').innerHTML = cts.map(c => {
@@ -131,29 +146,21 @@
           if (/^teacher/.test(c.role || '') && tTotal > 1) label += ' ' + (++teacherN);
           return `<div class="ct-row"><b>${esc(c.name)}</b><span class="role">${esc(label)}</span></div>`;
         }).join('');
+      } else {
+        $('contacts').innerHTML = '<p class="note">담당자 명단 준비 중이에요.</p>';
       }
-      const info = d.info || {};
-      const blocks = [
-        ['schedule', 'calendar-clock', '훈련시간표'],
-        ['beacon', 'radio', '비콘 시간표 안내'],
-        ['commute', 'clock', '출퇴근 안내'],
-        ['extra', 'sticky-note', '기타 안내'],
-      ].filter(([k]) => info[k]);
-      if (blocks.length) {
-        $('card-info').style.display = 'block';
-        $('info').innerHTML = blocks.map(([k, ic, label]) =>
-          `<div class="info-block"><div class="ib-t"><i data-lucide="${ic}"></i>${label}</div><div class="ib-b">${esc(info[k])}</div></div>`).join('');
-      }
-      window.lucide?.createIcons();
+      renderInfoBlocks(d.info || {});
     }
 
-    // 4. 우리 회사 자료 — 자료실(custom 타게팅) 중 내 기업 매칭 행 (library.html visible() 서브셋)
+    // 4. 내부평가·우리 회사 자료 — 자료실(custom 타게팅) 중 내 기업 매칭 행 (library.html visible() 서브셋)
     async function loadLib() {
+      const empty = '<p class="note">아직 등록된 자료가 없어요 — 내부평가 문제지·회사 자료가 등록되면 여기에 표시돼요.</p>';
       let data = null;
       try {
         const res = await supabase.from('library').select('id,title,kind,url,job_key,created_at').eq('published', true).order('created_at', { ascending: false }).limit(100);
-        if (res.error) return; data = res.data;
-      } catch (_) { return; }
+        if (res.error) { $('lib').innerHTML = empty; return; }
+        data = res.data;
+      } catch (_) { $('lib').innerHTML = empty; return; }
       const mine = (data || []).filter(r => {
         if (!r.job_key || r.job_key.indexOf('custom:') !== 0) return false;
         try {
@@ -161,8 +168,7 @@
           return (sel.companies || []).some(c => normCo(c) === normCo(profile.company));
         } catch (_) { return false; }
       });
-      if (!mine.length) return;
-      $('card-lib').style.display = 'block';
+      if (!mine.length) { $('lib').innerHTML = empty; return; }
       $('lib').innerHTML = mine.slice(0, 8).map(r =>
         `<a class="nt-item" href="${esc(r.url || './library.html')}" target="_blank" rel="noopener"><b>${esc(r.title)}</b>${r.kind ? ` <span class="note">${esc(r.kind)}</span>` : ''}</a>`).join('');
     }
