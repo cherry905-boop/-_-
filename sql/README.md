@@ -10,6 +10,13 @@ Supabase 대시보드 → SQL Editor 에서 **번호 순서대로** 실행하세
 | 03_recruit.sql | 채용공고·선배사례 테이블 | 모집기업 열람·사례 페이지, 관리자 공고/사례 등록 |
 | 04_stages.sql | 기업 진행단계 테이블 + 조회 RPC | 기업담당자 홈 진행단계 카드, 관리자 기업 탭 |
 | 05_qna.sql | QnA 사례 테이블 | QnA 페이지, 상담 '사례로 공개' |
+| 06_qna_seed.sql | QnA 초기 시드 | 자주 묻는 질문 초기 콘텐츠 |
+| 07_admin_tools.sql | 관리자 도구 보강 | 관리자 명단·콘텐츠 관리 |
+| 08_cases_seed.sql | 선배사례 16건 시드(전체교체 방식) | 사례 페이지 — 관리자 직접등록 후 재실행 금지 |
+| 09_admin_extras.sql | 자료 파일업로드·발송기록 삭제·코드만 가입 RPC | 관리자 업로드/기록 삭제, 코드 단독 가입 |
+| 10_company_survey.sql | 기업용 만족도 응답 테이블 | 기업현장교사·HRD담당자 만족도 |
+| 11_company_faq_seed.sql | 기업담당자용 FAQ 시드 | FAQ 페이지 기업 답변 |
+| 12_company_contacts.sql | 노션 HRD담당자 명단 미러(관리자만 조회) | 가입자 탭 기업담당자 가입/미가입 체크 — Apps Script 동기화 코드도 갱신 필요 |
 
 주의사항
 - 02의 `verify_by_code`는 기존 `verify_student(name, phone)` RPC를 내부 호출합니다.

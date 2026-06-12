@@ -1036,6 +1036,7 @@
     let regSort = { key: 'name', dir: 1 };
     let codeMap = {};                               // name|phone → {id, code} (student_codes)
     let codesReady = false;                         // 02 SQL 적용 여부
+    let ccReady = false;                            // 12 SQL+동기화 적용 여부(기업담당자 노션 명단)
     const CODE_ALPHA = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
     const genCode = () => Array.from({ length: 8 }, () => CODE_ALPHA[Math.floor(Math.random() * CODE_ALPHA.length)]).join('');
     async function loadCodes() {
@@ -1070,6 +1071,31 @@
         if (error) { $('rg-table').innerHTML = '<tbody><tr><td style="padding:10px;color:var(--text-muted)">명단 조회 권한이 없습니다 — R12/R15 SQL 실행 필요</td></tr></tbody>'; return; }
         rows = (data || []).map(r => ({ ...r, signed: true, interest: regInterest(r) }));
       }
+      // 기업담당자: 노션 HRD담당자 명단(company_contacts) 기준으로 가입/미가입 표시 (sql/12 + 동기화 적용 시)
+      ccReady = false;
+      try {
+        const { data: cc, error: ce } = await supabase.from('company_contacts')
+          .select('notion_id,role,company,name,phone,email,status,manager');
+        const roster = (!ce && Array.isArray(cc)) ? cc.filter(c => c.status !== '종료') : [];
+        if (roster.length) {
+          ccReady = true;
+          const nn = s => (s || '').replace(/\s+/g, '');
+          const dg = s => (s || '').replace(/\D/g, '');
+          const coRegs = rows.filter(r => r.target_type === 'company');
+          const matched = new Set();
+          const ccRows = roster.map(c => {
+            // 가입 매칭: 기업명(정규화) 일치 + 이름 또는 전화 일치
+            const hit = coRegs.find(r => normCo(r.company) === normCo(c.company) &&
+              (nn(r.name) === nn(c.name) || (dg(c.phone) && dg(r.phone) === dg(c.phone))));
+            if (hit) matched.add(hit.id);
+            return { id: 'cc:' + c.notion_id + ':' + c.role, name: c.name, phone: c.phone || (hit && hit.phone) || '',
+                     target_type: 'company', company: c.company, role: 'HRD담당자',
+                     manager: c.manager || null, signed: !!hit, created_at: hit ? hit.created_at : null };
+          });
+          // 명단과 매칭된 가입행은 명단 행으로 대체, 명단 외 가입자(현장교사 등)는 그대로 표시
+          rows = rows.filter(r => r.target_type !== 'company' || !matched.has(r.id)).concat(ccRows);
+        }
+      } catch (_) {}
       await loadCodes();
       regCache = rows; regDims = null;
       fillSel('rg-fmanager', (window.MANAGERS || []).slice());
@@ -1097,16 +1123,20 @@
         b.addEventListener('click', () => { if (regSeg !== k) { regSeg = k; regSort = { key: 'name', dir: 1 }; regRender(); } });
         segEl.appendChild(b);
       });
-      // 직무·유형·담당 필터는 참여학생 전용
-      ['rg-fmanager', 'rg-fjob', 'rg-ftype'].forEach(id => { const e = $(id); if (e) e.style.display = regSeg === 'student' ? '' : 'none'; });
+      // 직무·유형 필터는 참여학생 전용, 담당직원 필터는 기업담당자(명단 연동 시)도 사용
+      ['rg-fmanager', 'rg-fjob', 'rg-ftype'].forEach(id => {
+        const e = $(id); if (!e) return;
+        e.style.display = (regSeg === 'student' || (id === 'rg-fmanager' && regSeg === 'company' && ccReady)) ? '' : 'none';
+      });
     }
     function regFiltered() {
       const q = ($('rg-search').value || '').trim().toLowerCase();
       const fm = $('rg-fmanager').value, fj = $('rg-fjob').value, ft = $('rg-ftype').value;
       const rows = regCache.filter(r =>
         (r.target_type || 'student') === regSeg &&
-        (!q || [r.name, r.company, r.job_key, r.manager, r.interest].some(x => (x || '').toLowerCase().includes(q))) &&
-        (regSeg !== 'student' || ((!fm || r.manager === fm) && (!fj || r.job_key === fj) && (!ft || r.type1 === ft))));
+        (!q || [r.name, r.company, r.job_key, r.manager, r.role, r.interest].some(x => (x || '').toLowerCase().includes(q))) &&
+        (regSeg === 'student' ? ((!fm || r.manager === fm) && (!fj || r.job_key === fj) && (!ft || r.type1 === ft))
+          : regSeg === 'company' ? (!fm || r.manager === fm) : true));
       const k = regSort.key, dir = regSort.dir;
       rows.sort((a, b) => { const va = a[k] || '', vb = b[k] || ''; return va < vb ? -dir : va > vb ? dir : 0; });
       return rows;
@@ -1140,12 +1170,21 @@
       const isStu = regSeg === 'student';
       const segTotal = regCache.filter(r => (r.target_type || 'student') === regSeg).length;
       const segLabel = { student: '참여학생', applicant: '지원자', company: '기업담당자' }[regSeg];
-      $('rg-count').textContent = segLabel + ' ' + segTotal + '명' + (rows.length !== segTotal ? ' · 필터 ' + rows.length + '명' : '');
+      let cntTxt = segLabel + ' ' + segTotal + '명';
+      if (regSeg === 'company') {
+        if (ccReady) {
+          const joined = regCache.filter(r => r.target_type === 'company' && r.signed).length;
+          cntTxt += ' · 가입 ' + joined + ' · 미가입 ' + (segTotal - joined) + ' (노션 HRD담당자 명단 기준)';
+        } else cntTxt += ' — 앱 가입자만 표시 (노션 명단 연동: sql/12 실행 + 동기화 코드 갱신)';
+      }
+      $('rg-count').textContent = cntTxt + (rows.length !== segTotal ? ' · 필터 ' + rows.length + '명' : '');
       const cols = isStu
         ? [['name', '이름'], ['manager', '담당직원'], ['job_key', '직무'], ['company', '기업'], ['type1', '유형'], ['signed', '가입']]
         : regSeg === 'applicant'
           ? [['name', '이름'], ['interest', '관심직무'], ['created_at', '등록일']]
-          : [['name', '이름'], ['company', '기업'], ['role', '역할'], ['created_at', '등록일']];
+          : ccReady
+            ? [['name', '이름'], ['company', '기업'], ['role', '구분'], ['manager', '담당직원'], ['signed', '가입']]
+            : [['name', '이름'], ['company', '기업'], ['role', '역할'], ['created_at', '등록일']];
       const arrow = k => regSort.key === k ? (regSort.dir < 0 ? ' ▼' : ' ▲') : '';
       const allOn = isStu && rows.length && rows.every(r => regSel.has(r.id));
       $('rg-table').innerHTML = '<thead><tr>' +
@@ -1167,7 +1206,9 @@
           ? [esc(r.name || ''), esc(r.manager || '-'), esc(r.job_key || '-'), esc(r.company || '-'), esc(r.type1 || '-'), signed]
           : regSeg === 'applicant'
             ? [esc(r.name || ''), esc(r.interest || '-'), fmtD(r.created_at)]
-            : [esc(r.name || ''), esc(r.company || '-'), esc(r.role || '-'), fmtD(r.created_at)];
+            : ccReady
+              ? [esc(r.name || ''), esc(r.company || '-'), esc(r.role || '명단 외'), esc(r.manager || '-'), signed]
+              : [esc(r.name || ''), esc(r.company || '-'), esc(r.role || '-'), fmtD(r.created_at)];
         vals.forEach(v => { const td = document.createElement('td'); td.innerHTML = v; tr.appendChild(td); });
         const tdp = document.createElement('td'); const ph = document.createElement('button'); ph.type = 'button'; ph.className = 'phone-btn'; const pv = r.phone || ''; let rv = false;
         const dph = () => { ph.innerHTML = `<i data-lucide="${rv ? 'eye-off' : 'eye'}"></i>${rv ? esc(pv) : esc(maskPhone(pv))}`; if (window.lucide) window.lucide.createIcons(); };
