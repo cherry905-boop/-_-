@@ -200,7 +200,7 @@ if ('serviceWorker' in navigator) {
     // 지원자(매칭 전)와 모집 경로로 들어온 비가입 방문자는 모집 중심 탭, 학생·기업담당자는 운영 탭
     // (모집 페이지 방문 시 세션에 진입 맥락을 기억해, 홈으로 이동해도 탭이 뒤바뀌지 않게)
     const prof = getProfile();
-    const RECRUIT_PAGES = ['intro.html', 'companies.html', 'cases.html', 'qna.html'];
+    const RECRUIT_PAGES = ['intro.html', 'companies.html', 'cases.html', 'faq.html', 'qna.html'];
     let recruitEntry = false;
     try {
       if (prof.name) sessionStorage.removeItem('ilhak_entry');
@@ -212,7 +212,7 @@ if ('serviceWorker' in navigator) {
       ['index.html', 'home', '홈'],
       ['companies.html', 'building', '모집기업'],
       ['cases.html', 'sparkles', '사례'],
-      ['qna.html', 'message-circle-question', 'QnA'],
+      ['faq.html', 'circle-help', 'FAQ'],
       ['intro.html', 'book-open', '제도소개'],
     ] : [
       ['index.html', 'home', '홈'],

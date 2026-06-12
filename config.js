@@ -26,6 +26,11 @@ window.APP_CONFIG = {
   // ── 초대코드 강제 여부 ─ 코드 배포가 끝나면 true로 바꿔 코드 없는 가입을 차단 ──
   REQUIRE_STUDENT_CODE: false,   // true: 매칭학생 가입에 개인 초대코드 필수
   REQUIRE_COMPANY_CODE: false,   // true: 기업담당자 가입에 기업 초대코드 필수
+
+  // ── 즉시 푸시(선택) ─ Apps Script 발송기를 '웹 앱'으로 배포한 URL을 넣으면
+  //    공지 발행 직후 발송기를 바로 깨워서 푸시가 수초 내 나갑니다 (비우면 5분 트리거만 사용).
+  //    설정법: Desktop\push-kick-webapp.txt 참고
+  PUSH_KICK_URL: '',
 };
 
 /* ── 4) 훈련 직무 (1차 분류축) ─ 노션 "2026 직무" 미러 ─────────────────

@@ -101,7 +101,7 @@
             <div id="n-tgt"></div>
             <button class="btn" id="n-publish">발행하기</button>
             <div class="status" id="n-status"></div>
-            <p class="note">※ 발행 후 5분 내 자동으로 푸시 발송됩니다(트리거).</p>
+            <p class="note">※ 발행하면 자동으로 푸시가 발송됩니다.</p>
           </div>
           <div style="display:flex;flex-direction:column;gap:18px">
             <div class="card"><p class="ph-card-title">발송한 공지</p><div id="n-list"></div></div>
@@ -182,7 +182,7 @@
           <div id="cl-msgs" style="display:flex;flex-direction:column"></div>
           <textarea id="cl-reply" class="ph-ta" rows="2" style="min-height:64px"></textarea>
           <button class="btn" id="cl-send">답변 보내기</button>
-          <button class="mju-btn mju-btn--secondary mju-btn--full" id="cl-toqna" style="margin-top:8px"><i data-lucide="share-2"></i> 이 상담을 QnA 사례로 공개 (익명화)</button>
+          <button class="mju-btn mju-btn--secondary mju-btn--full" id="cl-toqna" style="margin-top:8px"><i data-lucide="share-2"></i> 이 상담을 FAQ 사례로 공개 (익명화)</button>
           <button class="mju-btn mju-btn--secondary mju-btn--full" id="cl-del" style="margin-top:8px;color:var(--coral-600);border-color:var(--coral-500)"><i data-lucide="trash-2"></i> 이 상담 삭제 (완료된 상담 정리)</button>
           <div class="status" id="cl-status"></div>
         </div>
@@ -241,7 +241,7 @@
 
       <!-- 모집 콘텐츠 (공고·사례·QnA) -->
       <div class="tabsec" id="sec-recruit" style="display:none">
-        <h2 class="adm-h2">모집 콘텐츠 <span class="hint">채용공고·선배사례·QnA — 공개 페이지(모집기업/사례/QnA)에 노출됩니다</span></h2>
+        <h2 class="adm-h2">모집 콘텐츠 <span class="hint">채용공고·선배사례·FAQ — 공개 페이지(모집기업/사례/자주 묻는 질문)에 노출됩니다</span></h2>
         <div class="adm-2col">
           <div style="display:flex;flex-direction:column;gap:18px">
             <div class="card">
@@ -281,7 +281,7 @@
           </div>
           <div style="display:flex;flex-direction:column;gap:18px">
             <div class="card">
-              <p class="ph-card-title">QnA 등록 (직접 작성)</p>
+              <p class="ph-card-title">FAQ 등록 (직접 작성)</p>
               <p class="note">상담 탭에서 '사례로 공개'를 눌러도 여기로 들어옵니다. 식별 정보는 꼭 지워주세요.</p>
               <label>대상</label>
               <select id="qa-aud" class="ph-select"><option value="all">전체</option><option value="applicant">지원자</option><option value="student">학생</option><option value="company">기업담당자</option></select>
@@ -291,7 +291,7 @@
               <textarea id="qa-q" class="ph-ta" rows="2"></textarea>
               <label>답변 <span class="req">*</span></label>
               <textarea id="qa-a" class="ph-ta" rows="4"></textarea>
-              <button class="btn" id="qa-add">QnA 공개</button>
+              <button class="btn" id="qa-add">FAQ 공개</button>
               <div class="status" id="qa-status"></div>
             </div>
             <div class="card"><p class="ph-card-title">등록된 콘텐츠</p><div id="rc-list"></div></div>
@@ -335,7 +335,7 @@
     <!-- 상담 → QnA 사례 공개 모달 -->
     <div class="modal-veil" id="qv-veil" style="display:none">
       <div class="modal" style="width:520px">
-        <h3>QnA 사례로 공개</h3>
+        <h3>FAQ 사례로 공개</h3>
         <p style="margin:0 0 10px">이름·기업명 등 <b>식별 정보를 지우고(익명화)</b> 공개하세요. 공개 후에도 모집 탭에서 내릴 수 있어요.</p>
         <label style="font-size:13px;font-weight:700">대상</label>
         <select id="qv-aud" class="ph-select" style="margin:4px 0 10px"><option value="all">전체</option><option value="applicant">지원자</option><option value="student">학생</option><option value="company">기업담당자</option></select>
@@ -602,6 +602,13 @@
     }
 
     // 명단 지정 인원에게 비공개 개인 안내 발행 (개인지정 공지 파이프라인 재사용 → 푸시 도달)
+    // 즉시 푸시 — 발행 직후 Apps Script 발송기를 깨움 (PUSH_KICK_URL 미설정이면 5분 트리거 폴백)
+    const PUSH_KICK = (window.APP_CONFIG || {}).PUSH_KICK_URL || '';
+    const PUSH_ETA = PUSH_KICK ? '곧' : '5분 내';
+    function kickPush() {
+      if (!PUSH_KICK) return;
+      try { fetch(PUSH_KICK, { method: 'POST', mode: 'no-cors', body: 'kick' }); } catch (_) {}
+    }
     async function notifyPeople(people, title, body) {
       const { data: ins, error: e1 } = await supabase.from('notices')
         .insert({ title: '개인 안내', body: '개인 안내가 도착했습니다. 앱에서 확인하세요.', target_scope: 'personal', target_value: null, published: false })
@@ -611,6 +618,7 @@
       if (e2) throw e2;
       const { error: e3 } = await supabase.from('notices').update({ published: true }).eq('id', ins.id);
       if (e3) throw e3;
+      kickPush();
     }
     // 명단 지정 → 자료·일정 타게팅용 토큰 해시 (07 SQL). 누락 인원이 있으면 확인 후 진행.
     async function peopleHashes(people, statusEl2) {
@@ -681,7 +689,7 @@
         try {
           await notifyPeople(people, title, body);
           logAction('공지발행(명단)', people.length + '명 · ' + title);
-          setStatus($('n-status'), `✅ ${people.length}명에게 개인 안내로 발행했어요 (5분 내 푸시).`, 'ok');
+          setStatus($('n-status'), `✅ ${people.length}명에게 개인 안내로 발행했어요 (${PUSH_ETA} 푸시).`, 'ok');
           $('n-title').value = ''; $('n-body').value = ''; nPicker.reset(); nLoad();
         } catch (err) {
           setStatus($('n-status'), '오류: ' + (err.message || err) + ' — R15 SQL 실행 여부를 확인하세요.', 'error');
@@ -697,7 +705,8 @@
       const { error } = await supabase.from('notices').insert({ title, body, target_scope: scope, target_value: value, published: true, created_by: null });
       $('nv-confirm').disabled = false; $('nv-veil').style.display = 'none';
       if (error) { setStatus($('n-status'), '오류: ' + error.message, 'error'); return; }
-      setStatus($('n-status'), '✅ 발행되었습니다 (5분 내 푸시).', 'ok'); logAction('공지발행', lbl + ' · ' + title);
+      kickPush();
+      setStatus($('n-status'), `✅ 발행되었습니다 (${PUSH_ETA} 푸시).`, 'ok'); logAction('공지발행', lbl + ' · ' + title);
       $('n-title').value = ''; $('n-body').value = ''; nPicker.reset(); nLoad();
     });
     async function nLoad() {
@@ -763,6 +772,7 @@
       const scope = picker.mode === 'all' ? 'all' : 'custom';
       const value = picker.mode === 'all' ? null : picker.serial();
       await supabase.from('notices').insert({ title, body, target_scope: scope, target_value: value, published: true, created_by: null });
+      kickPush();
     }
 
     // ===== 자료실 =====
@@ -828,7 +838,7 @@
       $('l-add').disabled = false;
       if (error) { setStatus($('l-status'), '오류: ' + error.message, 'error'); return; }
       if ($('l-push').checked) { try { await pushAsNotice(lPicker, '[새 자료] ' + title, '자료실에 「' + title + '」 자료가 등록됐어요. 앱 자료실에서 확인하세요.'); } catch (_) {} }
-      setStatus($('l-status'), $('l-push').checked ? '✅ 등록 + 공지 발행 (5분 내 푸시).' : '✅ 등록되었습니다.', 'ok');
+      setStatus($('l-status'), $('l-push').checked ? `✅ 등록 + 공지 발행 (${PUSH_ETA} 푸시).` : '✅ 등록되었습니다.', 'ok');
       logAction(file ? '자료등록(파일)' : '자료등록', title + ' · ' + lPicker.label() + ($('l-push').checked ? ' (+공지)' : '')); $('l-title').value = ''; $('l-url').value = ''; $('l-file').value = ''; $('l-shared').parentElement.style.display = ''; $('l-push').checked = false; lPicker.reset(); lLoad();
     });
     async function lLoad() {
@@ -878,7 +888,7 @@
       $('c-add').disabled = false;
       if (error) { setStatus($('c-status'), '오류: ' + error.message, 'error'); return; }
       if ($('c-push').checked) { try { await pushAsNotice(cPicker, '[일정] ' + title, title + ' — ' + date + (memo ? ' · ' + memo : '') + '. 앱 일정에서 확인하세요.'); } catch (_) {} }
-      setStatus($('c-status'), $('c-push').checked ? '✅ 등록 + 공지 발행 (5분 내 푸시).' : '✅ 등록되었습니다.', 'ok');
+      setStatus($('c-status'), $('c-push').checked ? `✅ 등록 + 공지 발행 (${PUSH_ETA} 푸시).` : '✅ 등록되었습니다.', 'ok');
       logAction('일정등록', title + ' · ' + cPicker.label() + ($('c-push').checked ? ' (+공지)' : '')); $('c-title').value = ''; $('c-memo').value = ''; $('c-push').checked = false; cPicker.reset(); cLoad();
     });
     async function cLoad() {
@@ -964,8 +974,8 @@
       });
       $('qv-save').disabled = false;
       if (error) { setStatus($('qv-status'), /relation|does not exist|schema cache/i.test(error.message || '') ? 'qna_posts 테이블이 없어요 — sql/05_qna.sql 실행 필요' : '오류: ' + error.message, 'error'); return; }
-      logAction('QnA공개', q.slice(0, 30));
-      setStatus($('qv-status'), '✅ QnA에 공개됐어요.', 'ok');
+      logAction('FAQ공개', q.slice(0, 30));
+      setStatus($('qv-status'), '✅ 자주 묻는 질문에 공개됐어요.', 'ok');
       rcLoad();
       setTimeout(() => { $('qv-veil').style.display = 'none'; }, 1000);
     });
@@ -1234,8 +1244,9 @@
         if (e2) throw e2;
         const { error: e3 } = await supabase.from('notices').update({ published: true }).eq('id', ins.id);
         if (e3) throw e3;
+        kickPush();
         logAction('개인공지', people.length + '명 · ' + title);
-        setStatus($('pv-status'), `✅ ${people.length}명에게 개인 공지를 보냈어요 (5분 내 푸시).`, 'ok');
+        setStatus($('pv-status'), `✅ ${people.length}명에게 개인 공지를 보냈어요 (${PUSH_ETA} 푸시).`, 'ok');
         regSel.clear(); regRender(); nLoad();
         setTimeout(() => { $('pv-veil').style.display = 'none'; }, 1500);
       } catch (err) {
@@ -1446,10 +1457,11 @@
             target_scope: 'custom', target_value: JSON.stringify({ targets: ['applicant'], jobs: [], companies: [], types: [], managers: [] }),
             published: true, created_by: null
           });
+          kickPush();
         } catch (_) {}
       }
       logAction('공고발행', company + ' · ' + title);
-      setStatus($('jp-status'), $('jp-push').checked ? '✅ 공고 발행 + 지원자 알림 (5분 내 푸시).' : '✅ 공고가 발행됐어요.', 'ok');
+      setStatus($('jp-status'), $('jp-push').checked ? `✅ 공고 발행 + 지원자 알림 (${PUSH_ETA} 푸시).` : '✅ 공고가 발행됐어요.', 'ok');
       ['jp-company', 'jp-title', 'jp-region', 'jp-intro', 'jp-perks', 'jp-deadline'].forEach(id => { $(id).value = ''; });
       rcLoad();
     });
@@ -1476,8 +1488,8 @@
       });
       $('qa-add').disabled = false;
       if (error) { setStatus($('qa-status'), tblMissing(error.message) ? 'qna_posts 테이블이 없어요 — sql/05_qna.sql 실행 필요' : '오류: ' + error.message, 'error'); return; }
-      logAction('QnA공개', q.slice(0, 30));
-      setStatus($('qa-status'), '✅ QnA에 공개됐어요.', 'ok');
+      logAction('FAQ공개', q.slice(0, 30));
+      setStatus($('qa-status'), '✅ 자주 묻는 질문에 공개됐어요.', 'ok');
       ['qa-cat', 'qa-q', 'qa-a'].forEach(id => { $(id).value = ''; });
       rcLoad();
     });
@@ -1487,7 +1499,7 @@
       const groups = [
         ['채용공고', 'job_postings', r => `${r.company} — ${r.title}`, 'jp'],
         ['선배 사례', 'success_cases', r => r.title, 'sc'],
-        ['QnA', 'qna_posts', r => r.question, 'qa'],
+        ['FAQ', 'qna_posts', r => r.question, 'qa'],
       ];
       for (const [label, table, fmt] of groups) {
         let res;
@@ -1559,6 +1571,7 @@
                 target_scope: 'custom', target_value: JSON.stringify({ targets: [], jobs: [], companies: [co], types: [], managers: [] }),
                 published: true, created_by: null
               });
+              kickPush();
             } catch (_) {}
           }
           save.disabled = false;
