@@ -219,6 +219,8 @@ if ('serviceWorker' in navigator) {
       else recruitEntry = sessionStorage.getItem('ilhak_entry') === 'recruit';
     } catch (_) {}
     const isApplicant = prof.target_type === 'applicant' || (!prof.name && (RECRUIT_PAGES.includes(page) || recruitEntry));
+    // 미가입 기기(모집 맥락도 아님)에는 탭바를 숨김 — 가입 화면에서 운영 탭이 먼저 보이지 않게
+    if (!prof.name && !isApplicant) return;
     const items = isApplicant ? [
       ['index.html', 'home', '홈'],
       ['companies.html', 'building', '모집기업'],
