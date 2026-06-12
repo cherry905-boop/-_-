@@ -14,4 +14,26 @@ firebase.initializeApp({
 });
 
 // messaging 초기화 → notification 메시지는 SDK가 백그라운드에서 자동 표시(클릭 시 fcm_options.link 로 이동)
-firebase.messaging();
+const messaging = firebase.messaging();
+
+// 앱 아이콘 배지(홈 화면 숫자) +1 — 앱을 열면 app.js가 실제 안읽음 수로 다시 맞춤
+function bumpBadge() {
+  try {
+    const open = indexedDB.open('ilhak-badge', 1);
+    open.onupgradeneeded = () => { open.result.createObjectStore('kv'); };
+    open.onsuccess = () => {
+      try {
+        const tx = open.result.transaction('kv', 'readwrite');
+        const st = tx.objectStore('kv');
+        const g = st.get('n');
+        g.onsuccess = () => {
+          const n = (typeof g.result === 'number' ? g.result : 0) + 1;
+          st.put(n, 'n');
+          if (navigator.setAppBadge) navigator.setAppBadge(n).catch(() => {});
+        };
+      } catch (_) {}
+    };
+  } catch (_) {}
+}
+// notification 페이로드는 SDK가 자동 표시하므로 여기선 배지만 올림(중복 표시 없음)
+messaging.onBackgroundMessage(() => { bumpBadge(); });

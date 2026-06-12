@@ -151,9 +151,20 @@ export async function unreadNoticeCount() {
     return data.filter(n => noticeMatches(n, profile) && !read.has(n.id)).length;
   } catch (_) { return 0; }
 }
+// 앱 아이콘 배지(홈 화면 숫자) — 푸시 수신 시 SW가 +1, 앱을 열면 실제 안읽음 수로 동기화
+// (iOS 16.4+ 설치된 PWA·안드로이드 크롬 지원. 미지원 환경에선 조용히 무시)
+function setIconBadge(n) {
+  try { if (n) navigator.setAppBadge?.(n); else navigator.clearAppBadge?.(); } catch (_) {}
+  try {  // SW 증가 카운터의 기준값도 맞춰둠 (firebase-messaging-sw.js와 공유하는 IndexedDB)
+    const open = indexedDB.open('ilhak-badge', 1);
+    open.onupgradeneeded = () => { open.result.createObjectStore('kv'); };
+    open.onsuccess = () => { try { open.result.transaction('kv', 'readwrite').objectStore('kv').put(n, 'n'); } catch (_) {} };
+  } catch (_) {}
+}
 // 탭바 '공지' 탭과 홈 '공지사항' 타일에 미확인 배지 표시
 export async function updateUnreadBadges() {
   const cnt = await unreadNoticeCount();
+  setIconBadge(cnt);
   document.querySelectorAll('[data-unread-badge]').forEach(el => { el.remove(); });
   if (!cnt) return;
   const label = cnt > 99 ? '99+' : String(cnt);
