@@ -1078,9 +1078,7 @@
       try {
         const { data: cc, error: ce } = await supabase.from('company_contacts')
           .select('notion_id,role,company,name,phone,email,status,manager');
-        // 매칭된 학생이 있는 기업만 표시 (학생 로스터의 기업 집합과 대조 — 발굴 단계 기업 등 제외)
-        const stuCos = new Set(rows.filter(r => (r.target_type || 'student') === 'student' && r.company).map(r => normCo(r.company)));
-        const roster = (!ce && Array.isArray(cc)) ? cc.filter(c => c.status !== '종료' && stuCos.has(normCo(c.company))) : [];
+        const roster = (!ce && Array.isArray(cc)) ? cc.filter(c => c.status !== '종료') : [];
         if (roster.length) {
           ccReady = true;
           const nn = s => (s || '').replace(/\s+/g, '');
@@ -1195,7 +1193,7 @@
         : regSeg === 'applicant'
           ? [['name', '이름'], ['interest', '관심직무'], ['created_at', '등록일']]
           : ccReady
-            ? [['name', '이름'], ['company', '기업'], ['role', '구분'], ['manager', '담당직원'], ['status', '상태'], ['signed', '가입']]
+            ? [['name', '이름'], ['company', '기업'], ['role', '구분'], ['manager', '담당직원'], ['signed', '가입']]
             : [['name', '이름'], ['company', '기업'], ['role', '역할'], ['created_at', '등록일']];
       const arrow = k => regSort.key === k ? (regSort.dir < 0 ? ' ▼' : ' ▲') : '';
       const allOn = isStu && rows.length && rows.every(r => regSel.has(r.id));
@@ -1219,7 +1217,7 @@
           : regSeg === 'applicant'
             ? [esc(r.name || ''), esc(r.interest || '-'), fmtD(r.created_at)]
             : ccReady
-              ? [esc(r.name || ''), esc(r.company || '-'), esc(r.role || '명단 외'), esc(r.manager || '-'), esc(r.status || '-'), signed]
+              ? [esc(r.name || ''), esc(r.company || '-'), esc(r.role || '명단 외'), esc(r.manager || '-'), signed]
               : [esc(r.name || ''), esc(r.company || '-'), esc(r.role || '-'), fmtD(r.created_at)];
         vals.forEach(v => { const td = document.createElement('td'); td.innerHTML = v; tr.appendChild(td); });
         const tdp = document.createElement('td'); const ph = document.createElement('button'); ph.type = 'button'; ph.className = 'phone-btn'; const pv = r.phone || ''; let rv = false;
@@ -1295,7 +1293,7 @@
       const all = $('rg-all'); if (all) all.addEventListener('change', e => { rows.forEach(r => e.target.checked ? regSel.add(r.id) : regSel.delete(r.id)); regRender(); });
       regSelBar();
     }
-    ['rg-search', 'rg-fmanager', 'rg-fjob', 'rg-ftype', 'rg-fstatus', 'rg-fsigned'].forEach(id => { const e = $(id); if (e) e.addEventListener('input', regRender); });
+    ['rg-search', 'rg-fmanager', 'rg-fjob', 'rg-ftype'].forEach(id => { const e = $(id); if (e) e.addEventListener('input', regRender); });
     $('rg-refresh').addEventListener('click', regLoad);
     $('rg-clearsel').addEventListener('click', () => { regSel.clear(); regRender(); });
     // 선택 학생 코드 일괄 발급 (이미 있으면 건너뜀)
