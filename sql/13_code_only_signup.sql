@@ -24,12 +24,14 @@ begin
   end if;
 
   -- 노션 동기화 HRD담당자 (없거나 12 미적용이어도 ok/company는 그대로 동작)
+  -- 주의: 예외 시 h가 미할당 레코드라 h.name 접근이 에러 — 예외 분기에서 바로 반환해야 함
   begin
     select name, phone into h from company_contacts
      where role = 'hrd' and company = c.company and coalesce(status, '') <> '종료'
      order by updated_at desc limit 1;
   exception when undefined_table then
-    h := null;
+    return jsonb_build_object('ok', true, 'company', c.company,
+                              'hrd_name', null, 'hrd_phone', null);
   end;
 
   return jsonb_build_object('ok', true, 'company', c.company,

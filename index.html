@@ -519,6 +519,7 @@
       pendingStudent = null; pendingCompany = null;
       btn.textContent = val === 'applicant' ? '알림 받기 등록' : '가입하기';
       phoneEl.readOnly = false; nameEl.readOnly = false;   // 2단계 잠금 해제
+      const coEl = document.getElementById('co-code'); if (coEl) coEl.readOnly = false;
       // 동의 문구 — 지원자는 수집항목·목적·보유기간이 다름
       const items = document.getElementById('c-items'), purpose = document.getElementById('c-purpose'), ret = document.getElementById('c-retention');
       if (val === 'applicant') {
@@ -693,6 +694,7 @@
         }
         // 노션 명단에 HRD담당자 정보가 비어 있음(또는 sql/13 전) → 이름·휴대폰 직접 입력 2단계
         pendingCompany = co;
+        document.getElementById('co-code').readOnly = true;   // 2단계 중 코드 정정은 무시되므로 잠금(대상 재선택으로 해제)
         document.getElementById('grp-id').hidden = false;
         if (hn) nameEl.value = hn;
         if (hp) phoneEl.value = hp;

@@ -1148,7 +1148,7 @@
         (r.target_type || 'student') === regSeg &&
         (!q || [r.name, r.company, r.job_key, r.manager, r.role, r.status, r.interest].some(x => (x || '').toLowerCase().includes(q))) &&
         (regSeg === 'student' ? ((!fm || r.manager === fm) && (!fj || r.job_key === fj) && (!ft || r.type1 === ft))
-          : regSeg === 'company' ? ((!fm || r.manager === fm) && (!fs || (r.status || '') === fs) && (!fg || (fg === '가입') === !!r.signed)) : true));
+          : regSeg === 'company' ? (!ccReady || ((!fm || r.manager === fm) && (!fs || (r.status || '') === fs) && (!fg || (fg === '가입') === !!r.signed))) : true));
       const k = regSort.key, dir = regSort.dir;
       rows.sort((a, b) => { const va = a[k] || '', vb = b[k] || ''; return va < vb ? -dir : va > vb ? dir : 0; });
       return rows;
@@ -1267,9 +1267,10 @@
             db.addEventListener('click', async () => {
               if (!confirm(`'${r.name || '(이름 없음)'} / ${r.company || '-'}' 가입 기록을 삭제할까요?\n앱 가입 행만 지워지고 노션 명단에는 영향이 없어요.`)) return;
               db.disabled = true;
-              const { error } = await supabase.from('registrations').delete().eq('id', r.id);
-              if (error) {
-                setStatus($('rg-status'), '삭제 오류: ' + (error.message || error) + (/policy|permission|denied/i.test(error.message || '') ? ' — sql/R12 권한 확인 필요' : ''), 'error');
+              // .select()로 실제 삭제 행을 확인 — RLS가 막으면 에러 없이 0행이라 성공으로 오인됨
+              const { data: del, error } = await supabase.from('registrations').delete().eq('id', r.id).select('id');
+              if (error || !del || !del.length) {
+                setStatus($('rg-status'), '삭제 오류: ' + (error ? (error.message || error) : '권한이 없어 삭제되지 않았어요 — R12 SQL(관리자 DELETE 정책) 확인'), 'error');
                 db.disabled = false; return;
               }
               logAction('가입기록삭제', (r.name || '') + ' / ' + (r.company || ''));
@@ -1278,7 +1279,6 @@
             });
             tdc.appendChild(db);
           }
-          if (window.lucide) window.lucide.createIcons();
           tr.appendChild(tdc);
         }
         if (!isStu) { tb.appendChild(tr); return; }
@@ -1308,6 +1308,8 @@
         tb.appendChild(tr);
       });
       $('rg-table').appendChild(tb);
+      // 행 빌드 중 createIcons는 분리된 DOM이라 아이콘을 못 그림 — 표 부착 후 1회 변환(✉·🗑 등 아이콘 전용 버튼 필수)
+      if (window.lucide) window.lucide.createIcons();
       $('rg-table').querySelectorAll('th[data-k]').forEach(th => th.addEventListener('click', () => {
         const k = th.dataset.k; if (regSort.key === k) regSort.dir = -regSort.dir; else regSort = { key: k, dir: 1 }; regRender();
       }));
