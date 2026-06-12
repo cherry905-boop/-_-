@@ -10,13 +10,20 @@
   <link rel="stylesheet" href="./styles.css" />
   <script src="./config.js"></script>
   <style>
-    /* 만족도 척도: 라디오를 scale-btn 룩으로 표현(쿼리 보존을 위해 radio 유지) */
-    .scale-row label{flex:1;margin:0;position:relative;cursor:pointer}
-    .scale-row label input{position:absolute;opacity:0;width:0;height:0}
-    .scale-row label span{display:flex;align-items:center;justify-content:center;height:46px;
-      border-radius:11px;border:1.5px solid var(--border-default);background:var(--surface-card);
-      font-weight:700;font-size:15px;color:var(--text-secondary);transition:.12s}
-    .scale-row label:has(input:checked) span{background:var(--accent);border-color:var(--accent);color:#fff}
+    /* 보기(라디오/체크박스) — company-survey와 동일한 카드형 보기 */
+    .opt{display:flex;align-items:flex-start;gap:10px;padding:11px 12px;margin-top:7px;
+      border:1.5px solid var(--border-default);border-radius:11px;background:var(--surface-card);
+      cursor:pointer;font-weight:600;font-size:14px;color:var(--text-secondary);line-height:1.5;transition:.12s}
+    .opt input{width:18px;height:18px;margin:1px 0 0;flex-shrink:0;accent-color:var(--accent)}
+    .opt:has(input:checked){border-color:var(--accent);background:var(--tint-bg);color:var(--tint-fg)}
+    .q-block{margin-top:22px}
+    .q-block .field-label{line-height:1.55}
+    .etc-input{margin-top:7px;display:none}
+    .q-block.miss .field-label{color:var(--danger-500)}
+    .sv-item{display:block;padding:14px;border:1.5px solid var(--border-default);border-radius:13px;
+      background:var(--surface-card);margin-top:10px;text-decoration:none;color:inherit}
+    .sv-item.done{opacity:.55}
+    .sv-item b{font-size:15px}
   </style>
 </head>
 <body>
@@ -28,7 +35,8 @@
       <p class="ph-sub"><span id="who"></span> 센터 운영 개선을 위한 자체 설문입니다</p>
     </header>
     <main class="ph-body">
-      <div class="card" id="form">
+      <!-- 설문 목록 -->
+      <div class="card" id="list">
         <div class="mju-alert mju-alert--info">
           <span class="mju-alert__icon">i</span>
           <div class="mju-alert__body">
@@ -36,12 +44,16 @@
             <div class="mju-alert__text">공단 공식 만족도와 별개이며, 익명으로 집계됩니다.</div>
           </div>
         </div>
-        <p class="ph-card-title" style="margin-top:14px">학기</p>
-        <select id="semester" class="ph-select"><option>2026 1학기</option><option>2026 2학기</option></select>
+        <div id="sv-list"><p class="note" style="margin-top:12px">설문을 불러오는 중...</p></div>
+      </div>
+      <!-- 응답 폼 (?id=) -->
+      <div class="card" id="form" style="display:none">
+        <p class="ph-card-title" id="f-title"></p>
+        <p class="ph-note" id="f-desc" style="display:none"></p>
         <div id="questions"></div>
-        <div style="margin-top:18px">
-          <span class="field-label">개선 의견 (선택)</span>
-          <textarea id="comment" class="ph-ta" rows="3" placeholder="바라는 점·불편한 점을 자유롭게"></textarea>
+        <div class="q-block" id="comment-block">
+          <span class="field-label">하고 싶은 말 (선택)</span>
+          <textarea id="comment" class="ph-ta" rows="3" placeholder="자유롭게 작성해주세요"></textarea>
         </div>
         <button class="mju-btn mju-btn--full" id="submit" style="margin-top:16px">제출하기</button>
         <div class="status" id="status"></div>
@@ -57,61 +69,96 @@
 
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   <script type="module">
-    import { supabase, configReady, setStatus, friendlyError } from './app.js';
+    import { supabase, configReady, setStatus, friendlyError, esc, matchSel } from './app.js';
+    import { renderQuestions, collectAnswers } from './survey-ui.js';
     if (window.lucide) window.lucide.createIcons();
     const $ = id => document.getElementById(id);
     let profile = {}; try { profile = JSON.parse(localStorage.getItem('ilhak_profile') || '{}'); } catch (_) {}
     $('who').textContent = profile.name ? `${profile.name}님 ·` : '';
 
-    // 만족도는 학습근로자(재학생) 대상 — 그 외 대상은 안내만
-    if (profile.target_type && profile.target_type !== 'student') {
-      $('form').style.display = 'none'; $('homeBtn').style.display = 'none';
-      $('done').style.display = 'block';
-      $('done').innerHTML = '<span class="ei" style="margin:0 auto 10px"><i data-lucide="shield"></i></span><p class="ph-card-title">안내</p><p class="ph-note">이 만족도 설문은 학습근로자(재학생) 대상입니다.</p><a href="./index.html" class="mju-btn mju-btn--secondary mju-btn--full" style="margin-top:14px">홈으로</a>';
+    // 내 정보 없는 기기 — 대상 필터를 적용할 수 없어 안내만
+    if (!profile.name) {
+      $('list').innerHTML = '<span class="ei" style="margin:0 auto 10px"><i data-lucide="user"></i></span><p class="ph-card-title" style="text-align:center">내 정보가 필요해요</p><p class="ph-note" style="text-align:center">가입(또는 내 정보 불러오기) 후 참여할 수 있어요.</p><a href="./index.html" class="mju-btn mju-btn--secondary mju-btn--full" style="margin-top:14px">홈에서 정보 입력하기</a>';
       window.lucide?.createIcons();
     }
 
-    const QS = [
-      { key: 'r_train', label: '훈련 내용 만족도' },
-      { key: 'r_facility', label: '시설·환경 만족도' },
-      { key: 'r_teacher', label: '교·강사 만족도' },
-      { key: 'r_ops', label: '운영·소통 만족도' },
-      { key: 'r_overall', label: '전반 만족도' },
-    ];
-    QS.forEach(q => {
-      const div = document.createElement('div'); div.style.marginTop = '18px';
-      let radios = '';
-      for (let i = 1; i <= 5; i++) radios += `<label><input type="radio" name="${q.key}" value="${i}"><span>${i}</span></label>`;
-      div.innerHTML = `<span class="field-label">${q.label} <span class="req">*</span></span><div class="scale-row">${radios}</div><div class="scale-ends"><span>매우 불만족</span><span>매우 만족</span></div>`;
-      $('questions').appendChild(div);
-    });
-
-    // 기기 식별값(랜덤, PII 아님) — 서버측 1인1표(device_id+semester 유일)용
+    // 기기 식별값(랜덤, PII 아님) — 서버측 1인1표(설문별)용
     const deviceId = (() => {
       try { let d = localStorage.getItem('ilhak_device_id'); if (!d) { d = 'dev_' + Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem('ilhak_device_id', d); } return d; }
       catch (_) { return null; }
     })();
-    $('submit').addEventListener('click', async () => {
-      const row = { semester: $('semester').value, job_key: profile.job_key || null, comment: $('comment').value.trim() || null, device_id: deviceId };
-      const dupKey = 'ilhak_survey_' + row.semester;
-      if (localStorage.getItem(dupKey)) { setStatus($('status'), '이미 이 학기 만족도를 제출하셨어요. 감사합니다.', 'ok'); return; }
-      for (const q of QS) {
-        const sel = document.querySelector(`input[name=${q.key}]:checked`);
-        if (!sel) { setStatus($('status'), '모든 항목을 평가해주세요.', 'error'); return; }
-        row[q.key] = parseInt(sel.value, 10);
+    const answered = id => { try { return !!localStorage.getItem('ilhak_esurvey_' + id); } catch (_) { return false; } };
+    const visible = s => s.target_scope === 'all' || (() => { try { return matchSel(JSON.parse(s.target_value || '{}'), profile, true); } catch (_) { return false; } })();
+
+    const svId = new URLSearchParams(location.search).get('id');
+    let current = null;
+
+    async function loadList() {
+      if (!profile.name) return;
+      if (!configReady()) { $('sv-list').innerHTML = '<p class="note">Supabase 연결이 필요합니다.</p>'; return; }
+      const { data, error } = await supabase.from('surveys')
+        .select('id,title,description,target_scope,target_value,created_at')
+        .eq('open', true).order('created_at', { ascending: false });
+      const el = $('sv-list');
+      if (error) {
+        el.innerHTML = '<p class="note">' + (/relation|does not exist|schema cache/i.test(error.message || '') ? '설문 기능이 아직 준비 중이에요. (관리자: sql/16 실행 필요)' : '설문을 불러오지 못했어요 — ' + esc(error.message)) + '</p>';
+        return;
       }
+      const rows = (data || []).filter(visible);
+      if (!rows.length) { el.innerHTML = '<p class="note" style="margin-top:12px">지금 참여할 수 있는 설문이 없어요.</p>'; return; }
+      el.innerHTML = '';
+      rows.forEach(s => {
+        const did = answered(s.id);
+        const a = document.createElement('a');
+        a.className = 'sv-item' + (did ? ' done' : '');
+        a.href = did ? '#' : ('./survey.html?id=' + s.id);
+        a.innerHTML = `<b>${esc(s.title)}</b>${did ? ' <span class="mju-badge mju-badge--success">참여 완료</span>' : ''}` +
+          (s.description ? `<div class="note" style="margin-top:4px">${esc(s.description)}</div>` : '') +
+          `<div class="note" style="margin-top:4px">${new Date(s.created_at).toLocaleDateString('ko-KR')}</div>`;
+        if (did) a.addEventListener('click', e => e.preventDefault());
+        el.appendChild(a);
+      });
+    }
+
+    async function loadForm() {
+      $('list').style.display = 'none'; $('form').style.display = 'block';
+      const { data, error } = await supabase.from('surveys')
+        .select('id,title,description,target_scope,target_value,questions').eq('id', svId).maybeSingle();
+      if (error || !data) {
+        $('form').innerHTML = '<p class="ph-card-title">안내</p><p class="ph-note">설문을 찾을 수 없거나 마감된 설문이에요.</p><a href="./survey.html" class="mju-btn mju-btn--secondary mju-btn--full" style="margin-top:12px">설문 목록으로</a>';
+        return;
+      }
+      current = data;
+      if (!visible(data)) {
+        $('form').innerHTML = '<p class="ph-card-title">안내</p><p class="ph-note">이 설문은 다른 대상을 위한 설문이에요.</p><a href="./survey.html" class="mju-btn mju-btn--secondary mju-btn--full" style="margin-top:12px">설문 목록으로</a>';
+        return;
+      }
+      if (answered(data.id)) {
+        $('form').style.display = 'none'; $('homeBtn').style.display = 'none'; $('done').style.display = 'block';
+        window.lucide?.createIcons(); return;
+      }
+      $('f-title').textContent = data.title;
+      if (data.description) { $('f-desc').textContent = data.description; $('f-desc').style.display = 'block'; }
+      renderQuestions($('questions'), data.questions || []);
+    }
+
+    $('submit').addEventListener('click', async () => {
+      if (!current) return;
+      const answers = collectAnswers($('questions'), current.questions || [], $('status'));
+      if (!answers) return;
       if (!configReady()) { setStatus($('status'), 'Supabase 연결이 필요합니다.', 'error'); return; }
+      const row = { survey_id: current.id, answers, comment: $('comment').value.trim().slice(0, 2000) || null, job_key: profile.job_key || null, device_id: deviceId };
       $('submit').disabled = true; setStatus($('status'), '제출 중...', 'info');
-      let { error } = await supabase.from('survey_responses').insert(row);
-      // device_id 컬럼이 아직 없으면(마이그레이션 실행 전) device_id 빼고 재시도 → 배포 순서 무관
-      if (error && /device_id/i.test(error.message || '')) { const r2 = { ...row }; delete r2.device_id; ({ error } = await supabase.from('survey_responses').insert(r2)); }
+      const { error } = await supabase.from('survey_answers').insert(row);
       $('submit').disabled = false;
-      // 23505 = 이 기기가 이 학기에 이미 제출(서버측 유일 제약) → 정상 처리
+      // 23505 = 이 기기가 이 설문에 이미 제출(서버측 유일 제약) → 정상 처리
       if (error && error.code !== '23505') { setStatus($('status'), friendlyError(error), 'error'); return; }
-      try { localStorage.setItem(dupKey, '1'); } catch (_) {}
+      try { localStorage.setItem('ilhak_esurvey_' + current.id, '1'); } catch (_) {}
       $('form').style.display = 'none'; $('homeBtn').style.display = 'none'; $('done').style.display = 'block';
       window.lucide?.createIcons();
     });
+
+    if (svId) loadForm(); else loadList();
   </script>
 </body>
 </html>

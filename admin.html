@@ -190,7 +190,7 @@
 
       <!-- 만족도 -->
       <div class="tabsec" id="sec-survey" style="display:none">
-        <h2 class="adm-h2">만족도 집계</h2>
+        <h2 class="adm-h2">만족도·설문 <span class="hint">행사 설문은 문항을 직접 만들어 발행 — 발행 후 문항 수정은 불가(닫기·삭제만)</span></h2>
         <div class="card">
           <div class="filter-chips" id="sv-seg" role="group" aria-label="설문 구분" style="margin-bottom:10px"></div>
           <label id="sv-sem-label">학기</label>
@@ -200,6 +200,22 @@
             <button class="mju-btn mju-btn--secondary mju-btn--full" id="sv-print"><i data-lucide="file-text"></i> PDF로 저장(인쇄)</button>
           </div>
         </div>
+        <!-- 행사 설문 만들기 (행사 설문 세그먼트에서만 표시) -->
+        <div class="card" id="sv-ev-build" style="display:none">
+          <p class="ph-card-title">행사 설문 만들기</p>
+          <label>설문 제목 <span class="req">*</span></label>
+          <input type="text" id="ev-title" placeholder="예: 2026 하계 기업탐방 만족도" />
+          <label>안내문 (선택)</label>
+          <input type="text" id="ev-desc" placeholder="설문 목록에 함께 표시됩니다" />
+          <div id="ev-qs" style="margin-top:6px"></div>
+          <button type="button" class="mju-btn mju-btn--secondary mju-btn--sm" id="ev-addq" style="margin-top:10px"><i data-lucide="plus"></i> 문항 추가</button>
+          <label style="margin-top:14px">받는 대상</label>
+          <div id="ev-tgt"></div>
+          <label class="chk" style="margin-top:10px"><input type="checkbox" id="ev-push" checked /> 공지로도 알림(푸시)</label>
+          <button class="mju-btn mju-btn--full" id="ev-pub" style="margin-top:12px">설문 발행</button>
+          <div class="status" id="ev-status"></div>
+        </div>
+        <div class="card" id="sv-ev-list" style="display:none"></div>
         <div class="card" id="sv-report"><p class="note">'집계 보기'를 눌러주세요.</p></div>
         <div class="card" id="sv-raw" style="display:none"></div>
       </div>
@@ -462,7 +478,8 @@
     const selEmpty = (sel) => !(sel.targets.length || sel.jobs.length || sel.companies.length || sel.types.length || (sel.managers && sel.managers.length));
 
     // 작성 폼 대상 선택기: 전체/상세 토글 + 칩(매칭학생 전체·직무 / 기업담당자 전체 / 유형) + 예상 대상 N명
-    function buildPicker(mountId, allLabel, allDesc) {
+    function buildPicker(mountId, allLabel, allDesc, opts) {
+      const noPeople = !!(opts && opts.noPeople);   // 익명 응답(설문·투표)은 명단 지정이 무의미 — 버튼 숨김
       const sel = { jobs: [], companies: [], targets: [], types: [], managers: [], people: [] };
       const st = { mode: 'all' };
       const mount = $(mountId);
@@ -481,6 +498,7 @@
         `<p class="pk-count note" style="margin:8px 0 0"></p>`;
       const chipsBox = mount.querySelector('.pk-chips'), countEl = mount.querySelector('.pk-count');
       const allBtn = mount.querySelector('.pk-all'), cusBtn = mount.querySelector('.pk-custom'), pplBtn = mount.querySelector('.pk-people');
+      if (noPeople) pplBtn.style.display = 'none';
       const pplBox = mount.querySelector('.pk-ppl'), pplQ = mount.querySelector('.pk-ppl-q'), pplList = mount.querySelector('.pk-ppl-list');
       const pkey = p => (p.name || '') + '|' + (p.phone || '');
       async function recount() {
@@ -1367,31 +1385,68 @@
     }
 
     // ===== 만족도 집계 + PDF (학생 / 기업현장교사 / HRD담당자 세그먼트) =====
-    let svSeg = 'student';
+    let svSeg = 'event';
     const SV_SEMS = ['2026 1학기', '2026 2학기'];
+    let evSurveys = [];                       // 행사 설문 목록 캐시 (sv-sem 선택지 공유)
     function svSegRender() {
       const seg = $('sv-seg'); seg.innerHTML = ''; seg.style.display = 'flex';
-      [['student', '학생'], ['teacher', '기업현장교사'], ['hrd', 'HRD담당자']].forEach(([k, label]) => {
+      [['event', '행사 설문'], ['student', '학생(구버전)'], ['teacher', '기업현장교사'], ['hrd', 'HRD담당자']].forEach(([k, label]) => {
         const b = document.createElement('button'); b.type = 'button';
         b.className = 'chip' + (svSeg === k ? ' on' : '');
         b.setAttribute('aria-pressed', svSeg === k ? 'true' : 'false');
         b.textContent = label;
-        b.addEventListener('click', () => { if (svSeg !== k) { svSeg = k; svSegRender(); svFillSem(); svDispatch(); } });
+        b.addEventListener('click', () => { if (svSeg !== k) { svSeg = k; svSegRender(); if (k === 'event') { svEvLoadList().then(svDispatch); } else { svFillSem(); svDispatch(); } } });
         seg.appendChild(b);
       });
+      const ev = svSeg === 'event';
+      $('sv-ev-build').style.display = ev ? 'block' : 'none';
+      $('sv-ev-list').style.display = ev ? 'block' : 'none';
     }
     function svFillSem() {
-      const sel = $('sv-sem'); sel.innerHTML = '<option value="">전체</option>';
+      const sel = $('sv-sem');
+      if (svSeg === 'event') {
+        $('sv-sem-label').textContent = '설문 선택';
+        sel.innerHTML = '';
+        if (!evSurveys.length) sel.innerHTML = '<option value="">아직 설문 없음</option>';
+        evSurveys.forEach(s => { const o = document.createElement('option'); o.value = s.id; o.textContent = (s.open ? '' : '[마감] ') + s.title; sel.appendChild(o); });
+        return;
+      }
+      sel.innerHTML = '<option value="">전체</option>';
       (svSeg === 'student' ? SV_SEMS : (window.COMPANY_SURVEY_ROUNDS || [])).forEach(v => { const o = document.createElement('option'); o.textContent = v; sel.appendChild(o); });
       $('sv-sem-label').textContent = svSeg === 'student' ? '학기' : '회차';
     }
-    function svDispatch() { return svSeg === 'student' ? svLoad() : svCoLoad(); }
+    function svDispatch() { return svSeg === 'student' ? svLoad() : svSeg === 'event' ? svEventLoad() : svCoLoad(); }
     svSegRender(); svFillSem();
     // 보기 점수 환산 (config의 score 매핑, '해당없음' 등은 null=평균 제외)
     function svScoreOf(qd, v) {
       if (!qd.score || v == null || v === 'etc') return null;
       const i = parseInt(v, 10); if (isNaN(i)) return null;
       const s = qd.score[i]; return (s == null) ? null : s;
+    }
+    // 문항별 분포 집계 HTML — 기업 설문(svCoLoad)·행사 설문(svEventLoad) 공용
+    // numberOffset: 문항 번호 시작값, groupOf(r): 기타·의견 옆에 붙일 출처 라벨
+    function svRenderAgg(questions, rows, numberOffset, groupOf) {
+      let html = '';
+      (questions || []).forEach((qd, qi) => {
+        const counts = (qd.options || []).map(() => 0); let etcCount = 0; const etcTexts = [];
+        let sSum = 0, sN = 0;
+        rows.forEach(r => {
+          const a = (r.answers || {})[qd.key]; if (a == null) return;
+          (Array.isArray(a) ? a : [a]).forEach(v => {
+            if (v === 'etc') { etcCount++; const t = (r.answers || {})[qd.key + '_etc']; if (t) etcTexts.push({ t, c: groupOf(r) }); return; }
+            const i = parseInt(v, 10); if (!isNaN(i) && counts[i] != null) counts[i]++;
+            const s = svScoreOf(qd, v); if (s != null) { sSum += s; sN++; }
+          });
+        });
+        const max = Math.max(1, ...counts, etcCount);
+        html += `<h2 style="margin:18px 0 4px;font-size:14px">${qi + numberOffset}. ${esc(qd.label)}${qd.score && sN ? ` <span class="note">· 평균 ${(sSum / sN).toFixed(2)}/5</span>` : ''}</h2>` +
+          `<table class="rep">` +
+          (qd.options || []).map((opt, i) => `<tr><td style="text-align:left">${esc(opt)}</td><td style="width:44px">${counts[i]}</td><td style="width:38%"><div class="agg-bar"><i style="width:${Math.round(counts[i] / max * 100)}%"></i></div></td></tr>`).join('') +
+          (qd.etc ? `<tr><td style="text-align:left">기타 (직접입력)</td><td>${etcCount}</td><td><div class="agg-bar"><i style="width:${Math.round(etcCount / max * 100)}%"></i></div></td></tr>` : '') +
+          `</table>` +
+          (etcTexts.length ? `<ul style="padding-left:18px;margin:6px 0 0">${etcTexts.map(e => `<li style="margin:3px 0;font-size:13px">${esc(e.t)} <span class="note">(${esc(e.c || '-')})</span></li>`).join('')}</ul>` : '');
+      });
+      return html;
     }
     async function svCoLoad() {
       const def = (window.COMPANY_SURVEYS || {})[svSeg];
@@ -1418,26 +1473,8 @@
         html += `<h2 style="margin:14px 0 0;font-size:15px">기업별 전반 만족도</h2>` +
           `<table class="rep"><tr><th>기업</th><th>응답</th><th>전반 평균(5점)</th></tr>${coRows}</table>`;
       }
-      // 문항별 분포
-      def.questions.forEach((qd, qi) => {
-        const counts = qd.options.map(() => 0); let etcCount = 0; const etcTexts = [];
-        let sSum = 0, sN = 0;
-        rows.forEach(r => {
-          const a = (r.answers || {})[qd.key]; if (a == null) return;
-          (Array.isArray(a) ? a : [a]).forEach(v => {
-            if (v === 'etc') { etcCount++; const t = (r.answers || {})[qd.key + '_etc']; if (t) etcTexts.push({ t, c: r.company }); return; }
-            const i = parseInt(v, 10); if (!isNaN(i) && counts[i] != null) counts[i]++;
-            const s = svScoreOf(qd, v); if (s != null) { sSum += s; sN++; }
-          });
-        });
-        const max = Math.max(1, ...counts, etcCount);
-        html += `<h2 style="margin:18px 0 4px;font-size:14px">${qi + 2}. ${esc(qd.label)}${qd.score && sN ? ` <span class="note">· 평균 ${(sSum / sN).toFixed(2)}/5</span>` : ''}</h2>` +
-          `<table class="rep">` +
-          qd.options.map((opt, i) => `<tr><td style="text-align:left">${esc(opt)}</td><td style="width:44px">${counts[i]}</td><td style="width:38%"><div class="agg-bar"><i style="width:${Math.round(counts[i] / max * 100)}%"></i></div></td></tr>`).join('') +
-          (qd.etc ? `<tr><td style="text-align:left">기타 (직접입력)</td><td>${etcCount}</td><td><div class="agg-bar"><i style="width:${Math.round(etcCount / max * 100)}%"></i></div></td></tr>` : '') +
-          `</table>` +
-          (etcTexts.length ? `<ul style="padding-left:18px;margin:6px 0 0">${etcTexts.map(e => `<li style="margin:3px 0;font-size:13px">${esc(e.t)} <span class="note">(${esc(e.c || '-')})</span></li>`).join('')}</ul>` : '');
-      });
+      // 문항별 분포 (행사 설문과 공용 렌더러)
+      html += svRenderAgg(def.questions, rows, 2, r => r.company);
       const comments = rows.filter(r => r.comment).map(r => `<li style="margin:4px 0">${esc(r.comment)} <span class="note">(${esc(r.company || '-')})</span></li>`).join('');
       if (comments) html += `<h2 style="margin:18px 0 6px;font-size:15px">바라는 점·건의</h2><ul style="padding-left:18px;margin:0">${comments}</ul>`;
       rep.innerHTML = html;
@@ -1484,6 +1521,140 @@
     $('sv-refresh').addEventListener('click', svDispatch);
     $('sv-sem').addEventListener('change', svDispatch);
     $('sv-print').addEventListener('click', () => window.print());
+
+    // ===== 행사 설문 (sql/16) — 문항 빌더 + 발행 목록 + 집계 =====
+    const SCALE5_OPTS = ['매우 만족', '만족', '보통', '불만족', '매우 불만족'];
+    let evPicker = null;
+    let evQs = [];   // 빌더 문항 상태 [{label, type, opts(줄바꿈 텍스트), etc, scale}]
+    function evNewQ(scale) { return { label: '', type: 'single', opts: scale ? SCALE5_OPTS.join('\n') : '', etc: false, scale: !!scale }; }
+    function evRenderQs() {
+      const box = $('ev-qs'); box.innerHTML = '';
+      evQs.forEach((q, i) => {
+        const d = document.createElement('div');
+        d.style.cssText = 'border:1px solid var(--line);border-radius:11px;padding:10px 12px;margin-top:8px;background:var(--surface-sunken)';
+        d.innerHTML =
+          `<div style="display:flex;gap:6px;align-items:center"><b style="flex-shrink:0">${i + 1}.</b>` +
+          `<input type="text" data-f="label" placeholder="문항 내용 (예: 행사 전반에 만족하셨나요?)" style="flex:1;min-width:120px" />` +
+          `<button type="button" data-act="del" title="문항 삭제" style="padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface-card);cursor:pointer">✕</button></div>` +
+          `<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:8px;font-size:13px">` +
+          `<label style="margin:0;display:flex;gap:4px;align-items:center;font-weight:600"><input type="radio" name="ev-t-${i}" value="single" ${q.type !== 'multi' ? 'checked' : ''}/> 하나만</label>` +
+          `<label style="margin:0;display:flex;gap:4px;align-items:center;font-weight:600"><input type="radio" name="ev-t-${i}" value="multi" ${q.type === 'multi' ? 'checked' : ''}/> 중복 선택</label>` +
+          `<label style="margin:0;display:flex;gap:4px;align-items:center;font-weight:600"><input type="checkbox" data-f="scale" ${q.scale ? 'checked' : ''}/> 5점 척도</label>` +
+          `<label style="margin:0;display:flex;gap:4px;align-items:center;font-weight:600"><input type="checkbox" data-f="etc" ${q.etc ? 'checked' : ''}/> 기타(직접입력)</label></div>` +
+          `<textarea data-f="opts" rows="3" placeholder="보기를 한 줄에 하나씩 입력" style="margin-top:8px;width:100%"></textarea>`;
+        d.querySelector('[data-f="label"]').value = q.label;
+        d.querySelector('[data-f="opts"]').value = q.opts;
+        d.querySelector('[data-f="label"]').addEventListener('input', e => { q.label = e.target.value; });
+        d.querySelectorAll(`input[name="ev-t-${i}"]`).forEach(r => r.addEventListener('change', e => { q.type = e.target.value; }));
+        d.querySelector('[data-f="opts"]').addEventListener('input', e => {
+          q.opts = e.target.value;
+          if (q.scale) { q.scale = false; d.querySelector('[data-f="scale"]').checked = false; }   // 보기 수정 시 점수매핑 해제
+        });
+        d.querySelector('[data-f="scale"]').addEventListener('change', e => {
+          q.scale = e.target.checked;
+          if (q.scale) { q.opts = SCALE5_OPTS.join('\n'); q.type = 'single'; evRenderQs(); }
+        });
+        d.querySelector('[data-f="etc"]').addEventListener('change', e => { q.etc = e.target.checked; });
+        d.querySelector('[data-act="del"]').addEventListener('click', () => {
+          evQs.splice(i, 1); if (!evQs.length) evQs.push(evNewQ(true)); evRenderQs();
+        });
+        box.appendChild(d);
+      });
+    }
+    $('ev-addq').addEventListener('click', () => { evQs.push(evNewQ(false)); evRenderQs(); });
+    async function svEvLoadList() {
+      if (!evPicker) evPicker = buildPicker('ev-tgt', '전체 공개', '가입자 모두', { noPeople: true });
+      if (!evQs.length) { evQs = [evNewQ(true)]; evRenderQs(); }
+      const list = $('sv-ev-list');
+      const { data, error } = await supabase.from('surveys').select('id,title,open,created_at,questions').order('created_at', { ascending: false });
+      if (error) {
+        evSurveys = []; svFillSem();
+        list.innerHTML = '<p class="note">' + (tblMissing(error.message) ? '행사 설문 테이블이 없어요 — sql/16_event_surveys.sql 실행 필요' : '오류: ' + esc(error.message)) + '</p>';
+        return;
+      }
+      evSurveys = data || []; svFillSem();
+      const counts = {};
+      try { const { data: ans } = await supabase.from('survey_answers').select('survey_id').limit(5000); (ans || []).forEach(a => { counts[a.survey_id] = (counts[a.survey_id] || 0) + 1; }); } catch (_) {}
+      list.innerHTML = '<p class="ph-card-title">발행한 설문</p>';
+      if (!evSurveys.length) list.innerHTML += '<p class="note">아직 만든 설문이 없어요 — 위에서 문항을 만들어 발행하세요.</p>';
+      evSurveys.forEach(s => {
+        const row = document.createElement('div');
+        row.style.cssText = 'padding:9px 0;border-bottom:1px solid var(--gray-100);display:flex;justify-content:space-between;gap:8px;align-items:center;font-size:13.5px;flex-wrap:wrap';
+        row.innerHTML = `<div style="min-width:0"><b>${esc(s.title)}</b> ${s.open ? '<span class="mju-badge mju-badge--success">진행중</span>' : '<span class="mju-badge mju-badge--neutral">마감</span>'} <span class="note">문항 ${(s.questions || []).length} · 응답 ${counts[s.id] || 0} · ${new Date(s.created_at).toLocaleDateString('ko-KR')}</span></div>`;
+        const btns = document.createElement('div'); btns.style.cssText = 'display:flex;gap:6px';
+        const tg = document.createElement('button'); tg.type = 'button'; tg.textContent = s.open ? '마감' : '다시 열기';
+        tg.style.cssText = 'padding:4px 10px;font-size:12.5px;border:1px solid var(--line);border-radius:8px;background:var(--surface-card);cursor:pointer;white-space:nowrap';
+        tg.addEventListener('click', async () => { await supabase.from('surveys').update({ open: !s.open }).eq('id', s.id); logAction(s.open ? '설문마감' : '설문재개', s.title); svEvLoadList(); });
+        btns.appendChild(tg);
+        btns.appendChild(mkDelBtn('삭제', async () => {
+          const { data: del, error: derr } = await supabase.from('surveys').delete().eq('id', s.id).select('id');
+          if (derr) throw derr;
+          if (!del || !del.length) throw new Error('row-level security');
+          logAction('설문삭제', s.title); svEvLoadList();
+        }));
+        row.appendChild(btns); list.appendChild(row);
+      });
+    }
+    $('ev-pub').addEventListener('click', async () => {
+      const title = $('ev-title').value.trim(), desc = $('ev-desc').value.trim();
+      if (!title) { setStatus($('ev-status'), '설문 제목을 입력하세요.', 'error'); return; }
+      const questions = [];
+      for (let i = 0; i < evQs.length; i++) {
+        const q = evQs[i];
+        const label = (q.label || '').trim();
+        const options = (q.opts || '').split('\n').map(s => s.trim()).filter(Boolean);
+        if (!label) { setStatus($('ev-status'), (i + 1) + '번 문항 내용을 입력하세요.', 'error'); return; }
+        if (options.length < 2) { setStatus($('ev-status'), (i + 1) + '번 문항의 보기를 2개 이상 입력하세요(한 줄에 하나).', 'error'); return; }
+        const qd = { key: 'q' + (i + 1), type: q.type === 'multi' ? 'multi' : 'single', label, options };
+        if (q.scale && options.length === 5) qd.score = [5, 4, 3, 2, 1];
+        if (q.etc) qd.etc = true;
+        questions.push(qd);
+      }
+      if (!evPicker || !evPicker.valid()) { setStatus($('ev-status'), '받는 대상을 선택하세요.', 'error'); return; }
+      const scope = evPicker.mode === 'all' ? 'all' : 'custom';
+      const value = evPicker.mode === 'all' ? null : evPicker.serial();
+      $('ev-pub').disabled = true; setStatus($('ev-status'), '발행 중...', 'info');
+      const { error } = await supabase.from('surveys').insert({ title, description: desc || null, target_scope: scope, target_value: value, questions, open: true });
+      $('ev-pub').disabled = false;
+      if (error) { setStatus($('ev-status'), tblMissing(error.message) ? 'sql/16_event_surveys.sql 실행이 필요해요.' : '오류: ' + (error.message || error), 'error'); return; }
+      if ($('ev-push').checked) { try { await pushAsNotice(evPicker, '[설문] ' + title, '새 설문이 열렸어요. 앱 만족도 조사에서 참여해주세요.'); } catch (_) {} }
+      logAction('설문발행', title);
+      setStatus($('ev-status'), '✅ 발행했습니다. 발행 후에는 문항 수정이 안 돼요(마감·삭제만 가능).', 'ok');
+      $('ev-title').value = ''; $('ev-desc').value = ''; evQs = []; evPicker.reset(); svEvLoadList();
+    });
+    async function svEventLoad() {
+      const rep = $('sv-report'), raw = $('sv-raw');
+      const id = $('sv-sem').value;
+      const def = evSurveys.find(s => s.id === id);
+      if (!def) { rep.innerHTML = '<p class="note">집계할 설문을 선택하세요. (행사 설문이 없으면 먼저 발행하세요)</p>'; raw.style.display = 'none'; return; }
+      const { data, error } = await supabase.from('survey_answers').select('id,answers,comment,job_key,created_at').eq('survey_id', id).order('created_at', { ascending: false });
+      if (error) { rep.innerHTML = '<p class="note">' + (tblMissing(error.message) ? 'sql/16_event_surveys.sql 실행 필요' : '오류: ' + esc(error.message)) + '</p>'; raw.style.display = 'none'; return; }
+      const rows = data || [];
+      if (!rows.length) { rep.innerHTML = '<p class="note">응답이 없습니다.</p>'; raw.style.display = 'none'; return; }
+      let html = `<h2 style="margin-bottom:4px">${esc(def.title)} 집계</h2>` +
+        `<p class="note">응답 ${rows.length}건 · 출력 ${new Date().toLocaleDateString('ko-KR')}</p>`;
+      const byJob = {};
+      rows.forEach(r => { const j = r.job_key || '(미지정)'; byJob[j] = (byJob[j] || 0) + 1; });
+      html += `<h2 style="margin:14px 0 0;font-size:15px">직무별 응답</h2><table class="rep"><tr><th>직무</th><th>응답</th></tr>` +
+        Object.entries(byJob).map(([j, n]) => `<tr><td style="text-align:left">${esc(j)}</td><td>${n}</td></tr>`).join('') + `</table>`;
+      html += svRenderAgg(def.questions || [], rows, 1, r => r.job_key);
+      const comments = rows.filter(r => r.comment).map(r => `<li style="margin:4px 0">${esc(r.comment)} <span class="note">(${esc(r.job_key || '-')})</span></li>`).join('');
+      if (comments) html += `<h2 style="margin:18px 0 6px;font-size:15px">의견</h2><ul style="padding-left:18px;margin:0">${comments}</ul>`;
+      rep.innerHTML = html;
+      raw.style.display = 'block';
+      raw.innerHTML = '<p class="ph-card-title">응답 목록 (테스트 정리용)</p>';
+      rows.forEach(r => {
+        const row = document.createElement('div'); row.style.cssText = 'padding:8px 0;border-bottom:1px solid var(--gray-100);display:flex;justify-content:space-between;gap:8px;align-items:center;font-size:13.5px';
+        row.innerHTML = `<div style="min-width:0"><b>${esc(r.job_key || '(직무 미지정)')}</b> <span class="note">${new Date(r.created_at).toLocaleString('ko-KR')}</span></div>`;
+        row.appendChild(mkDelBtn('삭제', async () => {
+          const { data: del, error: derr } = await supabase.from('survey_answers').delete().eq('id', r.id).select('id');
+          if (derr) throw derr;
+          if (!del || !del.length) throw new Error('row-level security');
+          logAction('설문응답삭제', def.title); svEventLoad();
+        }));
+        raw.appendChild(row);
+      });
+    }
 
     // ===== 운영 요약(대시보드) =====
     $('d-goConsult').addEventListener('click', () => { const b = document.querySelector('.tabs button[data-tab="consult"]'); if (b) b.click(); });
@@ -1700,7 +1871,7 @@
       $('panel').style.display = authed ? 'block' : 'none';
       adminEmail = authed ? session.user.email : ''; $('me').textContent = adminEmail;
       const _u = $('adm-user'); if (_u) _u.style.display = authed ? 'flex' : 'none';
-      if (authed) { dashLoad(); initPickers().then(fillRecruitPickers); nLoad(); plLoad(); lLoad(); cLoad(); clLoad(); regLoad(); uvLoad(); rcLoad(); stLoad(); }
+      if (authed) { dashLoad(); initPickers().then(fillRecruitPickers); nLoad(); plLoad(); lLoad(); cLoad(); clLoad(); regLoad(); uvLoad(); rcLoad(); stLoad(); svEvLoadList(); }
     }
     $('loginBtn').addEventListener('click', async () => {
       const email = $('email').value.trim(), password = $('pw').value;
