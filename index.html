@@ -109,23 +109,26 @@
 
       <div class="card" id="signupCard">
         <p class="ph-card-title">간편 가입</p>
-        <p class="ph-note" style="margin-bottom:6px">이름·휴대폰을 입력하면 명단 확인 후 가입됩니다.</p>
+        <p class="ph-note" style="margin-bottom:6px">참여학생·기업 담당자는 초대코드만으로 가입됩니다. 지원자는 이름·휴대폰으로 등록해요.</p>
 
         <form id="form">
-          <label>이름 <span class="req">*</span></label>
-          <input type="text" id="name" autocomplete="name" placeholder="홍길동" required />
-
-          <label>휴대폰 번호 <span class="req">*</span></label>
-          <input type="tel" id="phone" inputmode="numeric" autocomplete="tel" placeholder="010-1234-5678" required />
-
           <label>대상 구분 <span class="req">*</span></label>
           <div class="radios" id="targets"></div>
 
+          <!-- 이름·휴대폰 — 지원자 전용 (참여학생·기업 담당자는 초대코드가 명단 정보를 채움) -->
+          <div class="cond" id="grp-id" hidden>
+            <label>이름 <span class="req">*</span></label>
+            <input type="text" id="name" autocomplete="name" placeholder="홍길동" />
+
+            <label>휴대폰 번호 <span class="req">*</span></label>
+            <input type="tel" id="phone" inputmode="numeric" autocomplete="tel" placeholder="010-1234-5678" />
+          </div>
+
           <!-- 조건부: 학생 초대코드 (합격 안내에 동봉) -->
           <div class="cond" id="grp-code" hidden>
-            <label>초대코드 <span class="req" id="code-req" style="display:none">*</span></label>
+            <label>초대코드 <span class="req">*</span></label>
             <input type="text" id="join-code" class="code-input" placeholder="합격 안내에 적힌 코드" autocomplete="off" maxlength="12" />
-            <p class="note" style="margin-top:6px" id="code-note">코드만 입력하면 이름·휴대폰이 자동으로 채워져요. 코드가 없으면 비워두세요 — 명단(이름·휴대폰)으로 확인합니다.</p>
+            <p class="note" style="margin-top:6px" id="code-note">합격 안내에 동봉된 코드를 입력하면 명단 정보(이름·직무·기업)로 가입돼요. 코드가 없거나 잃어버렸다면 담당자에게 문의해주세요.</p>
           </div>
 
           <!-- 조건부: 훈련 직무 -->
@@ -146,9 +149,9 @@
 
           <!-- 조건부: 기업 초대코드 (지정완료 안내 메일에 동봉) -->
           <div class="cond" id="grp-cocode" hidden>
-            <label>기업 초대코드 <span class="req" id="cocode-req" style="display:none">*</span></label>
+            <label>기업 초대코드 <span class="req">*</span></label>
             <input type="text" id="co-code" class="code-input" placeholder="지정완료 안내 메일의 코드" autocomplete="off" maxlength="12" />
-            <p class="note" style="margin-top:6px">코드가 없으면 비워두세요. 센터에서 받은 메일을 확인하거나 담당자에게 문의하세요.</p>
+            <p class="note" style="margin-top:6px">코드를 입력하면 소속 기업과 담당자 정보(HRD)가 자동으로 확인돼요. 코드가 없으면 센터에서 받은 메일을 확인하거나 담당자에게 문의하세요.</p>
           </div>
 
           <!-- 조건부: 지원자 관심직무·학과 -->
@@ -500,23 +503,22 @@
 
     const btn = document.getElementById('submit');
     let pendingStudent = null; // 직무가 여러 개인 매칭학생의 2단계(본인 직무 선택)용
+    let pendingCompany = null; // 명단에 담당자 연락처가 없는 기업의 2단계(직접 입력)용
 
-    // 대상별 필드: 학생=초대코드(선택), 기업=소속기업+코드, 지원자=관심직무·학과
+    // 대상별 필드: 학생=초대코드만, 기업=기업 초대코드만, 지원자=이름·휴대폰+관심직무·학과
     const VISIBLE = {
       student: ['grp-code'],
-      company: ['grp-company', 'grp-cocode'],
-      applicant: ['grp-interest'],
+      company: ['grp-cocode'],
+      applicant: ['grp-id', 'grp-interest'],
     };
     function applyTarget(val) {
-      ['grp-code', 'grp-company', 'grp-cocode', 'grp-interest'].forEach(id => {
+      ['grp-id', 'grp-code', 'grp-company', 'grp-cocode', 'grp-interest'].forEach(id => {
         document.getElementById(id).hidden = !(VISIBLE[val] || []).includes(id);
       });
       document.getElementById('grp-job').hidden = true;   // 학생 직무 picker는 명단 확인 후에만
-      pendingStudent = null; btn.textContent = val === 'applicant' ? '알림 받기 등록' : '가입하기';
+      pendingStudent = null; pendingCompany = null;
+      btn.textContent = val === 'applicant' ? '알림 받기 등록' : '가입하기';
       phoneEl.readOnly = false; nameEl.readOnly = false;   // 2단계 잠금 해제
-      // 코드 필수 모드(config) 표기
-      document.getElementById('code-req').style.display = (window.APP_CONFIG || {}).REQUIRE_STUDENT_CODE ? '' : 'none';
-      document.getElementById('cocode-req').style.display = (window.APP_CONFIG || {}).REQUIRE_COMPANY_CODE ? '' : 'none';
       // 동의 문구 — 지원자는 수집항목·목적·보유기간이 다름
       const items = document.getElementById('c-items'), purpose = document.getElementById('c-purpose'), ret = document.getElementById('c-retention');
       if (val === 'applicant') {
@@ -626,8 +628,11 @@
       const c2 = document.getElementById('c2').checked;
 
       const joinCode = document.getElementById('join-code').value.trim();
+      const coCode = document.getElementById('co-code').value.trim();
       if (!target) { setStatus(statusEl, '대상 구분을 선택해주세요.', 'error'); return; }
-      if ((!name || !phone) && !(target === 'student' && joinCode)) { setStatus(statusEl, '이름·휴대폰을 입력해주세요. (매칭학생은 초대코드만 입력해도 돼요)', 'error'); return; }
+      if (target === 'student' && !joinCode) { setStatus(statusEl, '초대코드를 입력해주세요(합격 안내에 동봉). 잃어버렸다면 담당자에게 문의하세요.', 'error'); return; }
+      if (target === 'company' && !coCode && !pendingCompany) { setStatus(statusEl, '기업 초대코드를 입력해주세요(지정완료 안내 메일). 없으면 센터로 문의해주세요.', 'error'); return; }
+      if (target === 'applicant' && (!name || !phone)) { setStatus(statusEl, '이름·휴대폰을 입력해주세요.', 'error'); return; }
       if (!c1 || !c2) { setStatus(statusEl, '필수 동의 두 가지에 모두 체크해주세요.', 'error'); return; }
       if (!configReady()) { setStatus(statusEl, 'Supabase 연결 설정이 필요합니다(config.js).', 'error'); return; }
       document.getElementById('help').style.display = 'none';
@@ -663,46 +668,37 @@
         return;
       }
 
-      // ── 기업 담당자: 소속 기업 선택 (+ 초대코드 검증, 02 SQL 미적용 시 기존 방식) ──
+      // ── 기업 담당자: 기업 초대코드만으로 가입 — 코드가 기업·HRD담당자(노션 명단) 정보를 채움 ──
       if (target === 'company') {
-        const sel = compSel.value;
-        let company = (sel === '__other__') ? (document.getElementById('company-other').value.trim() || null) : (sel || null);
-        const ccode = document.getElementById('co-code').value.trim();
-        if (!ccode && (window.APP_CONFIG || {}).REQUIRE_COMPANY_CODE) { setStatus(statusEl, '기업 초대코드를 입력해주세요(지정완료 안내 메일).', 'error'); return; }
-        let codeOk = false;
-        if (ccode && !company) {
-          // 기업 미선택 + 코드 입력 → 코드만으로 소속 기업 확인 (sql/09, 미적용이면 기업 선택 안내로)
-          btn.disabled = true; setStatus(statusEl, '코드 확인 중...', 'info');
-          let r; try { r = await supabase.rpc('verify_company_code_solo', { p_code: ccode }); } catch (err) { r = { error: err }; }
-          btn.disabled = false;
-          if (r.error && /too_many/i.test(r.error.message || '')) { setStatus(statusEl, '시도가 너무 많아요. 잠시 후 다시 시도해주세요.', 'error'); return; }
-          if (!r.error && r.data) {
-            if (!r.data.ok) { setStatus(statusEl, '기업 코드가 올바르지 않아요. 지정완료 안내 메일을 확인하거나 담당자에게 문의해주세요.', 'error'); return; }
-            company = r.data.company || null; codeOk = !!company;
-            if (company) {
-              if (![...compSel.options].some(o => o.value === company)) {
-                const o = document.createElement('option'); o.value = company; o.textContent = company;
-                compSel.insertBefore(o, compSel.querySelector('option[value="__other__"]'));
-              }
-              compSel.value = company;
-            }
-          }
+        // 2단계: 명단에 담당자 이름·연락처가 없던 기업 → 직접 입력으로 완료
+        if (pendingCompany) {
+          if (!name || phone.replace(/\D/g, '').length < 10) { setStatus(statusEl, '이름과 휴대폰 번호(숫자 10~11자리)를 입력해주세요.', 'error'); return; }
+          const co = pendingCompany; pendingCompany = null;
+          return doRegister({ name, phone, target_type: 'company', job_key: null, company: co, type1: null, manager: null, token: null });
         }
-        if (!company) { setStatus(statusEl, '소속 학습기업을 선택(또는 입력)해주세요.', 'error'); return; }
-        if (ccode && !codeOk) {
-          btn.disabled = true; setStatus(statusEl, '코드 확인 중...', 'info');
-          let ok = false, fnMissing = false;
-          try {
-            const r = await supabase.rpc('verify_company_code', { p_company: company, p_code: ccode });
-            if (r.error) {
-              fnMissing = /function|does not exist|PGRST202|42883|schema cache/i.test(r.error.message || '');
-              if (!fnMissing) { btn.disabled = false; setStatus(statusEl, /too_many/i.test(r.error.message || '') ? '시도가 너무 많아요. 잠시 후 다시 시도해주세요.' : friendlyError(r.error), 'error'); return; }
-            } else ok = !!r.data;
-          } catch (_) { fnMissing = true; }
-          btn.disabled = false;
-          if (!fnMissing && !ok) { setStatus(statusEl, '기업 코드가 올바르지 않아요. 지정완료 안내 메일을 확인하거나 담당자에게 문의해주세요.', 'error'); return; }
+        btn.disabled = true; setStatus(statusEl, '코드 확인 중...', 'info');
+        let r; try { r = await supabase.rpc('verify_company_code_solo', { p_code: coCode }); } catch (err) { r = { error: err }; }
+        btn.disabled = false;
+        if (r.error) {
+          if (/too_many/i.test(r.error.message || '')) { setStatus(statusEl, '시도가 너무 많아요. 잠시 후 다시 시도해주세요.', 'error'); return; }
+          if (/function|does not exist|PGRST202|42883|schema cache/i.test(r.error.message || '')) { setStatus(statusEl, '서버 업데이트 전이라 코드 가입을 사용할 수 없어요 — 센터로 문의해주세요.', 'error'); return; }
+          setStatus(statusEl, friendlyError(r.error), 'error'); return;
         }
-        return doRegister({ name, phone, target_type: 'company', job_key: null, company, type1: null, manager: null, token: null });
+        if (!r.data || !r.data.ok) { setStatus(statusEl, '기업 코드가 올바르지 않아요. 지정완료 안내 메일을 확인하거나 담당자에게 문의해주세요.', 'error'); return; }
+        const co = r.data.company;
+        const hn = (r.data.hrd_name || '').trim();
+        const hp = (r.data.hrd_phone || '').trim();
+        if (hn && hp) {
+          return doRegister({ name: hn, phone: hp, target_type: 'company', job_key: null, company: co, type1: null, manager: null, token: null });
+        }
+        // 노션 명단에 HRD담당자 정보가 비어 있음(또는 sql/13 전) → 이름·휴대폰 직접 입력 2단계
+        pendingCompany = co;
+        document.getElementById('grp-id').hidden = false;
+        if (hn) nameEl.value = hn;
+        if (hp) phoneEl.value = hp;
+        btn.textContent = '가입 완료';
+        setStatus(statusEl, `${co} 확인됐어요. 명단에 담당자 정보가 비어 있어 이름·휴대폰을 입력하고 '가입 완료'를 눌러주세요.`, 'ok');
+        return;
       }
 
       // ── 매칭학생: 직무가 여러 개면 2단계(본인 직무 선택 후 완료) ──
@@ -732,61 +728,25 @@
         return doRegister({ name: v.name, phone: v.phone || phone, target_type: 'student', job_key: jobs[0] || null, company: v.company, type1: v.type1, manager: v.manager || null, token: v.token || null });
       }
 
-      // ── 매칭학생: 초대코드가 있으면 코드 검증 — 코드 단독(sql/09) → 코드+이름(02) → 명단 순 폴백 ──
-      if (!joinCode && (window.APP_CONFIG || {}).REQUIRE_STUDENT_CODE) {
-        setStatus(statusEl, '초대코드를 입력해주세요(합격 안내에 동봉). 잃어버렸다면 담당자에게 문의하세요.', 'error'); return;
-      }
-      if (joinCode) {
-        btn.disabled = true; setStatus(statusEl, '코드 확인 중...', 'info');
-        let cres;
-        try { cres = await supabase.rpc('verify_code_solo', { p_code: joinCode }); }
-        catch (err) { cres = { error: err }; }
-        if (cres.error && /function|does not exist|PGRST202|42883|schema cache/i.test(cres.error.message || '')) {
-          // 코드 단독 함수 미적용 → 기존 코드+이름 방식
-          if (!name) { btn.disabled = false; setStatus(statusEl, '서버 업데이트 전이라 코드만으로는 가입할 수 없어요 — 이름·휴대폰도 입력해주세요.', 'error'); return; }
-          try { cres = await supabase.rpc('verify_by_code', { p_code: joinCode, p_name: name }); }
-          catch (err) { cres = { error: err }; }
-        }
-        btn.disabled = false;
-        const fnMissing = cres.error && /function|does not exist|PGRST202|42883|schema cache/i.test(cres.error.message || '');
-        if (cres.error && !fnMissing) {
-          setStatus(statusEl, /too_many/i.test(cres.error.message || '') ? '시도가 너무 많아요. 잠시 후 다시 시도해주세요.' : friendlyError(cres.error), 'error'); return;
-        }
-        if (!fnMissing) {
-          const cv = cres.data;
-          if (!cv || !cv.matched) {
-            const msg = cv && cv.reason === 'name'
-              ? '코드와 이름이 일치하지 않아요. 합격 안내의 이름 표기를 확인해주세요.'
-              : '코드가 올바르지 않아요. 합격 안내의 코드를 다시 확인하거나 담당자에게 문의해주세요.';
-            setStatus(statusEl, msg, 'error'); return;
-          }
-          if (cv.name) nameEl.value = cv.name;
-          if (cv.phone) phoneEl.value = cv.phone;
-          return proceedMatched(cv);
-        }
-        // 함수 미적용 → 아래 명단 방식으로 계속 (이름·휴대폰 필요)
-        if (!name || !phone) { setStatus(statusEl, '이름·휴대폰을 입력해주세요.', 'error'); return; }
-      }
-
-      // ── 매칭학생 1단계: 노션 명단(이름+휴대폰) 확인 ──
-      btn.disabled = true; setStatus(statusEl, '명단 확인 중...', 'info');
-      let res;
-      try { res = await supabase.rpc('verify_student', { p_name: name, p_phone: phone }); }
-      catch (err) { res = { error: err }; }
+      // ── 매칭학생: 초대코드 전용 — 코드 단독(sql/09)으로 명단 정보를 받아 가입 ──
+      btn.disabled = true; setStatus(statusEl, '코드 확인 중...', 'info');
+      let cres;
+      try { cres = await supabase.rpc('verify_code_solo', { p_code: joinCode }); }
+      catch (err) { cres = { error: err }; }
       btn.disabled = false;
-      if (res.error) { setStatus(statusEl, friendlyError(res.error), 'error'); return; }
-      const v = res.data;
-      if (!v || !v.matched) {
-        const reason = v && v.reason;
-        let msg;
-        if (reason === 'phone') msg = '이름은 명단에 있지만 휴대폰 번호가 달라요. 번호를 바꾸셨다면 담당자 확인이 필요합니다.';
-        else if (reason === 'name') msg = '번호는 명단에 있지만 이름 표기가 달라요(한자·띄어쓰기 등). 담당자 확인이 필요합니다.';
-        else msg = '명단에서 확인되지 않습니다. 아직 명단 준비 중일 수 있어요. 이름·번호를 확인하거나 아래로 도움을 요청해주세요.';
-        setStatus(statusEl, msg, 'error');
-        showHelp(name, phone, target, reason);
-        return;
+      if (cres.error) {
+        if (/too_many/i.test(cres.error.message || '')) { setStatus(statusEl, '시도가 너무 많아요. 잠시 후 다시 시도해주세요.', 'error'); return; }
+        if (/function|does not exist|PGRST202|42883|schema cache/i.test(cres.error.message || '')) { setStatus(statusEl, '서버 업데이트 전이라 코드 가입을 사용할 수 없어요 — 센터로 문의해주세요.', 'error'); return; }
+        setStatus(statusEl, friendlyError(cres.error), 'error'); return;
       }
-      return proceedMatched(v);
+      const cv = cres.data;
+      if (!cv || !cv.matched) {
+        const contact = (window.APP_CONFIG || {}).PRIVACY_OFFICER_CONTACT || '';
+        setStatus(statusEl, '코드가 올바르지 않아요. 합격 안내의 코드를 다시 확인하거나 담당자에게 문의해주세요.' + (contact ? ' (' + contact + ')' : ''), 'error'); return;
+      }
+      if (cv.name) nameEl.value = cv.name;
+      if (cv.phone) phoneEl.value = cv.phone;
+      return proceedMatched(cv);
     });
   </script>
 </body>

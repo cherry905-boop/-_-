@@ -23,9 +23,9 @@ window.APP_CONFIG = {
   PRIVACY_EFFECTIVE_DATE:  '2026. 6. 11.',                        // 처리방침 시행일
   PRIVACY_RETENTION_APPLICANT: '해당 학년도 모집 종료 후 6개월',     // 지원자(매칭 전) 보유기간 — 학교 합의값으로 수정
 
-  // ── 초대코드 강제 여부 ─ 코드 배포가 끝나면 true로 바꿔 코드 없는 가입을 차단 ──
-  REQUIRE_STUDENT_CODE: false,   // true: 매칭학생 가입에 개인 초대코드 필수
-  REQUIRE_COMPANY_CODE: false,   // true: 기업담당자 가입에 기업 초대코드 필수
+  // ── 초대코드 강제 여부 ─ (미사용) 가입이 초대코드 전용으로 바뀌어 항상 필수, 플래그는 무시됨 ──
+  REQUIRE_STUDENT_CODE: false,
+  REQUIRE_COMPANY_CODE: false,
 
   // ── 즉시 푸시(선택) ─ Apps Script 발송기를 '웹 앱'으로 배포한 URL을 넣으면
   //    공지 발행 직후 발송기를 바로 깨워서 푸시가 수초 내 나갑니다 (비우면 5분 트리거만 사용).
@@ -89,7 +89,7 @@ window.FCM_VAPID_KEY = 'BPwU6DR4mAus6qml5sw8A4kokXyuuJIB-V6HkCuvqeUTm-Xkqn9nOFS6
 /* ── 7) 대상 구분 ── */
 window.TARGET_TYPES = [
   { key: 'student',  label: '매칭학생 (재학생)' },
-  { key: 'company',  label: '학습기업 담당자 (HRD담당자·기업현장교사)' },
+  { key: 'company',  label: '학습기업 담당자 (HRD)' },
   { key: 'applicant', label: '지원자 (매칭 전 — 채용 알림 받기)' },
 ];
 
