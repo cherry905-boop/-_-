@@ -113,6 +113,30 @@
             </div>
           </div>
         </div>
+        <!-- 사안별 투표 -->
+        <div class="adm-2col" style="margin-top:18px">
+          <div class="card">
+            <p class="ph-card-title">투표 만들기</p>
+            <label>질문 <span class="req">*</span></label>
+            <input type="text" id="po-q" placeholder="예: 하계 워크숍 날짜를 골라주세요" />
+            <label>설명 (선택)</label>
+            <input type="text" id="po-desc" placeholder="투표 카드에 함께 표시됩니다" />
+            <label>보기 <span class="req">*</span> <span class="hint">한 줄에 하나씩</span></label>
+            <textarea id="po-opts" class="ph-ta" rows="4" placeholder="보기 1&#10;보기 2"></textarea>
+            <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:8px;font-size:13px">
+              <label class="chk" style="margin:0"><input type="checkbox" id="po-multi" /> 중복 선택 허용</label>
+              <label class="chk" style="margin:0"><input type="checkbox" id="po-public" /> 결과를 참여자에게 공개</label>
+            </div>
+            <label>마감일시 (선택)</label>
+            <input type="datetime-local" id="po-close" />
+            <label>받는 대상 <span class="req">*</span></label>
+            <div id="po-tgt"></div>
+            <label class="chk" style="margin-top:10px"><input type="checkbox" id="po-push" checked /> 공지로도 알림(푸시)</label>
+            <button class="mju-btn mju-btn--full" id="po-pub" style="margin-top:12px">투표 발행</button>
+            <div class="status" id="po-status"></div>
+          </div>
+          <div class="card"><p class="ph-card-title">투표 목록</p><div id="po-list"><p class="note">불러오는 중...</p></div></div>
+        </div>
       </div>
 
       <!-- 자료실 -->
@@ -789,6 +813,62 @@
       await supabase.from('notices').insert({ title, body, target_scope: scope, target_value: value, published: true, created_by: null });
       kickPush();
     }
+
+    // ===== 사안별 투표 (sql/17) =====
+    let poPicker = null;
+    async function poLoad() {
+      if (!poPicker) poPicker = buildPicker('po-tgt', '전체 공개', '가입자 모두', { noPeople: true });
+      const el = $('po-list');
+      const { data, error } = await supabase.from('polls').select('id,question,options,multi,results_public,open,close_at,created_at').order('created_at', { ascending: false });
+      if (error) { el.innerHTML = '<p class="note">' + (tblMissing(error.message) ? '투표 테이블이 없어요 — sql/17_polls.sql 실행 필요' : '오류: ' + esc(error.message)) + '</p>'; return; }
+      const rows = data || [];
+      el.innerHTML = rows.length ? '' : '<p class="note">아직 투표가 없어요.</p>';
+      for (const p of rows) {
+        const closed = !p.open || (p.close_at && new Date(p.close_at) < new Date());
+        let res = null;
+        try { const { data: r } = await supabase.rpc('poll_results', { p_poll: p.id }); res = r; } catch (_) {}
+        const box = document.createElement('div');
+        box.style.cssText = 'padding:10px 0;border-bottom:1px solid var(--gray-100)';
+        const counts = (res && res.counts) || {};
+        const maxN = Math.max(1, ...(p.options || []).map((_, i) => counts[String(i)] || 0));
+        box.innerHTML = `<b>${esc(p.question)}</b> ${closed ? '<span class="mju-badge mju-badge--neutral">마감</span>' : '<span class="mju-badge mju-badge--success">진행중</span>'} <span class="note">참여 ${res ? res.total : '?'}명${p.close_at ? ' · 마감 ' + new Date(p.close_at).toLocaleString('ko-KR') : ''}${p.results_public ? ' · 결과공개' : ''}</span>` +
+          '<table class="rep" style="margin-top:6px">' + (p.options || []).map((opt, i) => {
+            const n = counts[String(i)] || 0;
+            return `<tr><td style="text-align:left">${esc(opt)}</td><td style="width:44px">${n}</td><td style="width:38%"><div class="agg-bar"><i style="width:${Math.round(n / maxN * 100)}%"></i></div></td></tr>`;
+          }).join('') + '</table>';
+        const btns = document.createElement('div'); btns.style.cssText = 'display:flex;gap:6px;margin-top:6px';
+        const tg = document.createElement('button'); tg.type = 'button'; tg.textContent = p.open ? '마감' : '다시 열기';
+        tg.style.cssText = 'padding:4px 10px;font-size:12.5px;border:1px solid var(--line);border-radius:8px;background:var(--surface-card);cursor:pointer';
+        tg.addEventListener('click', async () => { await supabase.from('polls').update({ open: !p.open }).eq('id', p.id); logAction(p.open ? '투표마감' : '투표재개', p.question); poLoad(); });
+        btns.appendChild(tg);
+        btns.appendChild(mkDelBtn('삭제', async () => {
+          const { data: del, error: derr } = await supabase.from('polls').delete().eq('id', p.id).select('id');
+          if (derr) throw derr;
+          if (!del || !del.length) throw new Error('row-level security');
+          logAction('투표삭제', p.question); poLoad();
+        }));
+        box.appendChild(btns);
+        el.appendChild(box);
+      }
+    }
+    $('po-pub').addEventListener('click', async () => {
+      const question = $('po-q').value.trim(), desc = $('po-desc').value.trim();
+      const options = $('po-opts').value.split('\n').map(s => s.trim()).filter(Boolean);
+      if (!question) { setStatus($('po-status'), '질문을 입력하세요.', 'error'); return; }
+      if (options.length < 2) { setStatus($('po-status'), '보기를 2개 이상 입력하세요(한 줄에 하나).', 'error'); return; }
+      if (!poPicker || !poPicker.valid()) { setStatus($('po-status'), '받는 대상을 선택하세요.', 'error'); return; }
+      const closeAt = $('po-close').value ? new Date($('po-close').value).toISOString() : null;
+      const scope = poPicker.mode === 'all' ? 'all' : 'custom';
+      const value = poPicker.mode === 'all' ? null : poPicker.serial();
+      $('po-pub').disabled = true; setStatus($('po-status'), '발행 중...', 'info');
+      const { error } = await supabase.from('polls').insert({ question, description: desc || null, options, target_scope: scope, target_value: value, multi: $('po-multi').checked, results_public: $('po-public').checked, open: true, close_at: closeAt });
+      $('po-pub').disabled = false;
+      if (error) { setStatus($('po-status'), tblMissing(error.message) ? 'sql/17_polls.sql 실행이 필요해요.' : '오류: ' + (error.message || error), 'error'); return; }
+      if ($('po-push').checked) { try { await pushAsNotice(poPicker, '[투표] ' + question, '새 투표가 열렸어요.' + (closeAt ? ' 마감 ' + new Date(closeAt).toLocaleString('ko-KR') + '.' : '') + ' 앱 투표에서 참여해주세요.'); } catch (_) {} }
+      logAction('투표발행', question);
+      setStatus($('po-status'), '✅ 발행했습니다.', 'ok');
+      $('po-q').value = ''; $('po-desc').value = ''; $('po-opts').value = ''; $('po-close').value = ''; $('po-multi').checked = false; $('po-public').checked = false; poPicker.reset(); poLoad();
+    });
 
     // ===== 자료실 =====
     // 파일 직접 업로드 (Storage 공개 버킷 'library' — sql/09)
@@ -1871,7 +1951,7 @@
       $('panel').style.display = authed ? 'block' : 'none';
       adminEmail = authed ? session.user.email : ''; $('me').textContent = adminEmail;
       const _u = $('adm-user'); if (_u) _u.style.display = authed ? 'flex' : 'none';
-      if (authed) { dashLoad(); initPickers().then(fillRecruitPickers); nLoad(); plLoad(); lLoad(); cLoad(); clLoad(); regLoad(); uvLoad(); rcLoad(); stLoad(); svEvLoadList(); }
+      if (authed) { dashLoad(); initPickers().then(fillRecruitPickers); nLoad(); plLoad(); lLoad(); cLoad(); clLoad(); regLoad(); uvLoad(); rcLoad(); stLoad(); svEvLoadList(); poLoad(); }
     }
     $('loginBtn').addEventListener('click', async () => {
       const email = $('email').value.trim(), password = $('pw').value;
