@@ -18,6 +18,7 @@ Supabase 대시보드 → SQL Editor 에서 **번호 순서대로** 실행하세
 | 11_company_faq_seed.sql | 기업담당자용 FAQ 시드 | FAQ 페이지 기업 답변 |
 | 12_company_contacts.sql | 노션 HRD담당자 명단 미러(관리자만 조회) | 가입자 탭 기업담당자 가입/미가입 체크 — Apps Script 동기화 코드도 갱신 필요 |
 | 13_code_only_signup.sql | verify_company_code_solo가 HRD담당자 이름·연락처도 반환 | 초대코드 전용 가입(기업 코드만으로 담당자 정보 자동 채움) |
+| 14_registrations_admin.sql | 가입자 관리자 조회·삭제 정책(기존 R12를 저장소에 수록, 멱등) | 가입자 표 조회·명단 외 삭제 — 운영 DB엔 이미 적용됨 |
 
 주의사항
 - 02의 `verify_by_code`는 기존 `verify_student(name, phone)` RPC를 내부 호출합니다.

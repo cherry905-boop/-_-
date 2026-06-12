@@ -519,7 +519,6 @@
       pendingStudent = null; pendingCompany = null;
       btn.textContent = val === 'applicant' ? '알림 받기 등록' : '가입하기';
       phoneEl.readOnly = false; nameEl.readOnly = false;   // 2단계 잠금 해제
-      const coEl = document.getElementById('co-code'); if (coEl) coEl.readOnly = false;
       // 동의 문구 — 지원자는 수집항목·목적·보유기간이 다름
       const items = document.getElementById('c-items'), purpose = document.getElementById('c-purpose'), ret = document.getElementById('c-retention');
       if (val === 'applicant') {
@@ -672,11 +671,12 @@
       // ── 기업 담당자: 기업 초대코드만으로 가입 — 코드가 기업·HRD담당자(노션 명단) 정보를 채움 ──
       if (target === 'company') {
         // 2단계: 명단에 담당자 이름·연락처가 없던 기업 → 직접 입력으로 완료
-        if (pendingCompany) {
+        // (코드를 고치면 아래 재검증으로 자연 복귀, 가입 실패 시 pendingCompany를 유지해 재시도가 코드 재검증·rate-limit을 안 태움)
+        if (pendingCompany && coCode === pendingCompany.code) {
           if (!name || phone.replace(/\D/g, '').length < 10) { setStatus(statusEl, '이름과 휴대폰 번호(숫자 10~11자리)를 입력해주세요.', 'error'); return; }
-          const co = pendingCompany; pendingCompany = null;
-          return doRegister({ name, phone, target_type: 'company', job_key: null, company: co, type1: null, manager: null, token: null });
+          return doRegister({ name, phone, target_type: 'company', job_key: null, company: pendingCompany.co, type1: null, manager: null, token: null });
         }
+        pendingCompany = null;
         btn.disabled = true; setStatus(statusEl, '코드 확인 중...', 'info');
         let r; try { r = await supabase.rpc('verify_company_code_solo', { p_code: coCode }); } catch (err) { r = { error: err }; }
         btn.disabled = false;
@@ -693,8 +693,7 @@
           return doRegister({ name: hn, phone: hp, target_type: 'company', job_key: null, company: co, type1: null, manager: null, token: null });
         }
         // 노션 명단에 HRD담당자 정보가 비어 있음(또는 sql/13 전) → 이름·휴대폰 직접 입력 2단계
-        pendingCompany = co;
-        document.getElementById('co-code').readOnly = true;   // 2단계 중 코드 정정은 무시되므로 잠금(대상 재선택으로 해제)
+        pendingCompany = { co, code: coCode };
         document.getElementById('grp-id').hidden = false;
         if (hn) nameEl.value = hn;
         if (hp) phoneEl.value = hp;

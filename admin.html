@@ -1138,7 +1138,11 @@
       // 필터: 참여학생=담당직원·직무·유형 / 기업담당자(명단 연동 시)=담당직원·기업 상태·가입 여부
       const coF = regSeg === 'company' && ccReady;
       const SHOW = { 'rg-fmanager': regSeg === 'student' || coF, 'rg-fjob': regSeg === 'student', 'rg-ftype': regSeg === 'student', 'rg-fstatus': coF, 'rg-fsigned': coF };
-      Object.keys(SHOW).forEach(id => { const e = $(id); if (e) e.style.display = SHOW[id] ? '' : 'none'; });
+      Object.keys(SHOW).forEach(id => {
+        const e = $(id); if (!e) return;
+        e.style.display = SHOW[id] ? '' : 'none';
+        if (!SHOW[id] && e.value) e.value = '';   // 숨긴 필터는 값도 초기화 — '보이지 않는 필터'가 행을 거르지 않게
+      });
     }
     function regFiltered() {
       const q = ($('rg-search').value || '').trim().toLowerCase();
@@ -1269,9 +1273,14 @@
               db.disabled = true;
               // .select()로 실제 삭제 행을 확인 — RLS가 막으면 에러 없이 0행이라 성공으로 오인됨
               const { data: del, error } = await supabase.from('registrations').delete().eq('id', r.id).select('id');
-              if (error || !del || !del.length) {
-                setStatus($('rg-status'), '삭제 오류: ' + (error ? (error.message || error) : '권한이 없어 삭제되지 않았어요 — R12 SQL(관리자 DELETE 정책) 확인'), 'error');
-                db.disabled = false; return;
+              if (error) {
+                const hint = /permission|policy|denied|42501|row-level/i.test(error.message || '') ? ' (가입자 행은 sql/14)' : '';
+                setStatus($('rg-status'), delErr(error) + hint, 'error'); db.disabled = false; return;
+              }
+              if (!del || !del.length) {
+                // 0행 = 다른 곳에서 이미 삭제됐거나 권한 부족 — 새로고침으로 실제 상태 표시
+                setStatus($('rg-status'), '삭제된 행이 없어요 — 이미 삭제됐거나 권한이 없습니다(sql/14 정책 확인). 목록을 새로고침합니다.', 'error');
+                regLoad(); return;
               }
               logAction('가입기록삭제', (r.name || '') + ' / ' + (r.company || ''));
               setStatus($('rg-status'), '✅ 삭제했습니다.', 'ok');
