@@ -30,7 +30,7 @@ window.APP_CONFIG = {
   // ── 즉시 푸시(선택) ─ Apps Script 발송기를 '웹 앱'으로 배포한 URL을 넣으면
   //    공지 발행 직후 발송기를 바로 깨워서 푸시가 수초 내 나갑니다 (비우면 5분 트리거만 사용).
   //    설정법: Desktop\push-kick-webapp.txt 참고
-  PUSH_KICK_URL: '',
+  PUSH_KICK_URL: 'https://script.google.com/macros/s/AKfycbxMet7mrgG84A33lg3Kwc5j_Z2-MX7BR3EkdqIkEiPe1bMc-nLvFqGtqYmYOWgFeQvo2A/exec',
 };
 
 /* ── 4) 훈련 직무 (1차 분류축) ─ 노션 "2026 직무" 미러 ─────────────────

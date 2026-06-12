@@ -607,7 +607,8 @@
     const PUSH_ETA = PUSH_KICK ? '곧' : '5분 내';
     function kickPush() {
       if (!PUSH_KICK) return;
-      try { fetch(PUSH_KICK, { method: 'POST', mode: 'no-cors', body: 'kick' }); } catch (_) {}
+      // GET + no-cors: 응답은 안 읽고 깨우기만 (Apps Script 리다이렉트가 POST를 거부하는 경우 회피)
+      try { fetch(PUSH_KICK, { mode: 'no-cors' }); } catch (_) {}
     }
     async function notifyPeople(people, title, body) {
       const { data: ins, error: e1 } = await supabase.from('notices')
