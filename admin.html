@@ -64,8 +64,6 @@
         <button class="adm-nav-item" data-tab="members"><i data-lucide="users"></i>가입자</button>
         <button class="adm-nav-item" data-tab="recruit"><i data-lucide="briefcase"></i>모집</button>
         <button class="adm-nav-item" data-tab="stages"><i data-lucide="route"></i>기업</button>
-        <div class="adm-nav-sep"></div>
-        <a class="adm-nav-item" href="./rls-check.html"><i data-lucide="lock"></i>보안 점검</a>
       </nav>
 
       <main class="adm-main">
@@ -107,7 +105,13 @@
           </div>
           <div style="display:flex;flex-direction:column;gap:18px">
             <div class="card"><p class="ph-card-title">발송한 공지</p><div id="n-list"></div></div>
-            <div class="card"><p class="ph-card-title">발송 기록</p><p class="note">실제 푸시 발송 결과(대상·성공 인원).</p><div id="pl-list"></div></div>
+            <div class="card">
+              <div style="display:flex;align-items:center;gap:8px">
+                <p class="ph-card-title" style="margin:0;flex:1">발송 기록</p>
+                <button class="mju-btn mju-btn--secondary mju-btn--sm" id="pl-clear"><i data-lucide="trash-2"></i> 기록 모두 지우기</button>
+              </div>
+              <p class="note">실제 푸시 발송 결과(대상·성공 인원).</p><div id="pl-list"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -122,9 +126,12 @@
             <input type="text" id="l-title" placeholder="예: SW개발 학습안내서" />
             <label>종류</label>
             <select id="l-kind" class="ph-select"><option>학습안내서</option><option>OFF-JT공지</option><option>일정표</option><option>서식</option><option selected>기타</option></select>
-            <label>링크(URL) <span class="req">*</span></label>
+            <label>링크(URL)</label>
             <input type="text" id="l-url" placeholder="구글드라이브 공유 링크 등 https://..." />
-            <p class="note">※ 파일은 구글드라이브 등에 올린 뒤 '링크가 있는 모든 사용자' 공유 링크를 붙여넣으세요. (강사 연락처·정답 포함 원문 업로드 금지)</p>
+            <p class="note">※ 링크 방식: 구글드라이브 등에 올린 뒤 '링크가 있는 모든 사용자' 공유 링크를 붙여넣으세요.</p>
+            <label>또는 파일 직접 업로드</label>
+            <input type="file" id="l-file" accept=".pdf,.hwp,.hwpx,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.png,.jpg,.jpeg" />
+            <p class="note">※ 20MB 이하, 링크와 파일 중 하나만. <b>공개 저장소</b>이므로 개인정보·강사 연락처·정답 포함 파일은 올리지 마세요.</p>
             <label>대상</label>
             <div id="l-tgt"></div>
             <label style="display:flex;align-items:center;gap:8px;font-weight:500;margin-top:14px"><input type="checkbox" id="l-shared" style="width:18px;height:18px"> 구글드라이브 공유를 '링크 있는 모든 사용자'로 설정했습니다</label>
@@ -203,14 +210,14 @@
 
       <!-- 가입자 관리 -->
       <div class="tabsec" id="sec-members" style="display:none">
-        <h2 class="adm-h2">학생 명단 · 개인 지정 <span class="hint">정렬·필터 후 체크 → 선택한 사람에게 비공개 공지 / 휴대폰은 운영자만 열람</span></h2>
+        <h2 class="adm-h2">가입자 <span class="hint">참여학생은 정렬·필터 후 체크 → 개인 공지·코드 발급 / 휴대폰은 운영자만 열람</span></h2>
         <div class="card">
+          <div class="filter-chips" id="rg-seg" role="group" aria-label="가입자 구분" style="margin-bottom:10px"></div>
           <div class="mtbl-bar">
             <input type="text" id="rg-search" placeholder="이름·기업·직무·담당직원 검색" style="flex:1;min-width:150px" />
             <select id="rg-fmanager"><option value="">담당직원 전체</option></select>
             <select id="rg-fjob"><option value="">직무 전체</option></select>
             <select id="rg-ftype"><option value="">유형 전체</option></select>
-            <select id="rg-ftarget"><option value="">대상 전체</option><option value="student">학생</option><option value="company">기업담당자</option><option value="applicant">지원자</option></select>
             <button class="mju-btn mju-btn--secondary mju-btn--sm" id="rg-refresh"><i data-lucide="refresh-cw"></i> 새로고침</button>
           </div>
           <div class="selbar" id="rg-selbar" style="display:none">
@@ -722,18 +729,32 @@
 
     // ===== 발송 기록 =====
     async function plLoad() {
-      const { data, error } = await supabase.from('push_logs').select('title,scope,target,recipient_count,success_count,sent_at').order('sent_at', { ascending: false }).limit(15);
+      const { data, error } = await supabase.from('push_logs').select('id,title,scope,target,recipient_count,success_count,sent_at').order('sent_at', { ascending: false }).limit(15);
       const el = $('pl-list');
       if (error) { el.innerHTML = '<p class="note">발송기록 권한이 없습니다 — supabase_migration_R8_qw.sql 을 실행하세요.</p>'; return; }
       el.innerHTML = (data && data.length) ? '' : '<p class="note">아직 발송 기록이 없습니다.</p>';
       (data || []).forEach(p => {
         const e = document.createElement('div'); e.textContent = p.title;
         const tgt = fmtTarget(p.scope, p.target);
-        const row = document.createElement('div'); row.style.cssText = 'padding:9px 0;border-bottom:1px solid var(--gray-100)';
-        row.innerHTML = `<b>${e.innerHTML}</b><br/><span class="note">${tgt} · 대상 ${p.recipient_count ?? '?'} / 성공 ${p.success_count ?? '?'} · ${new Date(p.sent_at).toLocaleString('ko-KR')}</span>`;
+        const row = document.createElement('div'); row.style.cssText = 'padding:9px 0;border-bottom:1px solid var(--gray-100);display:flex;justify-content:space-between;gap:8px;align-items:center';
+        row.innerHTML = `<div style="min-width:0"><b>${e.innerHTML}</b><br/><span class="note">${tgt} · 대상 ${p.recipient_count ?? '?'} / 성공 ${p.success_count ?? '?'} · ${new Date(p.sent_at).toLocaleString('ko-KR')}</span></div>`;
+        row.appendChild(mkDelBtn('삭제', async () => {
+          const { data: del, error: derr } = await supabase.from('push_logs').delete().eq('id', p.id).select('id');
+          if (derr || !del || !del.length) throw new Error('발송기록 삭제 권한이 없어요 — sql/09_admin_extras.sql 실행 필요' + (derr ? ' (' + derr.message + ')' : ''));
+          logAction('발송기록삭제', p.title); plLoad();
+        }));
         el.appendChild(row);
       });
     }
+    $('pl-clear').addEventListener('click', async () => {
+      if (!confirm('발송 기록을 모두 지울까요? 복구할 수 없고, 요약 탭의 발송 헬스 표기가 초기화됩니다.')) return;
+      $('pl-clear').disabled = true;
+      const { data, error } = await supabase.from('push_logs').delete().gte('sent_at', '1970-01-01').select('id');
+      $('pl-clear').disabled = false;
+      if (error) { alert('오류: ' + error.message); return; }
+      if (!data || !data.length) { alert('지울 기록이 없거나 삭제 권한이 없어요 — sql/09_admin_extras.sql 실행 필요'); plLoad(); return; }
+      logAction('발송기록비움', data.length + '건'); plLoad();
+    });
 
     // 자료/일정을 같은 대상으로 '공지로도' 발행 → 기존 푸시 파이프라인이 발송(푸시만 보는 사용자 도달)
     async function pushAsNotice(picker, title, body) {
@@ -743,12 +764,47 @@
     }
 
     // ===== 자료실 =====
+    // 파일 직접 업로드 (Storage 공개 버킷 'library' — sql/09)
+    const LIB_EXTS = ['pdf', 'hwp', 'hwpx', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'zip', 'png', 'jpg', 'jpeg'];
+    $('l-file').addEventListener('change', () => {
+      const f = ($('l-file').files || [])[0];
+      $('l-shared').parentElement.style.display = f ? 'none' : '';   // 드라이브 공유 확인은 링크 방식에만 해당
+      if (f && !$('l-title').value.trim()) $('l-title').value = f.name.replace(/\.[^.]+$/, '');
+    });
+    async function uploadLibFile(file, statusEl) {
+      const ext = (file.name.split('.').pop() || '').toLowerCase();
+      if (!LIB_EXTS.includes(ext)) { setStatus(statusEl, '허용되지 않는 파일 형식이에요 (' + LIB_EXTS.join('/') + ')', 'error'); return null; }
+      if (file.size > 20 * 1024 * 1024) { setStatus(statusEl, '20MB 이하 파일만 올릴 수 있어요.', 'error'); return null; }
+      setStatus(statusEl, '파일 올리는 중…', 'ok');
+      const mkPath = () => 'lib/' + Date.now() + '_' + crypto.randomUUID().slice(0, 8) + '.' + ext;
+      let path = mkPath();
+      let r = await supabase.storage.from('library').upload(path, file, { upsert: false });
+      if (r.error && /exists|duplicate/i.test(r.error.message || '')) { path = mkPath(); r = await supabase.storage.from('library').upload(path, file, { upsert: false }); }
+      if (r.error) {
+        const m = r.error.message || '';
+        setStatus(statusEl, /bucket|not found|404/i.test(m) ? '저장소가 아직 없어요 — sql/09_admin_extras.sql 실행 필요'
+          : (/security|policy|denied|403|unauthor/i.test(m) ? '업로드 권한이 없어요 — sql/09_admin_extras.sql 실행 필요' : '업로드 오류: ' + m), 'error');
+        return null;
+      }
+      const { data } = supabase.storage.from('library').getPublicUrl(path);
+      return (data && data.publicUrl) || null;
+    }
     $('l-add').addEventListener('click', async () => {
-      const title = $('l-title').value.trim(), url = $('l-url').value.trim(), kind = $('l-kind').value;
-      if (!title || !url) { setStatus($('l-status'), '제목·링크를 입력하세요.', 'error'); return; }
-      if (!/^https?:\/\//.test(url)) { setStatus($('l-status'), '링크는 http(s)로 시작해야 합니다.', 'error'); return; }
-      if (!$('l-shared').checked) { setStatus($('l-status'), "먼저 공유 설정을 '링크 있는 모든 사용자'로 하고 체크해주세요(안 하면 학생이 못 엽니다).", 'error'); return; }
+      const title = $('l-title').value.trim(), kind = $('l-kind').value;
+      let url = $('l-url').value.trim();
+      const file = ($('l-file').files || [])[0] || null;
+      if (!title) { setStatus($('l-status'), '제목을 입력하세요.', 'error'); return; }
+      if (file && url) { setStatus($('l-status'), '링크와 파일 중 하나만 입력하세요.', 'error'); return; }
+      if (!file && !url) { setStatus($('l-status'), '링크를 붙여넣거나 파일을 선택하세요.', 'error'); return; }
+      if (url && !/^https?:\/\//.test(url)) { setStatus($('l-status'), '링크는 http(s)로 시작해야 합니다.', 'error'); return; }
+      if (url && !$('l-shared').checked) { setStatus($('l-status'), "먼저 공유 설정을 '링크 있는 모든 사용자'로 하고 체크해주세요(안 하면 학생이 못 엽니다).", 'error'); return; }
       if (!lPicker || !lPicker.valid()) { setStatus($('l-status'), '열람 대상을 선택하세요.', 'error'); return; }
+      if (file) {
+        $('l-add').disabled = true;
+        url = await uploadLibFile(file, $('l-status'));
+        $('l-add').disabled = false;
+        if (!url) return;
+      }
       // 명단 지정 → 토큰 해시로 그 사람들 화면에만 표시 + 푸시는 개인 안내로
       if (lPicker.mode === 'people') {
         const people = lPicker.sel.people.map(p => ({ name: p.name, phone: p.phone }));
@@ -761,7 +817,7 @@
         if ($('l-push').checked) { try { await notifyPeople(people, '[새 자료] ' + title, '자료실에 「' + title + '」 자료가 등록됐어요. 앱 자료실에서 확인하세요.'); } catch (_) {} }
         setStatus($('l-status'), `✅ ${hashes.length}명에게만 보이는 자료로 등록${$('l-push').checked ? ' + 개인 안내 발행' : ''}.`, 'ok');
         logAction('자료등록(명단)', title + ' · ' + hashes.length + '명');
-        $('l-title').value = ''; $('l-url').value = ''; $('l-push').checked = false; lPicker.reset(); lLoad();
+        $('l-title').value = ''; $('l-url').value = ''; $('l-file').value = ''; $('l-shared').parentElement.style.display = ''; $('l-push').checked = false; lPicker.reset(); lLoad();
         return;
       }
       const job = lPicker.mode === 'all' ? null : ('custom:' + lPicker.serial());
@@ -771,20 +827,23 @@
       if (error) { setStatus($('l-status'), '오류: ' + error.message, 'error'); return; }
       if ($('l-push').checked) { try { await pushAsNotice(lPicker, '[새 자료] ' + title, '자료실에 「' + title + '」 자료가 등록됐어요. 앱 자료실에서 확인하세요.'); } catch (_) {} }
       setStatus($('l-status'), $('l-push').checked ? '✅ 등록 + 공지 발행 (5분 내 푸시).' : '✅ 등록되었습니다.', 'ok');
-      logAction('자료등록', title + ' · ' + lPicker.label() + ($('l-push').checked ? ' (+공지)' : '')); $('l-title').value = ''; $('l-url').value = ''; $('l-push').checked = false; lPicker.reset(); lLoad();
+      logAction(file ? '자료등록(파일)' : '자료등록', title + ' · ' + lPicker.label() + ($('l-push').checked ? ' (+공지)' : '')); $('l-title').value = ''; $('l-url').value = ''; $('l-file').value = ''; $('l-shared').parentElement.style.display = ''; $('l-push').checked = false; lPicker.reset(); lLoad();
     });
     async function lLoad() {
-      const { data } = await supabase.from('library').select('id,title,kind,job_key,created_at').order('created_at', { ascending: false }).limit(30);
+      const { data } = await supabase.from('library').select('id,title,kind,job_key,url,created_at').order('created_at', { ascending: false }).limit(30);
       const el = $('l-list'); el.innerHTML = (data && data.length) ? '' : '<p class="note">없음</p>';
       (data || []).forEach(r => {
         const e = document.createElement('div'); e.textContent = r.title;
         const row = document.createElement('div'); row.style.cssText = 'padding:9px 0;border-bottom:1px solid var(--gray-100);display:flex;justify-content:space-between;gap:8px;align-items:center';
+        const isFile = /\/storage\/v1\/object\/public\/library\//.test(r.url || '');
         const tgt = (r.job_key || '').indexOf('tokv:') === 0 ? '명단 지정' : (r.job_key || '전체');
-        row.innerHTML = `<div style="min-width:0"><b>${e.innerHTML}</b><br/><span class="note">${r.kind} · ${esc(tgt)} · ${new Date(r.created_at).toLocaleDateString('ko-KR')}</span></div>`;
+        row.innerHTML = `<div style="min-width:0"><b>${e.innerHTML}</b><br/><span class="note">${r.kind}${isFile ? ' · 📎파일' : ''} · ${esc(tgt)} · ${new Date(r.created_at).toLocaleDateString('ko-KR')}</span></div>`;
         row.appendChild(mkDelBtn('삭제', async () => {
           const { data, error } = await supabase.from('library').delete().eq('id', r.id).select('id');
           if (error) throw error;
           if (!data || !data.length) throw new Error('row-level security');
+          const m = (r.url || '').match(/\/storage\/v1\/object\/public\/library\/(.+)$/);
+          if (m) { try { await supabase.storage.from('library').remove([decodeURIComponent(m[1])]); } catch (_) {} }
           logAction('자료삭제', r.title); lLoad();
         }));
         el.appendChild(row);
@@ -975,24 +1034,28 @@
         codesReady = true;
       } catch (_) {}
     }
+    const regInterest = r => Array.isArray(r.interest_jobs) ? r.interest_jobs.join(' · ') : (r.interest_jobs || '');
     async function regLoad() {
       let rows;
       const { data: roster, error: rerr } = await supabase.rpc('admin_students');   // 전체 학생 명단(R15)
       if (!rerr && Array.isArray(roster)) {
         rows = roster.map(s => ({ id: 'st:' + (s.name || '') + '|' + (s.phone || ''), name: s.name, phone: s.phone, target_type: 'student', job_key: s.job_key || null, company: s.company || null, type1: s.type1 || null, manager: s.manager || null, signed: !!s.signed }));
-        // 지원자(매칭 전)는 명단이 아닌 registrations 기준 — 표에 병합
+        // 지원자(매칭 전)·기업담당자는 명단이 아닌 registrations 기준 — 표에 병합
         try {
-          const { data: apps } = await supabase.from('registrations')
+          let { data: extra, error: xerr } = await supabase.from('registrations')
+            .select('id,name,phone,target_type,job_key,company,type1,role,interest_jobs,created_at')
+            .in('target_type', ['applicant', 'company']).order('created_at', { ascending: false }).limit(1000);
+          if (xerr) ({ data: extra } = await supabase.from('registrations')
             .select('id,name,phone,target_type,job_key,company,type1,created_at')
-            .eq('target_type', 'applicant').order('created_at', { ascending: false }).limit(1000);
-          (apps || []).forEach(a => rows.push({ ...a, manager: null, signed: true }));
+            .in('target_type', ['applicant', 'company']).order('created_at', { ascending: false }).limit(1000));
+          (extra || []).forEach(a => rows.push({ ...a, manager: null, signed: true, interest: regInterest(a) }));
         } catch (_) {}
       } else {
         // 폴백(R15 admin_students 미적용): 앱 가입자(registrations)
-        let { data, error } = await supabase.from('registrations').select('id,name,phone,target_type,job_key,company,type1,manager,created_at').order('created_at', { ascending: false }).limit(1000);
-        if (error && /manager|column/i.test(error.message || '')) ({ data, error } = await supabase.from('registrations').select('id,name,phone,target_type,job_key,company,type1,created_at').order('created_at', { ascending: false }).limit(1000));
+        let { data, error } = await supabase.from('registrations').select('id,name,phone,target_type,job_key,company,type1,manager,role,interest_jobs,created_at').order('created_at', { ascending: false }).limit(1000);
+        if (error && /column|schema cache/i.test(error.message || '')) ({ data, error } = await supabase.from('registrations').select('id,name,phone,target_type,job_key,company,type1,created_at').order('created_at', { ascending: false }).limit(1000));
         if (error) { $('rg-table').innerHTML = '<tbody><tr><td style="padding:10px;color:var(--text-muted)">명단 조회 권한이 없습니다 — R12/R15 SQL 실행 필요</td></tr></tbody>'; return; }
-        rows = (data || []).map(r => ({ ...r, signed: true }));
+        rows = (data || []).map(r => ({ ...r, signed: true, interest: regInterest(r) }));
       }
       await loadCodes();
       regCache = rows; regDims = null;
@@ -1007,19 +1070,37 @@
       vals.forEach(v => { const o = document.createElement('option'); o.value = v; o.textContent = v; el.appendChild(o); });
       el.value = keep;
     }
+    // 세그먼트(참여학생/지원자/기업담당자) — regCache는 전 대상 슈퍼셋, 렌더만 분기
+    let regSeg = 'student';
+    function regSegRender() {
+      const segEl = $('rg-seg'); if (!segEl) return;
+      const cnt = t => regCache.filter(r => (r.target_type || 'student') === t).length;
+      segEl.innerHTML = '';
+      [['student', '참여학생'], ['applicant', '지원자'], ['company', '기업담당자']].forEach(([k, label]) => {
+        const b = document.createElement('button'); b.type = 'button';
+        b.className = 'chip' + (regSeg === k ? ' on' : '');
+        b.setAttribute('aria-pressed', regSeg === k ? 'true' : 'false');
+        b.textContent = label + ' ' + cnt(k);
+        b.addEventListener('click', () => { if (regSeg !== k) { regSeg = k; regSort = { key: 'name', dir: 1 }; regRender(); } });
+        segEl.appendChild(b);
+      });
+      // 직무·유형·담당 필터는 참여학생 전용
+      ['rg-fmanager', 'rg-fjob', 'rg-ftype'].forEach(id => { const e = $(id); if (e) e.style.display = regSeg === 'student' ? '' : 'none'; });
+    }
     function regFiltered() {
       const q = ($('rg-search').value || '').trim().toLowerCase();
-      const fm = $('rg-fmanager').value, fj = $('rg-fjob').value, ft = $('rg-ftype').value, fg = $('rg-ftarget').value;
+      const fm = $('rg-fmanager').value, fj = $('rg-fjob').value, ft = $('rg-ftype').value;
       const rows = regCache.filter(r =>
-        (!q || [r.name, r.company, r.job_key, r.manager].some(x => (x || '').toLowerCase().includes(q))) &&
-        (!fm || r.manager === fm) && (!fj || r.job_key === fj) && (!ft || r.type1 === ft) && (!fg || r.target_type === fg));
+        (r.target_type || 'student') === regSeg &&
+        (!q || [r.name, r.company, r.job_key, r.manager, r.interest].some(x => (x || '').toLowerCase().includes(q))) &&
+        (regSeg !== 'student' || ((!fm || r.manager === fm) && (!fj || r.job_key === fj) && (!ft || r.type1 === ft))));
       const k = regSort.key, dir = regSort.dir;
       rows.sort((a, b) => { const va = a[k] || '', vb = b[k] || ''; return va < vb ? -dir : va > vb ? dir : 0; });
       return rows;
     }
     function regSelBar() {
       const n = regSel.size;
-      $('rg-selbar').style.display = n ? 'flex' : 'none';
+      $('rg-selbar').style.display = (regSeg === 'student' && n) ? 'flex' : 'none';
       $('rg-selcount').textContent = '선택 ' + n + '명';
     }
     // 학생 1명 코드 발급 (이미 있으면 기존 행 갱신 — 같은 학생에게 행이 쌓이지 않게)
@@ -1041,29 +1122,44 @@
       throw new Error('코드 생성 충돌 — 다시 시도해주세요');
     }
     function regRender() {
+      regSegRender();
       const rows = regFiltered();
-      $('rg-count').textContent = '총 ' + regCache.length + '명' + (rows.length !== regCache.length ? ' · 필터 ' + rows.length + '명' : '');
-      const cols = [['name', '이름'], ['target_type', '대상'], ['manager', '담당직원'], ['job_key', '직무'], ['company', '기업'], ['type1', '유형'], ['signed', '가입']];
+      const isStu = regSeg === 'student';
+      const segTotal = regCache.filter(r => (r.target_type || 'student') === regSeg).length;
+      const segLabel = { student: '참여학생', applicant: '지원자', company: '기업담당자' }[regSeg];
+      $('rg-count').textContent = segLabel + ' ' + segTotal + '명' + (rows.length !== segTotal ? ' · 필터 ' + rows.length + '명' : '');
+      const cols = isStu
+        ? [['name', '이름'], ['manager', '담당직원'], ['job_key', '직무'], ['company', '기업'], ['type1', '유형'], ['signed', '가입']]
+        : regSeg === 'applicant'
+          ? [['name', '이름'], ['interest', '관심직무'], ['created_at', '등록일']]
+          : [['name', '이름'], ['company', '기업'], ['role', '역할'], ['created_at', '등록일']];
       const arrow = k => regSort.key === k ? (regSort.dir < 0 ? ' ▼' : ' ▲') : '';
-      const allOn = rows.length && rows.every(r => regSel.has(r.id));
+      const allOn = isStu && rows.length && rows.every(r => regSel.has(r.id));
       $('rg-table').innerHTML = '<thead><tr>' +
-        `<th class="nosort"><input type="checkbox" id="rg-all" ${allOn ? 'checked' : ''}></th>` +
+        (isStu ? `<th class="nosort"><input type="checkbox" id="rg-all" ${allOn ? 'checked' : ''}></th>` : '') +
         cols.map(c => `<th data-k="${c[0]}">${c[1]}${arrow(c[0])}</th>`).join('') +
-        '<th class="nosort">전화</th><th class="nosort">코드</th></tr></thead>';
+        '<th class="nosort">전화</th>' + (isStu ? '<th class="nosort">코드</th>' : '') + '</tr></thead>';
       const tb = document.createElement('tbody');
-      if (!rows.length) tb.innerHTML = '<tr><td colspan="10" style="color:var(--text-muted)">없음</td></tr>';
+      if (!rows.length) tb.innerHTML = `<tr><td colspan="${cols.length + (isStu ? 3 : 1)}" style="color:var(--text-muted)">없음</td></tr>`;
+      const fmtD = v => v ? new Date(v).toLocaleDateString('ko-KR') : '-';
       rows.forEach(r => {
-        const tr = document.createElement('tr'); if (regSel.has(r.id)) tr.className = 'on';
-        const tt = r.target_type === 'company' ? '기업' : r.target_type === 'applicant' ? '지원자' : '학생';
-        const cb = document.createElement('td'); cb.innerHTML = `<input type="checkbox" ${regSel.has(r.id) ? 'checked' : ''}>`;
-        cb.querySelector('input').addEventListener('change', e => { e.target.checked ? regSel.add(r.id) : regSel.delete(r.id); tr.className = e.target.checked ? 'on' : ''; regSelBar(); });
-        tr.appendChild(cb);
+        const tr = document.createElement('tr'); if (isStu && regSel.has(r.id)) tr.className = 'on';
+        if (isStu) {
+          const cb = document.createElement('td'); cb.innerHTML = `<input type="checkbox" ${regSel.has(r.id) ? 'checked' : ''}>`;
+          cb.querySelector('input').addEventListener('change', e => { e.target.checked ? regSel.add(r.id) : regSel.delete(r.id); tr.className = e.target.checked ? 'on' : ''; regSelBar(); });
+          tr.appendChild(cb);
+        }
         const signed = r.signed ? '<span class="mju-badge mju-badge--success">가입</span>' : '<span class="note">미가입</span>';
-        [esc(r.name || ''), tt, esc(r.manager || '-'), esc(r.job_key || '-'), esc(r.company || '-'), esc(r.type1 || '-'), signed]
-          .forEach(v => { const td = document.createElement('td'); td.innerHTML = v; tr.appendChild(td); });
+        const vals = isStu
+          ? [esc(r.name || ''), esc(r.manager || '-'), esc(r.job_key || '-'), esc(r.company || '-'), esc(r.type1 || '-'), signed]
+          : regSeg === 'applicant'
+            ? [esc(r.name || ''), esc(r.interest || '-'), fmtD(r.created_at)]
+            : [esc(r.name || ''), esc(r.company || '-'), esc(r.role || '-'), fmtD(r.created_at)];
+        vals.forEach(v => { const td = document.createElement('td'); td.innerHTML = v; tr.appendChild(td); });
         const tdp = document.createElement('td'); const ph = document.createElement('button'); ph.type = 'button'; ph.className = 'phone-btn'; const pv = r.phone || ''; let rv = false;
         const dph = () => { ph.innerHTML = `<i data-lucide="${rv ? 'eye-off' : 'eye'}"></i>${rv ? esc(pv) : esc(maskPhone(pv))}`; if (window.lucide) window.lucide.createIcons(); };
         ph.addEventListener('click', () => { rv = !rv; dph(); }); dph(); tdp.appendChild(ph); tr.appendChild(tdp);
+        if (!isStu) { tb.appendChild(tr); return; }
         // 초대코드 — 발급/복사/재발급 (02 SQL 적용 후, 학생만)
         const tdc = document.createElement('td');
         if (!codesReady || r.target_type !== 'student') tdc.innerHTML = '<span class="note">-</span>';
@@ -1096,7 +1192,7 @@
       const all = $('rg-all'); if (all) all.addEventListener('change', e => { rows.forEach(r => e.target.checked ? regSel.add(r.id) : regSel.delete(r.id)); regRender(); });
       regSelBar();
     }
-    ['rg-search', 'rg-fmanager', 'rg-fjob', 'rg-ftype', 'rg-ftarget'].forEach(id => { const e = $(id); if (e) e.addEventListener('input', regRender); });
+    ['rg-search', 'rg-fmanager', 'rg-fjob', 'rg-ftype'].forEach(id => { const e = $(id); if (e) e.addEventListener('input', regRender); });
     $('rg-refresh').addEventListener('click', regLoad);
     $('rg-clearsel').addEventListener('click', () => { regSel.clear(); regRender(); });
     // 선택 학생 코드 일괄 발급 (이미 있으면 건너뜀)

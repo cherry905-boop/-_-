@@ -88,13 +88,14 @@
       <!-- 표준앱(홈 화면 추가) 첫 진입 + 프로필 없음 = iOS는 Safari와 저장소가 분리돼 정보가 사라짐 → 복원 게이트 -->
       <div class="card" id="restoreCard" style="display:none">
         <p class="ph-card-title">내 정보 불러오기</p>
-        <p class="ph-note" style="margin-bottom:6px">앱 아이콘에서 처음 여셨네요. <b>이미 가입하셨다면</b> 이름·휴대폰만 입력하면 정보를 불러옵니다 — 다시 가입 안 하셔도 돼요.</p>
-        <label>이름 <span class="req">*</span></label>
+        <p class="ph-note" style="margin-bottom:6px">앱 아이콘에서 처음 여셨네요. <b>이미 가입하셨다면</b> 이름·휴대폰(또는 초대코드만)을 입력하면 정보를 불러옵니다 — 다시 가입 안 하셔도 돼요.</p>
+        <label>이름</label>
         <input type="text" id="r-name" autocomplete="name" placeholder="홍길동" />
-        <label>휴대폰 번호 <span class="req">*</span></label>
+        <label>휴대폰 번호</label>
         <input type="tel" id="r-phone" inputmode="numeric" autocomplete="tel" placeholder="010-1234-5678" />
         <label>초대코드 (있으면)</label>
         <input type="text" id="r-code" class="code-input" placeholder="합격 안내에 적힌 코드" autocomplete="off" maxlength="12" />
+        <p class="note" style="margin-top:6px">코드만 입력해도 정보를 불러올 수 있어요.</p>
         <div class="cond" id="r-jobGrp" hidden>
           <label>본인 직무 <span class="req">*</span></label>
           <select id="r-job"><option value="">— 선택 —</option></select>
@@ -126,7 +127,7 @@
           <div class="cond" id="grp-code" hidden>
             <label>초대코드 <span class="req" id="code-req" style="display:none">*</span></label>
             <input type="text" id="join-code" class="code-input" placeholder="합격 안내에 적힌 코드" autocomplete="off" maxlength="12" />
-            <p class="note" style="margin-top:6px" id="code-note">코드가 없으면 비워두세요 — 명단(이름·휴대폰)으로 확인합니다. 코드를 잃어버렸다면 담당자에게 문의하세요.</p>
+            <p class="note" style="margin-top:6px" id="code-note">코드만 입력하면 이름·휴대폰이 자동으로 채워져요. 코드가 없으면 비워두세요 — 명단(이름·휴대폰)으로 확인합니다.</p>
           </div>
 
           <!-- 조건부: 훈련 직무 -->
@@ -328,7 +329,8 @@
       let rPending = null; // 직무 여러 개인 매칭학생 2단계용
       rGo.addEventListener('click', async () => {
         const nm = rName.value.trim(), ph = rPhone.value.trim();
-        if (!nm || ph.replace(/\D/g, '').length < 10) { setStatus(rStatus, '이름과 휴대폰 번호(숫자 10~11자리)를 정확히 입력해주세요.', 'error'); return; }
+        const rCodeVal = document.getElementById('r-code').value.trim();
+        if (!rCodeVal && (!nm || ph.replace(/\D/g, '').length < 10)) { setStatus(rStatus, '이름·휴대폰 번호(숫자 10~11자리)를 입력하거나, 초대코드만 입력해주세요.', 'error'); return; }
         if (!configReady()) { setStatus(rStatus, 'Supabase 연결 설정이 필요합니다.', 'error'); return; }
         // 기업 담당자 복원 경로
         if (!rCompGrp.hidden) {
@@ -341,25 +343,36 @@
           const s = rPending; rPending = null;
           return saveAndHome({ name: s.name, target_type: 'student', job_key: jk, company: s.company, type1: s.type1, manager: s.manager || null, token: s.token || null });
         }
-        // 1단계: 초대코드(있으면) → 없거나 미적용이면 노션 명단(이름+휴대폰) 확인
+        // 1단계: 초대코드(있으면, 코드만으로도 OK) → 없거나 미적용이면 노션 명단(이름+휴대폰) 확인
         rGo.disabled = true; setStatus(rStatus, '확인 중...', 'info');
         let res = null;
-        const rCodeVal = document.getElementById('r-code').value.trim();
         if (rCodeVal) {
-          try { res = await supabase.rpc('verify_by_code', { p_code: rCodeVal, p_name: nm }); } catch (err) { res = { error: err }; }
+          // 코드 단독 확인 (sql/09) → 미적용이면 코드+이름(02) → 그래도 미적용이면 명단 방식
+          try { res = await supabase.rpc('verify_code_solo', { p_code: rCodeVal }); } catch (err) { res = { error: err }; }
           if (res.error && /function|does not exist|PGRST202|42883|schema cache/i.test(res.error.message || '')) {
-            res = null;   // 02 SQL 미적용 → 명단 방식으로
-          } else if (res.error && /too_many/i.test(res.error.message || '')) {
+            if (!nm) { rGo.disabled = false; setStatus(rStatus, '서버 업데이트 전이라 코드만으로는 확인할 수 없어요 — 이름·휴대폰도 입력해주세요.', 'error'); return; }
+            try { res = await supabase.rpc('verify_by_code', { p_code: rCodeVal, p_name: nm }); } catch (err) { res = { error: err }; }
+            if (res.error && /function|does not exist|PGRST202|42883|schema cache/i.test(res.error.message || '')) res = null;   // 02 SQL 미적용 → 명단 방식으로
+          }
+          if (res && res.error && /too_many/i.test(res.error.message || '')) {
             rGo.disabled = false;
             setStatus(rStatus, '시도가 너무 많아요. 잠시 후 다시 시도해주세요.', 'error');
             return;
-          } else if (!res.error && res.data && !res.data.matched) {
+          }
+          if (res && !res.error && res.data && !res.data.matched) {
             rGo.disabled = false;
             setStatus(rStatus, res.data.reason === 'name' ? '코드와 이름이 일치하지 않아요. 안내의 이름 표기를 확인해주세요.' : '코드가 올바르지 않아요. 담당자에게 문의해주세요.', 'error');
             return;
           }
+          if (res && !res.error && res.data && res.data.matched) {
+            if (res.data.name) rName.value = res.data.name;
+            if (res.data.phone) rPhone.value = res.data.phone;
+          }
         }
-        if (!res) { try { res = await supabase.rpc('verify_student', { p_name: nm, p_phone: ph }); } catch (err) { res = { error: err }; } }
+        if (!res) {
+          if (!nm || ph.replace(/\D/g, '').length < 10) { rGo.disabled = false; setStatus(rStatus, '이름과 휴대폰 번호(숫자 10~11자리)를 정확히 입력해주세요.', 'error'); return; }
+          try { res = await supabase.rpc('verify_student', { p_name: nm, p_phone: ph }); } catch (err) { res = { error: err }; }
+        }
         rGo.disabled = false;
         if (res.error) { setStatus(rStatus, friendlyError(res.error), 'error'); return; }
         const v = res.data;
@@ -613,11 +626,13 @@
       const c1 = document.getElementById('c1').checked;
       const c2 = document.getElementById('c2').checked;
 
-      if (!name || !phone || !target) { setStatus(statusEl, '이름·휴대폰·대상 구분을 입력해주세요.', 'error'); return; }
+      const joinCode = document.getElementById('join-code').value.trim();
+      if (!target) { setStatus(statusEl, '대상 구분을 선택해주세요.', 'error'); return; }
+      if ((!name || !phone) && !(target === 'student' && joinCode)) { setStatus(statusEl, '이름·휴대폰을 입력해주세요. (매칭학생은 초대코드만 입력해도 돼요)', 'error'); return; }
       if (!c1 || !c2) { setStatus(statusEl, '필수 동의 두 가지에 모두 체크해주세요.', 'error'); return; }
       if (!configReady()) { setStatus(statusEl, 'Supabase 연결 설정이 필요합니다(config.js).', 'error'); return; }
       document.getElementById('help').style.display = 'none';
-      if (phone.replace(/\D/g, '').length < 10) { setStatus(statusEl, '휴대폰 번호를 정확히 입력해주세요(숫자 10~11자리).', 'error'); return; }
+      if (phone && phone.replace(/\D/g, '').length < 10) { setStatus(statusEl, '휴대폰 번호를 정확히 입력해주세요(숫자 10~11자리).', 'error'); return; }
 
       // ── 지원자: 명단·코드 없이 관심직무만으로 등록 (공개 영역 + 채용 알림) ──
       if (target === 'applicant') {
@@ -652,11 +667,30 @@
       // ── 기업 담당자: 소속 기업 선택 (+ 초대코드 검증, 02 SQL 미적용 시 기존 방식) ──
       if (target === 'company') {
         const sel = compSel.value;
-        const company = (sel === '__other__') ? (document.getElementById('company-other').value.trim() || null) : (sel || null);
-        if (!company) { setStatus(statusEl, '소속 학습기업을 선택(또는 입력)해주세요.', 'error'); return; }
+        let company = (sel === '__other__') ? (document.getElementById('company-other').value.trim() || null) : (sel || null);
         const ccode = document.getElementById('co-code').value.trim();
         if (!ccode && (window.APP_CONFIG || {}).REQUIRE_COMPANY_CODE) { setStatus(statusEl, '기업 초대코드를 입력해주세요(지정완료 안내 메일).', 'error'); return; }
-        if (ccode) {
+        let codeOk = false;
+        if (ccode && !company) {
+          // 기업 미선택 + 코드 입력 → 코드만으로 소속 기업 확인 (sql/09, 미적용이면 기업 선택 안내로)
+          btn.disabled = true; setStatus(statusEl, '코드 확인 중...', 'info');
+          let r; try { r = await supabase.rpc('verify_company_code_solo', { p_code: ccode }); } catch (err) { r = { error: err }; }
+          btn.disabled = false;
+          if (r.error && /too_many/i.test(r.error.message || '')) { setStatus(statusEl, '시도가 너무 많아요. 잠시 후 다시 시도해주세요.', 'error'); return; }
+          if (!r.error && r.data) {
+            if (!r.data.ok) { setStatus(statusEl, '기업 코드가 올바르지 않아요. 지정완료 안내 메일을 확인하거나 담당자에게 문의해주세요.', 'error'); return; }
+            company = r.data.company || null; codeOk = !!company;
+            if (company) {
+              if (![...compSel.options].some(o => o.value === company)) {
+                const o = document.createElement('option'); o.value = company; o.textContent = company;
+                compSel.insertBefore(o, compSel.querySelector('option[value="__other__"]'));
+              }
+              compSel.value = company;
+            }
+          }
+        }
+        if (!company) { setStatus(statusEl, '소속 학습기업을 선택(또는 입력)해주세요.', 'error'); return; }
+        if (ccode && !codeOk) {
           btn.disabled = true; setStatus(statusEl, '코드 확인 중...', 'info');
           let ok = false, fnMissing = false;
           try {
@@ -699,16 +733,21 @@
         return doRegister({ name: v.name, phone: v.phone || phone, target_type: 'student', job_key: jobs[0] || null, company: v.company, type1: v.type1, manager: v.manager || null, token: v.token || null });
       }
 
-      // ── 매칭학생: 초대코드가 있으면 코드 검증(신규 표준, 02 SQL 미적용 시 명단 방식으로 폴백) ──
-      const joinCode = document.getElementById('join-code').value.trim();
+      // ── 매칭학생: 초대코드가 있으면 코드 검증 — 코드 단독(sql/09) → 코드+이름(02) → 명단 순 폴백 ──
       if (!joinCode && (window.APP_CONFIG || {}).REQUIRE_STUDENT_CODE) {
         setStatus(statusEl, '초대코드를 입력해주세요(합격 안내에 동봉). 잃어버렸다면 담당자에게 문의하세요.', 'error'); return;
       }
       if (joinCode) {
         btn.disabled = true; setStatus(statusEl, '코드 확인 중...', 'info');
         let cres;
-        try { cres = await supabase.rpc('verify_by_code', { p_code: joinCode, p_name: name }); }
+        try { cres = await supabase.rpc('verify_code_solo', { p_code: joinCode }); }
         catch (err) { cres = { error: err }; }
+        if (cres.error && /function|does not exist|PGRST202|42883|schema cache/i.test(cres.error.message || '')) {
+          // 코드 단독 함수 미적용 → 기존 코드+이름 방식
+          if (!name) { btn.disabled = false; setStatus(statusEl, '서버 업데이트 전이라 코드만으로는 가입할 수 없어요 — 이름·휴대폰도 입력해주세요.', 'error'); return; }
+          try { cres = await supabase.rpc('verify_by_code', { p_code: joinCode, p_name: name }); }
+          catch (err) { cres = { error: err }; }
+        }
         btn.disabled = false;
         const fnMissing = cres.error && /function|does not exist|PGRST202|42883|schema cache/i.test(cres.error.message || '');
         if (cres.error && !fnMissing) {
@@ -722,9 +761,12 @@
               : '코드가 올바르지 않아요. 합격 안내의 코드를 다시 확인하거나 담당자에게 문의해주세요.';
             setStatus(statusEl, msg, 'error'); return;
           }
+          if (cv.name) nameEl.value = cv.name;
+          if (cv.phone) phoneEl.value = cv.phone;
           return proceedMatched(cv);
         }
-        // 함수 미적용 → 아래 명단 방식으로 계속
+        // 함수 미적용 → 아래 명단 방식으로 계속 (이름·휴대폰 필요)
+        if (!name || !phone) { setStatus(statusEl, '이름·휴대폰을 입력해주세요.', 'error'); return; }
       }
 
       // ── 매칭학생 1단계: 노션 명단(이름+휴대폰) 확인 ──

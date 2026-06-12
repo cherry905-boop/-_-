@@ -569,6 +569,23 @@ body.has-tabbar .ph-body{padding-bottom:84px}
 .cite::before{content:"근거 · "}
 .intro-flow{display:flex; flex-direction:column; gap:0; margin-top:6px}
 
+/* ── 학생 일정 월간 달력 (토큰만 사용 — 다크모드 자동 대응) ── */
+.cal-head{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px}
+.cal-head b{font-size:15px; letter-spacing:-.01em; color:var(--text-primary)}
+.cal-nav{width:32px; height:32px; display:flex; align-items:center; justify-content:center; border:1px solid var(--border-default); border-radius:8px; background:var(--surface-card); color:var(--text-secondary); cursor:pointer}
+.cal-nav:disabled{opacity:.35; cursor:default}
+.cal-nav svg{width:16px; height:16px}
+.cal-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:3px}
+.cal-dow{font-size:11px; font-weight:700; color:var(--text-muted); text-align:center; padding:2px 0 6px}
+.cal-cell{position:relative; min-height:40px; border-radius:8px; background:transparent; border:none; font:inherit; font-size:12.5px; font-weight:600; color:var(--text-secondary); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; padding:4px 0}
+.cal-cell.has{background:var(--surface-sunken); cursor:pointer}
+.cal-cell.past{color:var(--text-muted); font-weight:500}
+.cal-cell.today{box-shadow:0 0 0 2px var(--accent) inset}
+.cal-cell.sel{background:var(--tint-bg); color:var(--tint-fg); box-shadow:0 0 0 1.5px var(--accent) inset}
+.cal-dots{display:flex; gap:2px; height:5px}
+.cal-dot{width:5px; height:5px; border-radius:99px; background:var(--accent)}
+.cal-cell.past .cal-dot{background:var(--gray-400)}
+
 /* ===================================================================
    다크 모드 — OS 설정 자동 추종 (관리자 콘솔 body.adm 은 라이트 유지)
    헤더는 두 모드 모두 네이비 브랜드 유지. 틴트/액센트/링크 4토큰 + 중립 스케일만 뒤집음.

@@ -19,6 +19,16 @@
       <p class="ph-sub" id="who"></p>
     </header>
     <main class="ph-body">
+      <div class="card" id="calCard" style="display:none;padding:14px">
+        <div class="cal-head">
+          <button class="cal-nav" id="cal-prev" aria-label="이전 달"><i data-lucide="chevron-left"></i></button>
+          <b id="cal-title"></b>
+          <button class="cal-nav" id="cal-next" aria-label="다음 달"><i data-lucide="chevron-right"></i></button>
+        </div>
+        <div class="cal-grid" id="cal-dow"></div>
+        <div class="cal-grid" id="cal-cells"></div>
+        <p class="note" style="margin:8px 0 0;text-align:center">점이 있는 날짜를 누르면 아래 목록이 그 날짜로 좁혀져요.</p>
+      </div>
       <div class="filter-chips" id="chips" style="display:none" role="group" aria-label="일정 종류 필터"></div>
       <div id="list"></div>
       <div id="empty" class="empty-state" style="display:none">
@@ -58,15 +68,24 @@
 
     const listEl = document.getElementById('list');
     const chipsEl = document.getElementById('chips');
-    let all = [], kindSel = '';
+    const pad = n => String(n).padStart(2, '0');
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+    let all = [], kindSel = '', daySel = '';
+    let calY = now.getFullYear(), calM = now.getMonth();             // 표시 중인 달
+    let loadedFrom = null;                                            // 가장 이른 조회 시작일
+    const minD = new Date(now.getFullYear(), now.getMonth() - 3, 1); // 과거 3개월까지만
+    const monthStart = (y, m) => { const d = new Date(y, m, 1); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-01`; };
 
-    function render() {
-      const shown = kindSel ? all.filter(r => r.kind === kindSel) : all;
+    function renderList() {
+      const shown = all.filter(r =>
+        (!kindSel || r.kind === kindSel) &&
+        (daySel ? r.event_date === daySel : r.event_date >= todayStr));
       listEl.innerHTML = '';
       const em = document.getElementById('empty');
       if (!shown.length) {
         em.style.display = 'block';
-        document.getElementById('emptyMsg').textContent = '이 종류의 예정된 일정이 없습니다.';
+        document.getElementById('emptyMsg').textContent = daySel ? '이 날짜에 해당하는 일정이 없습니다.' : '이 종류의 예정된 일정이 없습니다.';
         return;
       }
       em.style.display = 'none';
@@ -94,12 +113,12 @@
     }
     function buildChips() {
       const kinds = [...new Set(all.map(r => r.kind).filter(Boolean))];
-      if (kinds.length < 2) return;
+      if (kinds.length < 2) { chipsEl.style.display = 'none'; return; }
       chipsEl.innerHTML = '';
       const mk = (label, val) => {
         const b = document.createElement('button');
         b.type = 'button'; b.className = 'chip'; b.textContent = label; b.dataset.val = val;
-        b.addEventListener('click', () => { kindSel = val; syncChips(); render(); });
+        b.addEventListener('click', () => { kindSel = val; syncChips(); renderList(); });
         chipsEl.appendChild(b);
       };
       mk('전체', '');
@@ -108,33 +127,86 @@
       chipsEl.style.display = 'flex';
     }
 
+    // ── 월간 달력 그리드 ──
+    function renderCal() {
+      document.getElementById('calCard').style.display = 'block';
+      document.getElementById('cal-title').textContent = `${calY}년 ${calM + 1}월`;
+      const dowEl = document.getElementById('cal-dow');
+      if (!dowEl.children.length) ['일', '월', '화', '수', '목', '금', '토'].forEach(d => { const s = document.createElement('span'); s.className = 'cal-dow'; s.textContent = d; dowEl.appendChild(s); });
+      const byDate = {};
+      all.forEach(r => { (byDate[r.event_date] = byDate[r.event_date] || []).push(r); });
+      const first = new Date(calY, calM, 1), days = new Date(calY, calM + 1, 0).getDate();
+      const cells = document.getElementById('cal-cells');
+      cells.innerHTML = '';
+      for (let i = 0; i < first.getDay(); i++) cells.appendChild(document.createElement('span'));
+      for (let d = 1; d <= days; d++) {
+        const ds = `${calY}-${pad(calM + 1)}-${pad(d)}`;
+        const evts = byDate[ds] || [];
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'cal-cell' + (evts.length ? ' has' : '') + (ds < todayStr ? ' past' : '') + (ds === todayStr ? ' today' : '') + (ds === daySel ? ' sel' : '');
+        b.innerHTML = `<span>${d}</span><span class="cal-dots">${evts.slice(0, 3).map(() => '<span class="cal-dot"></span>').join('')}</span>`;
+        if (evts.length) {
+          b.setAttribute('aria-label', `${calM + 1}월 ${d}일 일정 ${evts.length}건`);
+          b.addEventListener('click', () => { daySel = (daySel === ds) ? '' : ds; renderCal(); renderList(); });
+        } else b.disabled = true;
+        cells.appendChild(b);
+      }
+      const prevStart = new Date(calY, calM - 1, 1);
+      document.getElementById('cal-prev').disabled = prevStart < minD;
+    }
+    async function moveMonth(delta) {
+      const d = new Date(calY, calM + delta, 1);
+      if (d < minD) return;
+      calY = d.getFullYear(); calM = d.getMonth(); daySel = '';
+      const from = monthStart(calY, calM);
+      if (loadedFrom && from < loadedFrom) await loadAll(from);
+      renderCal(); renderList();
+    }
+    document.getElementById('cal-prev').addEventListener('click', () => moveMonth(-1));
+    document.getElementById('cal-next').addEventListener('click', () => moveMonth(1));
+
+    async function loadAll(fromStr) {
+      const { data, error } = await supabase.from('calendar_events')
+        .select('title,event_date,kind,job_key,memo').gte('event_date', fromStr).order('event_date', { ascending: true });
+      if (error) { console.error(error); return false; }
+      all = (data || []).filter(visible);
+      // 나에게만 지정된 일정(명단 지정) — 토큰으로 서버에서 받아 병합 (범위 RPC 우선, 미적용이면 기존 RPC)
+      if (profile.token) {
+        let mine = null;
+        try {
+          const r = await supabase.rpc('my_targeted_calendar_from', { p_token: profile.token, p_from: fromStr });
+          if (r.error && /function|does not exist|PGRST202|42883|schema cache/i.test(r.error.message || '')) {
+            const r2 = await supabase.rpc('my_targeted_calendar', { p_token: profile.token });
+            if (!r2.error) mine = r2.data;
+          } else if (!r.error) mine = r.data;
+        } catch (_) {}
+        if (Array.isArray(mine) && mine.length) {
+          const seen = new Set(all.map(r => r.title + '|' + r.event_date));
+          mine.forEach(r => { if (!seen.has(r.title + '|' + r.event_date)) all.push(r); });
+        }
+      }
+      all.sort((a, b) => (a.event_date < b.event_date ? -1 : a.event_date > b.event_date ? 1 : 0));
+      loadedFrom = fromStr;
+      return true;
+    }
+
     (async () => {
       if (!configReady()) { document.getElementById('empty').style.display = 'block'; return; }
       skeletonList(listEl, 3);
-      const todayStr = new Date().toISOString().slice(0, 10);
-      const { data, error } = await supabase.from('calendar_events')
-        .select('title,event_date,kind,job_key,memo').gte('event_date', todayStr).order('event_date', { ascending: true });
+      const ok = await loadAll(monthStart(calY, calM));
       clearSkeleton(listEl);
-      if (error) { const e = document.getElementById('empty'); e.style.display = 'block'; document.getElementById('emptyMsg').textContent = '일시적 오류로 불러오지 못했습니다. 잠시 후 새로고침해주세요.'; console.error(error); return; }
-      all = (data || []).filter(visible);
-      // 나에게만 지정된 일정(명단 지정) — 토큰으로 서버에서 받아 병합 후 날짜순 정렬
-      if (profile.token) {
-        try {
-          const { data: mine } = await supabase.rpc('my_targeted_calendar', { p_token: profile.token });
-          if (Array.isArray(mine) && mine.length) {
-            const seen = new Set(all.map(r => r.title + '|' + r.event_date));
-            mine.forEach(r => { if (!seen.has(r.title + '|' + r.event_date)) all.push(r); });
-            all.sort((a, b) => (a.event_date < b.event_date ? -1 : a.event_date > b.event_date ? 1 : 0));
-          }
-        } catch (_) {}
-      }
+      if (!ok) { const e = document.getElementById('empty'); e.style.display = 'block'; document.getElementById('emptyMsg').textContent = '일시적 오류로 불러오지 못했습니다. 잠시 후 새로고침해주세요.'; return; }
+      renderCal();
       if (!all.length) {
         const em = document.getElementById('empty'); em.style.display = 'block';
         if (!profile.name) document.getElementById('emptyMsg').innerHTML = '내 정보가 이 기기에 없어 맞춤 일정이 안 보일 수 있어요.<br/><a href="./index.html">홈에서 정보 입력하기</a>';
+        window.lucide?.createIcons();
         return;
       }
       buildChips();
-      render();
+      renderList();
+      window.lucide?.createIcons();
     })();
   </script>
 </body>
