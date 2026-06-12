@@ -39,6 +39,7 @@
           <a href="./notice.html"   class="menu-tile"><span class="mi"><i data-lucide="megaphone"></i></span><span class="ml">공지사항</span></a>
           <a href="./library.html"  class="menu-tile"><span class="mi"><i data-lucide="folder"></i></span><span class="ml">자료실</span></a>
           <a href="./calendar.html" class="menu-tile"><span class="mi"><i data-lucide="calendar-days"></i></span><span class="ml">일정</span></a>
+          <a href="./mycompany.html" id="m-myco" class="menu-tile" style="display:none"><span class="mi"><i data-lucide="building-2"></i></span><span class="ml">내 학습기업</span></a>
         </div>
         <p class="menu-group-label">소통·참여</p>
         <div class="menu-grid">
@@ -242,6 +243,8 @@
       } else {
         document.getElementById('home').style.display = 'block';
         document.getElementById('home-name').textContent = `${_prof.name}님, 환영합니다`;
+        // 소속 기업이 있으면 '내 학습기업' 타일 표시
+        if (_prof.company) { const mc = document.getElementById('m-myco'); if (mc) mc.style.display = ''; }
         // 만족도 설문: 학생=survey.html, 기업담당자=company-survey.html, 그 외(지원자 등)는 숨김
         if (_prof.target_type && _prof.target_type !== 'student' && _prof.target_type !== 'company') { const s = document.getElementById('m-survey'); if (s) s.style.display = 'none'; }
         // 기업 담당자: 이름 옆 역할 표기 + 진행단계 카드 + 기업용 만족도

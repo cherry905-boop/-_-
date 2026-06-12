@@ -390,6 +390,42 @@
     </div>
 
     <!-- 개인 지정 공지 작성 모달 (가입자 표에서 선택한 사람들에게 비공개 발송) -->
+    <!-- 기업 정보 입력 모달 (company_info — mycompany.html '회사·학습 안내'에 표시) -->
+    <div class="modal-veil" id="ci-veil" style="display:none">
+      <div class="modal" style="width:520px">
+        <h3 id="ci-title">기업 정보</h3>
+        <p style="margin:0 0 12px" class="note">입력한 내용은 그 기업 학생·담당자의 '내 학습기업' 화면에 표시돼요. <b>안내 정보만</b> — 앱은 출결을 기록하지 않습니다.</p>
+        <label style="font-size:13px;font-weight:700">훈련시간표</label>
+        <textarea id="ci-schedule" class="ph-ta" rows="3" style="width:100%;margin:4px 0 10px" placeholder="예: OJT 매주 화·목 09:00~18:00"></textarea>
+        <label style="font-size:13px;font-weight:700">비콘 시간표 안내</label>
+        <textarea id="ci-beacon" class="ph-ta" rows="2" style="width:100%;margin:4px 0 10px" placeholder="예: 비콘 태그 가능 시간 08:30~18:30 (현장 게이트)"></textarea>
+        <label style="font-size:13px;font-weight:700">출퇴근 안내</label>
+        <textarea id="ci-commute" class="ph-ta" rows="2" style="width:100%;margin:4px 0 10px" placeholder="예: HRD-Net 출퇴근 입력 방법·셔틀 안내 등"></textarea>
+        <label style="font-size:13px;font-weight:700">기타 안내</label>
+        <textarea id="ci-extra" class="ph-ta" rows="2" style="width:100%;margin:4px 0 0" placeholder="복장·주차·식사 등"></textarea>
+        <div class="status" id="ci-status"></div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px">
+          <button class="mju-btn mju-btn--secondary" id="ci-cancel">취소</button>
+          <button class="mju-btn" id="ci-save">저장</button>
+        </div>
+      </div>
+    </div>
+    <!-- 기업별 공지(공지방 글쓰기) 모달 -->
+    <div class="modal-veil" id="cn-veil" style="display:none">
+      <div class="modal" style="width:480px">
+        <h3 id="cn-title">기업 공지</h3>
+        <p style="margin:0 0 12px" class="note">이 기업의 학생·담당자에게만 보이는 공지예요('내 학습기업 > 우리 회사 소식'과 공지 페이지에 표시 + 푸시 발송).</p>
+        <label style="font-size:13px;font-weight:700">제목</label>
+        <input type="text" id="cn-ntitle" placeholder="공지 제목" style="width:100%;margin:4px 0 12px;padding:10px 12px;border:1px solid var(--line);border-radius:9px" />
+        <label style="font-size:13px;font-weight:700">내용</label>
+        <textarea id="cn-body" class="ph-ta" rows="4" style="width:100%"></textarea>
+        <div class="status" id="cn-status"></div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px">
+          <button class="mju-btn mju-btn--secondary" id="cn-cancel">취소</button>
+          <button class="mju-btn mju-btn--gold" id="cn-send">발행</button>
+        </div>
+      </div>
+    </div>
     <div class="modal-veil" id="pv-veil" style="display:none">
       <div class="modal" style="width:480px">
         <h3>선택한 <span id="pv-n">0</span>명에게 개인 공지</h3>
@@ -1868,6 +1904,58 @@
 
     // ===== 학습기업 진행단계 + 기업 코드 =====
     let coStageMap = {}, coCodeMap = {}, stagesReady = false, coCodesReady = false;
+    let ciMap = {}, ciReady = false, ciCompany = null, cnCompany = null;   // 기업 정보·기업 공지 모달 상태
+    function openCiModal(co) {
+      ciCompany = co;
+      $('ci-title').textContent = co + ' — 기업 정보';
+      const c = ciMap[co] || {};
+      $('ci-schedule').value = c.schedule || ''; $('ci-beacon').value = c.beacon || '';
+      $('ci-commute').value = c.commute || ''; $('ci-extra').value = c.extra || '';
+      setStatus($('ci-status'), ciReady ? '' : 'sql/18_company_info.sql 실행 전이라 저장이 안 될 수 있어요.', ciReady ? 'info' : 'error');
+      $('ci-veil').style.display = 'flex';
+    }
+    $('ci-cancel').addEventListener('click', () => { $('ci-veil').style.display = 'none'; });
+    $('ci-veil').addEventListener('click', e => { if (e.target === $('ci-veil')) $('ci-veil').style.display = 'none'; });
+    $('ci-save').addEventListener('click', async () => {
+      if (!ciCompany) return;
+      const row = {
+        company: ciCompany,
+        schedule: $('ci-schedule').value.trim() || null, beacon: $('ci-beacon').value.trim() || null,
+        commute: $('ci-commute').value.trim() || null, extra: $('ci-extra').value.trim() || null,
+        updated_at: new Date().toISOString()
+      };
+      $('ci-save').disabled = true; setStatus($('ci-status'), '저장 중...', 'info');
+      const { error } = await supabase.from('company_info').upsert(row);
+      $('ci-save').disabled = false;
+      if (error) { setStatus($('ci-status'), tblMissing(error.message) ? 'sql/18_company_info.sql 실행이 필요해요.' : '오류: ' + (error.message || error), 'error'); return; }
+      ciMap[ciCompany] = row; ciReady = true;
+      logAction('기업정보저장', ciCompany);
+      setStatus($('ci-status'), '✅ 저장했습니다 — 해당 기업의 내 학습기업 화면에 표시돼요.', 'ok');
+    });
+    function openCnModal(co) {
+      cnCompany = co;
+      $('cn-title').textContent = co + ' — 기업 공지';
+      $('cn-ntitle').value = ''; $('cn-body').value = '';
+      setStatus($('cn-status'), '', 'info');
+      $('cn-veil').style.display = 'flex';
+    }
+    $('cn-cancel').addEventListener('click', () => { $('cn-veil').style.display = 'none'; });
+    $('cn-veil').addEventListener('click', e => { if (e.target === $('cn-veil')) $('cn-veil').style.display = 'none'; });
+    $('cn-send').addEventListener('click', async () => {
+      if (!cnCompany) return;
+      const title = $('cn-ntitle').value.trim(), body = $('cn-body').value.trim();
+      if (!title || !body) { setStatus($('cn-status'), '제목·내용을 입력하세요.', 'error'); return; }
+      $('cn-send').disabled = true; setStatus($('cn-status'), '발행 중...', 'info');
+      const { error } = await supabase.from('notices').insert({
+        title, body, target_scope: 'custom',
+        target_value: JSON.stringify({ targets: [], jobs: [], companies: [cnCompany], types: [], managers: [] }),
+        published: true, created_by: null
+      });
+      $('cn-send').disabled = false;
+      if (error) { setStatus($('cn-status'), '오류: ' + (error.message || error), 'error'); return; }
+      kickPush(); logAction('기업공지', cnCompany + ' · ' + title); nLoad();
+      setStatus($('cn-status'), '✅ 발행했습니다 — 해당 기업 구성원에게 푸시가 나갑니다.', 'ok');
+    });
     async function issueCoCode(company) {
       for (let i = 0; i < 2; i++) {
         const code = genCode();
@@ -1887,6 +1975,11 @@
       try {
         const { data, error } = await supabase.from('company_codes').select('company,code,active');
         if (!error) { coCodesReady = true; (data || []).forEach(r => { if (r.active) coCodeMap[r.company] = r.code; }); }
+      } catch (_) {}
+      ciMap = {}; ciReady = false;
+      try {
+        const { data, error } = await supabase.from('company_info').select('company,beacon,commute,schedule,extra');
+        if (!error) { ciReady = true; (data || []).forEach(r => { ciMap[r.company] = r; }); }
       } catch (_) {}
       const el = $('st-list'); el.innerHTML = '';
       if (!stagesReady) { el.innerHTML = '<p class="note">진행단계 테이블이 없어요 — sql/04_stages.sql 을 실행하면 켜집니다.' + (coCodesReady ? '' : ' (기업 코드는 sql/02_codes.sql)') + '</p>'; return; }
@@ -1938,6 +2031,15 @@
           });
         }
         row.appendChild(codeBtn);
+        // 기업 정보(내 학습기업 화면용) + 기업별 공지(공지방 글쓰기)
+        const infoBtn = document.createElement('button'); infoBtn.type = 'button'; infoBtn.className = 'phone-btn';
+        infoBtn.innerHTML = `<i data-lucide="info"></i>정보${ciMap[co] ? '' : ' 입력'}`;
+        infoBtn.addEventListener('click', () => openCiModal(co));
+        row.appendChild(infoBtn);
+        const noticeBtn = document.createElement('button'); noticeBtn.type = 'button'; noticeBtn.className = 'phone-btn';
+        noticeBtn.innerHTML = '<i data-lucide="megaphone"></i>공지';
+        noticeBtn.addEventListener('click', () => openCnModal(co));
+        row.appendChild(noticeBtn);
         el.appendChild(row);
       });
       if (window.lucide) window.lucide.createIcons();

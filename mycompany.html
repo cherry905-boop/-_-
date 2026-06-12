@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>내 학습기업 · 일학습병행 앱</title>
+  <link rel="manifest" href="./manifest.json" />
+  <meta name="theme-color" content="#002968" />
+  <link rel="apple-touch-icon" href="./icons/icon-192.png" />
+  <link rel="stylesheet" href="./styles.css" />
+  <script src="./config.js"></script>
+  <style>
+    .info-block{margin-top:12px}
+    .info-block .ib-t{font-weight:700;font-size:13.5px;color:var(--text-secondary);display:flex;align-items:center;gap:6px}
+    .info-block .ib-t [data-lucide]{width:16px;height:16px}
+    .info-block .ib-b{white-space:pre-wrap;font-size:14px;line-height:1.6;margin-top:4px;
+      background:var(--surface-sunken);border-radius:10px;padding:10px 12px}
+    .ct-row{display:flex;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid var(--gray-100);font-size:14px}
+    .ct-row:last-child{border-bottom:0}
+    .ct-row .role{color:var(--text-muted);font-size:13px;flex-shrink:0}
+    .nt-item{display:block;padding:10px 0;border-bottom:1px solid var(--gray-100);text-decoration:none;color:inherit}
+    .nt-item:last-of-type{border-bottom:0}
+    .nt-item b{font-size:14px}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="ph-header">
+      <img class="wm" src="./assets/logo-mono-white.png" alt="" />
+      <div class="ph-lockup"><img src="./assets/logo-mono-white.png" alt="" /><span>일학습병행 공동훈련센터</span></div>
+      <div class="ph-title-row"><a class="ph-back" href="./index.html" aria-label="뒤로"><i data-lucide="chevron-left"></i></a><h1 class="ph-title">내 학습기업</h1></div>
+      <p class="ph-sub" id="co-name"></p>
+    </header>
+    <main class="ph-body">
+      <div id="gate" style="display:none" class="card">
+        <span class="ei" style="margin:0 auto 10px"><i data-lucide="building-2"></i></span>
+        <p class="ph-card-title" style="text-align:center">소속 기업 정보가 없어요</p>
+        <p class="ph-note" style="text-align:center">매칭학생·기업 담당자로 가입(또는 내 정보 불러오기)하면 우리 회사 정보를 볼 수 있어요.</p>
+        <a href="./index.html" class="mju-btn mju-btn--secondary mju-btn--full" style="margin-top:14px">홈에서 정보 입력하기</a>
+      </div>
+      <div id="body" style="display:none">
+        <!-- 1. 진행 현황 (my_company_stage, 데이터 없으면 미표시) -->
+        <div id="stage-mount"></div>
+        <!-- 2. 담당자 -->
+        <div class="card" id="card-contacts" style="display:none">
+          <p class="ph-card-title"><i data-lucide="users"></i> 우리 회사 담당자</p>
+          <div id="contacts"></div>
+          <p class="note" style="margin-top:8px">연락이 필요하면 운영팀 <a href="./consult.html">1:1 상담</a>을 이용해주세요.</p>
+        </div>
+        <!-- 3. 회사·학습 안내 -->
+        <div class="card" id="card-info" style="display:none">
+          <p class="ph-card-title"><i data-lucide="info"></i> 회사·학습 안내</p>
+          <div id="info"></div>
+          <p class="note" style="margin-top:10px">출퇴근·비콘 안내는 참고용 정보예요 (앱은 출결을 기록하지 않습니다).</p>
+        </div>
+        <!-- 4. 우리 회사 자료 (내부평가 문제지 등) -->
+        <div class="card" id="card-lib" style="display:none">
+          <p class="ph-card-title"><i data-lucide="folder"></i> 우리 회사 자료</p>
+          <div id="lib"></div>
+          <p class="note" style="margin-top:8px"><a href="./library.html">자료실 전체 보기</a></p>
+        </div>
+        <!-- 5. 우리 회사 소식 (기업별 공지방) -->
+        <div class="card" id="card-news">
+          <p class="ph-card-title"><i data-lucide="megaphone"></i> 우리 회사 소식</p>
+          <div id="news"><p class="note">불러오는 중...</p></div>
+          <p class="note" style="margin-top:8px"><a href="./notice.html">전체 공지 보기</a></p>
+        </div>
+      </div>
+      <a href="./index.html" class="mju-btn mju-btn--secondary mju-btn--full" style="margin-top:auto">홈으로</a>
+    </main>
+  </div>
+
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <script type="module">
+    import { supabase, configReady, esc, matchSel, normCo } from './app.js';
+    if (window.lucide) window.lucide.createIcons();
+    const $ = id => document.getElementById(id);
+    let profile = {}; try { profile = JSON.parse(localStorage.getItem('ilhak_profile') || '{}'); } catch (_) {}
+
+    if (!profile.company || !configReady()) {
+      $('gate').style.display = 'block';
+      window.lucide?.createIcons();
+    } else {
+      $('body').style.display = 'block';
+      $('co-name').textContent = profile.company;
+      loadStage(); loadInfo(); loadLib(); loadNews();
+    }
+
+    // 1. 진행 현황 — index.html renderCompanyStage와 동일 렌더
+    async function loadStage() {
+      let cs = null;
+      try {
+        const res = await supabase.rpc('my_company_stage', { p_company: profile.company });
+        if (res.error || !res.data) return;
+        cs = res.data;
+      } catch (_) { return; }
+      const STAGES = window.COMPANY_STAGES || [];
+      const idx = STAGES.findIndex(s => s.key === cs.stage_key);
+      if (idx < 0) return;
+      const rows = STAGES.map((s, i) => {
+        const cls = i < idx ? 'done' : i === idx ? 'now' : 'todo';
+        const dot = i < idx ? '<i data-lucide="check"></i>' : i === idx ? '<i data-lucide="play"></i>' : '';
+        const memo = (i === idx && cs.memo) ? `<div class="stage-s">${esc(cs.memo)}</div>` : '';
+        const line = i < STAGES.length - 1 ? '<span class="stage-line"></span>' : '';
+        return `<div class="stage-item ${cls}"><span class="stage-col"><span class="stage-dot">${dot}</span>${line}</span>` +
+               `<div class="stage-body"><div class="stage-t">${s.label}${i === idx ? ' <span class="mju-badge">진행 중</span>' : ''}</div>${memo}</div></div>`;
+      }).join('');
+      const card = document.createElement('div');
+      card.className = 'card accent';
+      card.innerHTML = `<p class="ph-card-title"><i data-lucide="route"></i> 진행 현황</p><div class="stage-list">${rows}</div>`;
+      $('stage-mount').appendChild(card);
+      window.lucide?.createIcons();
+    }
+
+    // 2+3. 담당자 이름·직책 + 회사·학습 안내 (my_company_info RPC — 연락처는 서버에서 반환하지 않음)
+    const ROLE_LABEL = r => r === 'hrd' ? 'HRD담당자' : /^teacher/.test(r || '') ? '기업현장교사' : (r || '담당자');
+    async function loadInfo() {
+      let d = null;
+      try {
+        const res = await supabase.rpc('my_company_info', { p_company: profile.company });
+        if (res.error || !res.data) return;
+        d = res.data;
+      } catch (_) { return; }
+      const cts = d.contacts || [];
+      if (cts.length) {
+        $('card-contacts').style.display = 'block';
+        let teacherN = 0;
+        const tTotal = cts.filter(c => /^teacher/.test(c.role || '')).length;
+        $('contacts').innerHTML = cts.map(c => {
+          let label = ROLE_LABEL(c.role);
+          if (/^teacher/.test(c.role || '') && tTotal > 1) label += ' ' + (++teacherN);
+          return `<div class="ct-row"><b>${esc(c.name)}</b><span class="role">${esc(label)}</span></div>`;
+        }).join('');
+      }
+      const info = d.info || {};
+      const blocks = [
+        ['schedule', 'calendar-clock', '훈련시간표'],
+        ['beacon', 'radio', '비콘 시간표 안내'],
+        ['commute', 'clock', '출퇴근 안내'],
+        ['extra', 'sticky-note', '기타 안내'],
+      ].filter(([k]) => info[k]);
+      if (blocks.length) {
+        $('card-info').style.display = 'block';
+        $('info').innerHTML = blocks.map(([k, ic, label]) =>
+          `<div class="info-block"><div class="ib-t"><i data-lucide="${ic}"></i>${label}</div><div class="ib-b">${esc(info[k])}</div></div>`).join('');
+      }
+      window.lucide?.createIcons();
+    }
+
+    // 4. 우리 회사 자료 — 자료실(custom 타게팅) 중 내 기업 매칭 행 (library.html visible() 서브셋)
+    async function loadLib() {
+      let data = null;
+      try {
+        const res = await supabase.from('library').select('id,title,kind,url,job_key,created_at').eq('published', true).order('created_at', { ascending: false }).limit(100);
+        if (res.error) return; data = res.data;
+      } catch (_) { return; }
+      const mine = (data || []).filter(r => {
+        if (!r.job_key || r.job_key.indexOf('custom:') !== 0) return false;
+        try {
+          const sel = JSON.parse(r.job_key.slice(7));
+          return (sel.companies || []).some(c => normCo(c) === normCo(profile.company));
+        } catch (_) { return false; }
+      });
+      if (!mine.length) return;
+      $('card-lib').style.display = 'block';
+      $('lib').innerHTML = mine.slice(0, 8).map(r =>
+        `<a class="nt-item" href="${esc(r.url || './library.html')}" target="_blank" rel="noopener"><b>${esc(r.title)}</b>${r.kind ? ` <span class="note">${esc(r.kind)}</span>` : ''}</a>`).join('');
+    }
+
+    // 5. 우리 회사 소식 — 기업 타게팅 공지만 (scope 'company' 일치 또는 custom.companies 포함)
+    function isMyCompanyNotice(n) {
+      if (n.target_scope === 'company') return normCo(n.target_value) === normCo(profile.company);
+      if (n.target_scope === 'custom') {
+        try { return ((JSON.parse(n.target_value || '{}').companies) || []).some(c => normCo(c) === normCo(profile.company)); }
+        catch (_) { return false; }
+      }
+      return false;
+    }
+    async function loadNews() {
+      let data = null;
+      try {
+        const res = await supabase.from('notices').select('id,title,body,target_scope,target_value,created_at').eq('published', true).order('created_at', { ascending: false }).limit(100);
+        if (res.error) { $('news').innerHTML = '<p class="note">소식을 불러오지 못했어요.</p>'; return; }
+        data = res.data;
+      } catch (_) { return; }
+      const mine = (data || []).filter(isMyCompanyNotice).slice(0, 5);
+      if (!mine.length) { $('news').innerHTML = '<p class="note">아직 우리 회사 대상 소식이 없어요.</p>'; return; }
+      $('news').innerHTML = mine.map(n =>
+        `<a class="nt-item" href="./notice.html"><b>${esc(n.title)}</b><div class="note" style="margin-top:2px">${esc((n.body || '').slice(0, 60))}${(n.body || '').length > 60 ? '…' : ''}</div><div class="note">${new Date(n.created_at).toLocaleDateString('ko-KR')}</div></a>`).join('');
+    }
+  </script>
+</body>
+</html>
