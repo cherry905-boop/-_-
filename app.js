@@ -21,6 +21,56 @@ export function getQueryParam(name) {
   return new URLSearchParams(location.search).get(name) || '';
 }
 
+// [P1] 활성 센터 슬러그 — config.js 의 부트스트랩이 정함(?center > localStorage > 기본 mju).
+// ⚠️ 표시·컨텍스트용일 뿐 권한 근거가 아니다. 데이터 귀속은 서버(초대코드 RPC)가 정한다.
+export function getCenter() {
+  return (window.CENTER_SLUG || window.DEFAULT_CENTER || 'mju');
+}
+// 같은 센터 컨텍스트를 유지하는 내부 링크 헬퍼(공유용 URL 등 첫 진입에 센터를 실어줄 때).
+// 페이지 내 이동은 localStorage 로 이미 유지되므로 일반 <a> 에는 불필요.
+export function centerUrl(path) {
+  try {
+    const u = new URL(path, location.href);
+    u.searchParams.set('center', getCenter());
+    return (u.pathname.split('/').pop() || 'index.html') + u.search;
+  } catch (_) { return path; }
+}
+
+// [P3] 활성 센터의 uuid — `center_id_for_slug` RPC(sql/19)로 1회 해석 후 캐시.
+// 마이그레이션 전에는 RPC 가 없어 null → 공개읽기 스코프 미적용 = 파일럿 동일.
+// 적용 후에는 공개읽기를 자기 센터로 좁힌다(공개 콘텐츠라 클라 필터로 충분).
+let _centerIdCache;
+export async function getCenterId() {
+  if (_centerIdCache !== undefined) return _centerIdCache;
+  _centerIdCache = null;
+  if (supabase) {
+    try {
+      const { data, error } = await supabase.rpc('center_id_for_slug', { p_slug: getCenter() });
+      if (!error && data) _centerIdCache = data;
+    } catch (_) {}
+  }
+  return _centerIdCache;
+}
+
+// [P3/P4] 활성 센터의 설정을 DB(centers)에서 로드 → APP_CONFIG 키 형태로 반환.
+// centers 테이블/행이 없거나(=마이그레이션 전) 오류면 null → 호출부는 config.js 정적값으로 폴백.
+// 이렇게 하면 라이브 적용 전엔 기존 동작 그대로, 적용 후 자동으로 센터별 값이 반영된다.
+export async function loadCenterConfig() {
+  if (!supabase) return null;
+  try {
+    const { data, error } = await supabase.from('centers')
+      .select('name,app_title,privacy_officer,privacy_officer_contact,privacy_effective_date,privacy_retention,privacy_retention_applicant,privacy_transfer')
+      .eq('slug', getCenter()).maybeSingle();
+    if (error || !data) return null;
+    return {
+      CENTER_NAME: data.name, APP_TITLE: data.app_title,
+      PRIVACY_OFFICER: data.privacy_officer, PRIVACY_OFFICER_CONTACT: data.privacy_officer_contact,
+      PRIVACY_EFFECTIVE_DATE: data.privacy_effective_date, PRIVACY_RETENTION: data.privacy_retention,
+      PRIVACY_RETENTION_APPLICANT: data.privacy_retention_applicant, PRIVACY_TRANSFER: data.privacy_transfer,
+    };
+  } catch (_) { return null; }
+}
+
 // 홈 화면에 추가(설치)된 상태로 실행 중인가?
 export function isStandalone() {
   return window.matchMedia('(display-mode: standalone)').matches
@@ -143,9 +193,10 @@ export async function unreadNoticeCount() {
   const profile = getProfile();
   if (!profile.name) return 0;
   try {
-    const { data, error } = await supabase.from('notices')
-      .select('id,target_scope,target_value')
-      .eq('published', true).order('created_at', { ascending: false }).limit(100);
+    const cid = await getCenterId();                         // [P3] 센터 스코프(가능할 때만)
+    let q = supabase.from('notices').select('id,target_scope,target_value').eq('published', true);
+    if (cid) q = q.eq('center_id', cid);
+    const { data, error } = await q.order('created_at', { ascending: false }).limit(100);
     if (error || !data) return 0;
     const read = getReadSet();
     return data.filter(n => noticeMatches(n, profile) && !read.has(n.id)).length;

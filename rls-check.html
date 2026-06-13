@@ -47,9 +47,9 @@
     const results = document.getElementById('results');
 
     // 익명이 절대 읽으면 안 되는 테이블들 (개인정보 포함)
-    const MUST_BE_BLOCKED = ['students', 'registrations', 'push_logs', 'push_tokens', 'consultations', 'consultation_messages', 'survey_responses', 'deletion_log', 'sync_log', 'notice_recipients', 'company_contacts', 'survey_answers', 'poll_votes', 'company_info'];
+    const MUST_BE_BLOCKED = ['students', 'registrations', 'push_logs', 'push_tokens', 'consultations', 'consultation_messages', 'survey_responses', 'deletion_log', 'sync_log', 'notice_recipients', 'company_contacts', 'survey_answers', 'poll_votes', 'company_info', 'admin_users'];
     // 익명이 "공개분만" 읽어야 하는 테이블 (의도된 공개 — 읽히는 게 정상)
-    const PUBLIC_OK = ['notices', 'library', 'calendar_events', 'jobs', 'companies', 'surveys', 'polls'];
+    const PUBLIC_OK = ['notices', 'library', 'calendar_events', 'jobs', 'companies', 'surveys', 'polls', 'centers'];
 
     document.getElementById('run').addEventListener('click', async () => {
       if (!configReady()) { results.innerHTML = '<div class="mju-alert mju-alert--warning"><span class="mju-alert__icon"><i data-lucide="alert-triangle"></i></span><div class="mju-alert__body"><div class="mju-alert__text">config.js 의 Supabase 값을 먼저 채워주세요.</div></div></div>'; window.lucide?.createIcons(); return; }

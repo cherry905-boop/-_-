@@ -37,7 +37,7 @@
 
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   <script type="module">
-    import { supabase, configReady, setStatus, friendlyError, esc, matchSel } from './app.js';
+    import { supabase, configReady, setStatus, friendlyError, esc, matchSel, getCenterId } from './app.js';
     if (window.lucide) window.lucide.createIcons();
     const $ = id => document.getElementById(id);
     let profile = {}; try { profile = JSON.parse(localStorage.getItem('ilhak_profile') || '{}'); } catch (_) {}
@@ -58,9 +58,10 @@
         window.lucide?.createIcons(); return;
       }
       if (!configReady()) { listEl.innerHTML = '<div class="card"><p class="note">Supabase 연결이 필요합니다.</p></div>'; return; }
-      const { data, error } = await supabase.from('polls')
-        .select('id,question,description,options,target_scope,target_value,multi,results_public,open,close_at,created_at')
-        .order('created_at', { ascending: false }).limit(50);
+      const cid = await getCenterId();                          // [P3] 센터 스코프(가능할 때만)
+      let pq = supabase.from('polls').select('id,question,description,options,target_scope,target_value,multi,results_public,open,close_at,created_at');
+      if (cid) pq = pq.eq('center_id', cid);
+      const { data, error } = await pq.order('created_at', { ascending: false }).limit(50);
       if (error) {
         listEl.innerHTML = '<div class="card"><p class="note">' + (/relation|does not exist|schema cache/i.test(error.message || '') ? '투표 기능이 아직 준비 중이에요. (관리자: sql/17 실행 필요)' : '투표를 불러오지 못했어요 — ' + esc(error.message)) + '</p></div>';
         return;

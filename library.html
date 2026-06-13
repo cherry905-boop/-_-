@@ -38,7 +38,7 @@
 
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   <script type="module">
-    import { supabase, configReady, esc, getProfile, matchSel, skeletonList, clearSkeleton } from './app.js';
+    import { supabase, configReady, esc, getProfile, matchSel, skeletonList, clearSkeleton, getCenterId } from './app.js';
     if (window.lucide) window.lucide.createIcons();
 
     const profile = getProfile();
@@ -58,15 +58,45 @@
     const PAGE = 10;
     let all = [], filtered = [], shownCount = 0, kindSel = '';
 
+    // [P2] 비공개 버킷 자료는 서버 서명기로 다운로드.
+    //  - r.url 이 http(s) 공개 URL/외부 링크면 그대로 사용(기존·외부 링크 = 회귀 없음).
+    //  - r.url 이 path 형(예: 'mju/lib/..')이면 Edge Function(sign-library)으로 60초 서명 URL 요청.
+    //    (버킷 비공개 전환 + 함수 배포 전에는 path형 행이 없으므로 이 분기는 비활성 = 파일럿 무해.)
+    const isPathUrl = (u) => !!u && !/^https?:\/\//i.test(u);
+    async function signedHref(r) {
+      const base = (window.APP_CONFIG || {}).SUPABASE_URL;
+      if (!base || !r || r.id == null) return null;
+      try {
+        const res = await fetch(base.replace(/\/$/, '') + '/functions/v1/sign-library', {
+          method: 'POST', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ rowId: r.id, token: profile.token || null, code: profile.code || null }),
+        });
+        if (!res.ok) return null;
+        const j = await res.json();
+        return j && j.url ? j.url : null;
+      } catch (_) { return null; }
+    }
     function cardFor(r) {
       const card = document.createElement('div');
       card.className = 'card';
       const badgeCls = KIND_BADGE[r.kind] || 'mju-badge--neutral';
+      const needsSign = isPathUrl(r.url);
       card.innerHTML =
         `<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">` +
         `<span class="mju-badge ${badgeCls}">${esc(r.kind)}</span>` +
         `<p class="ph-card-title" style="margin:0">${esc(r.title)}</p></div>` +
-        `<a href="${encodeURI(r.url)}" target="_blank" rel="noopener" class="mju-btn mju-btn--sm mju-btn--full" style="text-decoration:none"><i data-lucide="external-link"></i>열기 / 다운로드</a>`;
+        `<a href="${needsSign ? '#' : encodeURI(r.url)}" target="_blank" rel="noopener" class="mju-btn mju-btn--sm mju-btn--full" style="text-decoration:none"><i data-lucide="external-link"></i>열기 / 다운로드</a>`;
+      if (needsSign) {
+        const a = card.querySelector('a');
+        a.addEventListener('click', async (e) => {
+          e.preventDefault();
+          a.setAttribute('aria-busy', 'true');
+          const url = await signedHref(r);
+          a.removeAttribute('aria-busy');
+          if (url) window.open(url, '_blank', 'noopener');
+          else alert('자료를 여는 권한을 확인하지 못했어요. 잠시 후 다시 시도하거나 담당자에게 문의해주세요.');
+        });
+      }
       return card;
     }
     function renderMore() {
@@ -122,8 +152,10 @@
     (async () => {
       if (!configReady()) { emptyEl.style.display = 'block'; return; }
       skeletonList(listEl, 3);
-      const { data, error } = await supabase.from('library')
-        .select('title,kind,url,job_key,created_at').eq('published', true).order('created_at', { ascending: false });
+      const cid = await getCenterId();                          // [P3] 센터 스코프(가능할 때만)
+      let lq = supabase.from('library').select('id,title,kind,url,job_key,created_at').eq('published', true);
+      if (cid) lq = lq.eq('center_id', cid);
+      const { data, error } = await lq.order('created_at', { ascending: false });
       clearSkeleton(listEl);
       if (error) {
         emptyEl.style.display = 'block';

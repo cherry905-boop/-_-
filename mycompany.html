@@ -72,7 +72,7 @@
 
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   <script type="module">
-    import { supabase, configReady, esc, matchSel, normCo } from './app.js';
+    import { supabase, configReady, esc, matchSel, normCo, getCenterId } from './app.js';
     if (window.lucide) window.lucide.createIcons();
     const $ = id => document.getElementById(id);
     let profile = {}; try { profile = JSON.parse(localStorage.getItem('ilhak_profile') || '{}'); } catch (_) {}
@@ -157,7 +157,10 @@
       const empty = '<p class="note">아직 등록된 자료가 없어요 — 내부평가 문제지·회사 자료가 등록되면 여기에 표시돼요.</p>';
       let data = null;
       try {
-        const res = await supabase.from('library').select('id,title,kind,url,job_key,created_at').eq('published', true).order('created_at', { ascending: false }).limit(100);
+        const cidL = await getCenterId();                       // [P3] 센터 스코프(가능할 때만)
+        let lq = supabase.from('library').select('id,title,kind,url,job_key,created_at').eq('published', true);
+        if (cidL) lq = lq.eq('center_id', cidL);
+        const res = await lq.order('created_at', { ascending: false }).limit(100);
         if (res.error) { $('lib').innerHTML = empty; return; }
         data = res.data;
       } catch (_) { $('lib').innerHTML = empty; return; }
@@ -185,7 +188,10 @@
     async function loadNews() {
       let data = null;
       try {
-        const res = await supabase.from('notices').select('id,title,body,target_scope,target_value,created_at').eq('published', true).order('created_at', { ascending: false }).limit(100);
+        const cidN = await getCenterId();                       // [P3] 센터 스코프(가능할 때만)
+        let nq = supabase.from('notices').select('id,title,body,target_scope,target_value,created_at').eq('published', true);
+        if (cidN) nq = nq.eq('center_id', cidN);
+        const res = await nq.order('created_at', { ascending: false }).limit(100);
         if (res.error) { $('news').innerHTML = '<p class="note">소식을 불러오지 못했어요.</p>'; return; }
         data = res.data;
       } catch (_) { return; }

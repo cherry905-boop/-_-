@@ -43,7 +43,7 @@
 
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   <script type="module">
-    import { supabase, configReady, esc, skeletonList, clearSkeleton } from './app.js';
+    import { supabase, configReady, esc, skeletonList, clearSkeleton, getCenterId } from './app.js';
     if (window.lucide) window.lucide.createIcons();
 
     const $ = id => document.getElementById(id);
@@ -123,11 +123,13 @@
       const todayStr = new Date().toISOString().slice(0, 10);
       let data = null;
       try {
-        const res = await supabase.from('job_postings')
+        const cid = await getCenterId();                        // [P3] 센터 스코프(가능할 때만)
+        let jq = supabase.from('job_postings')
           .select('company,job_key,title,region,intro,perks,deadline,created_at')
           .eq('published', true)
-          .or(`deadline.is.null,deadline.gte.${todayStr}`)
-          .order('created_at', { ascending: false });
+          .or(`deadline.is.null,deadline.gte.${todayStr}`);
+        if (cid) jq = jq.eq('center_id', cid);
+        const res = await jq.order('created_at', { ascending: false });
         if (!res.error) data = res.data;
       } catch (_) {}
       clearSkeleton(listEl);

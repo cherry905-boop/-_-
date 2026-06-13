@@ -4,6 +4,36 @@
  *  - 따옴표(' ') 안의 값만 바꾸고, 콤마/중괄호는 건드리지 마세요.
  * ===================================================================== */
 
+/* =====================================================================
+ *  [P1] 멀티테넌트 센터 컨텍스트 부트스트랩
+ *  - 모든 페이지가 config.js 를 가장 먼저(동기) 로드하므로 여기서 한 번만 정함.
+ *  - 활성 센터 식별 우선순위: URL ?center=slug  >  localStorage('ilhak_center')  >  기본값.
+ *  - 한 번 들어온 센터는 localStorage 에 저장 → 페이지 이동·PWA 재실행(홈화면 앱)에서도 유지.
+ *  ⚠️ window.CENTER_SLUG 는 '화면 표시·컨텍스트 힌트'일 뿐, 데이터 접근 권한의 근거가 아니다.
+ *     실제 센터 귀속(누가 어느 센터 데이터를 보는가)은 서버가 정한다 —
+ *     초대코드 기반 SECURITY DEFINER RPC 로 도출하며 클라이언트가 보낸 center 값은 신뢰하지 않는다.
+ * ===================================================================== */
+window.DEFAULT_CENTER = 'mju';   // 명지대(파일럿) — 센터 미지정 시 기본값
+
+// 순수 함수(브라우저·Node 양쪽에서 테스트 가능): 입력 3개로 슬러그 결정
+window.__resolveCenterSlug = function (fromUrl, saved, def) {
+  var SLUG_RE = /^[a-z0-9-]{1,40}$/;                 // 허용: 소문자/숫자/하이픈
+  var pick = (fromUrl || saved || def || 'mju').toString().trim().toLowerCase();
+  return SLUG_RE.test(pick) ? pick : (def || 'mju');
+};
+
+(function bootstrapCenter() {
+  var slug = window.DEFAULT_CENTER;
+  try {
+    var fromUrl = '', saved = '';
+    try { fromUrl = (new URLSearchParams(location.search).get('center') || ''); } catch (_) {}
+    try { saved = (localStorage.getItem('ilhak_center') || ''); } catch (_) {}
+    slug = window.__resolveCenterSlug(fromUrl, saved, window.DEFAULT_CENTER);
+    try { localStorage.setItem('ilhak_center', slug); } catch (_) {}   // 영속화(설치 후에도 유지)
+  } catch (_) {}
+  window.CENTER_SLUG = slug;
+})();
+
 window.APP_CONFIG = {
   // ── 1) Supabase 연결값 (Supabase 대시보드 > Project Settings > API 에서 복사) ──
   //    아직 없으면 placeholder 그대로 두고, README_SETUP.md 2번 순서대로 만든 뒤 붙여넣으세요.

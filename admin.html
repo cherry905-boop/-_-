@@ -919,7 +919,11 @@
       if (!LIB_EXTS.includes(ext)) { setStatus(statusEl, '허용되지 않는 파일 형식이에요 (' + LIB_EXTS.join('/') + ')', 'error'); return null; }
       if (file.size > 20 * 1024 * 1024) { setStatus(statusEl, '20MB 이하 파일만 올릴 수 있어요.', 'error'); return null; }
       setStatus(statusEl, '파일 올리는 중…', 'ok');
-      const mkPath = () => 'lib/' + Date.now() + '_' + crypto.randomUUID().slice(0, 8) + '.' + ext;
+      // [P2] 센터별 경로 접두사 — 자료를 센터 폴더로 격리(예: mju/lib/...).
+      // 기존 공개 URL 행과 호환(탐지/삭제 정규식은 /library/ 뒤 전체 경로를 그대로 캡처).
+      // ⚠️ 진짜 교차센터 차단은 '비공개 버킷 + 서버측 서명 URL'(sql/20 + P7 서명기) 적용 후 완성.
+      const center = (window.CENTER_SLUG || 'mju');
+      const mkPath = () => center + '/lib/' + Date.now() + '_' + crypto.randomUUID().slice(0, 8) + '.' + ext;
       let path = mkPath();
       let r = await supabase.storage.from('library').upload(path, file, { upsert: false });
       if (r.error && /exists|duplicate/i.test(r.error.message || '')) { path = mkPath(); r = await supabase.storage.from('library').upload(path, file, { upsert: false }); }

@@ -35,7 +35,7 @@
 
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   <script type="module">
-    import { supabase, configReady, esc, skeletonList, clearSkeleton } from './app.js';
+    import { supabase, configReady, esc, skeletonList, clearSkeleton, getCenterId } from './app.js';
     if (window.lucide) window.lucide.createIcons();
 
     const $ = id => document.getElementById(id);
@@ -87,9 +87,10 @@
       skeletonList(listEl, 2);
       let data = null;
       try {
-        const res = await supabase.from('success_cases')
-          .select('title,job_key,company,body,created_at')
-          .eq('published', true).order('created_at', { ascending: false });
+        const cid = await getCenterId();                        // [P3] 센터 스코프(가능할 때만)
+        let scq = supabase.from('success_cases').select('title,job_key,company,body,created_at').eq('published', true);
+        if (cid) scq = scq.eq('center_id', cid);
+        const res = await scq.order('created_at', { ascending: false });
         if (!res.error) data = res.data;
       } catch (_) {}
       clearSkeleton(listEl);

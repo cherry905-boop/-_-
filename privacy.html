@@ -90,17 +90,24 @@
     </main>
   </div>
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
-  <script>
+  <script type="module">
+    import { loadCenterConfig } from './app.js';
     if (window.lucide) window.lucide.createIcons();
-    const cfg = window.APP_CONFIG || {};
-    document.getElementById('center').textContent = cfg.CENTER_NAME || '';
-    if (cfg.CENTER_NAME) document.getElementById('org').textContent = cfg.CENTER_NAME;
-    if (cfg.PRIVACY_RETENTION) document.getElementById('retention').textContent = cfg.PRIVACY_RETENTION;
-    if (cfg.PRIVACY_RETENTION_APPLICANT) document.getElementById('retentionApplicant').textContent = cfg.PRIVACY_RETENTION_APPLICANT;
-    if (cfg.PRIVACY_TRANSFER) document.getElementById('transfer').textContent = cfg.PRIVACY_TRANSFER + ', Notion Labs, Inc.(미국)';
-    if (cfg.PRIVACY_OFFICER) document.getElementById('officer').textContent = cfg.PRIVACY_OFFICER;
-    if (cfg.PRIVACY_OFFICER_CONTACT) document.getElementById('officerContact').textContent = cfg.PRIVACY_OFFICER_CONTACT;
-    if (cfg.PRIVACY_EFFECTIVE_DATE) document.getElementById('effectiveDate').textContent = cfg.PRIVACY_EFFECTIVE_DATE;
+    const set = (id, v) => { if (v) document.getElementById(id).textContent = v; };
+    // [P4] 센터별 처리방침: APP_CONFIG(정적)로 먼저 렌더 → DB(centers) 값이 있으면 덮어쓰기(폴백 우선).
+    function apply(cfg) {
+      if (!cfg) return;
+      document.getElementById('center').textContent = cfg.CENTER_NAME || '';
+      set('org', cfg.CENTER_NAME);
+      set('retention', cfg.PRIVACY_RETENTION);
+      set('retentionApplicant', cfg.PRIVACY_RETENTION_APPLICANT);
+      if (cfg.PRIVACY_TRANSFER) document.getElementById('transfer').textContent = cfg.PRIVACY_TRANSFER + ', Notion Labs, Inc.(미국)';
+      set('officer', cfg.PRIVACY_OFFICER);
+      set('officerContact', cfg.PRIVACY_OFFICER_CONTACT);
+      set('effectiveDate', cfg.PRIVACY_EFFECTIVE_DATE);
+    }
+    apply(window.APP_CONFIG || {});                 // 정적 폴백(마이그레이션 전 = 현행 그대로)
+    try { const db = await loadCenterConfig(); if (db) apply(db); } catch (_) {}  // 센터별 DB값 우선
   </script>
 </body>
 </html>

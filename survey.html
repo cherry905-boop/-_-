@@ -69,7 +69,7 @@
 
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   <script type="module">
-    import { supabase, configReady, setStatus, friendlyError, esc, matchSel } from './app.js';
+    import { supabase, configReady, setStatus, friendlyError, esc, matchSel, getCenterId } from './app.js';
     import { renderQuestions, collectAnswers } from './survey-ui.js';
     if (window.lucide) window.lucide.createIcons();
     const $ = id => document.getElementById(id);
@@ -96,9 +96,10 @@
     async function loadList() {
       if (!profile.name) return;
       if (!configReady()) { $('sv-list').innerHTML = '<p class="note">Supabase 연결이 필요합니다.</p>'; return; }
-      const { data, error } = await supabase.from('surveys')
-        .select('id,title,description,target_scope,target_value,created_at')
-        .eq('open', true).order('created_at', { ascending: false });
+      const cid = await getCenterId();                          // [P3] 센터 스코프(가능할 때만)
+      let sq = supabase.from('surveys').select('id,title,description,target_scope,target_value,created_at').eq('open', true);
+      if (cid) sq = sq.eq('center_id', cid);
+      const { data, error } = await sq.order('created_at', { ascending: false });
       const el = $('sv-list');
       if (error) {
         el.innerHTML = '<p class="note">' + (/relation|does not exist|schema cache/i.test(error.message || '') ? '설문 기능이 아직 준비 중이에요. (관리자: sql/16 실행 필요)' : '설문을 불러오지 못했어요 — ' + esc(error.message)) + '</p>';
@@ -122,8 +123,10 @@
 
     async function loadForm() {
       $('list').style.display = 'none'; $('form').style.display = 'block';
-      const { data, error } = await supabase.from('surveys')
-        .select('id,title,description,target_scope,target_value,questions').eq('id', svId).maybeSingle();
+      const cid = await getCenterId();                          // [P3] 센터 스코프(가능할 때만)
+      let sfq = supabase.from('surveys').select('id,title,description,target_scope,target_value,questions').eq('id', svId);
+      if (cid) sfq = sfq.eq('center_id', cid);
+      const { data, error } = await sfq.maybeSingle();
       if (error || !data) {
         $('form').innerHTML = '<p class="ph-card-title">안내</p><p class="ph-note">설문을 찾을 수 없거나 마감된 설문이에요.</p><a href="./survey.html" class="mju-btn mju-btn--secondary mju-btn--full" style="margin-top:12px">설문 목록으로</a>';
         return;
