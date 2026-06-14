@@ -66,3 +66,39 @@ center_admin 로그인은 비밀번호 인증이라 내가 못 하니, 본인이
 3. 앱(또는 admin.html)에서 **adminA 로 로그인** → `registrations`/`notices` 등 조회 → **mju 행만** 보이고 demo 0건인지 확인. adminB 는 그 반대.
 4. `rls-check.html` 실행 → `admin_users` 차단(PASS)·`centers` 공개·PII 전부 PASS 확인.
 - → 통과 시 "관리자 갓모드 제거 + center_admin 격리" 검증 완료.
+
+---
+
+## 9. 0~5단계(sql/22~27) 신규 적용·검증 — center_id 서버 도출 백본
+> §3(19·21) 이후에 **순서대로** 적용. 전부 멱등. 0~2·4 프론트(index.html·admin.html)도 함께 배포.
+
+### 9-A. 적용 순서
+`sql/22` → `sql/23` → `sql/24` → `sql/25` → `sql/26` → `sql/27`
+- 22=토대 하드닝(registrations anon insert 박제) / 23=코드 센터스코프 / 24=가입·발급 RPC / 25=관리자쓰기 트리거 / 26=센터개설 RPC / 27=명단 스키마(biz_no).
+- ⚠️ `sql/20`(스토리지)·NOT NULL(미작성)은 **여기 포함 안 함** — 별도(§7, 추후).
+
+### 9-B. rls-check.html (갱신됨)
+- MUST_BE_BLOCKED 에 **student_codes·company_codes·unverified_signups** 추가됨 → anon 전부 **차단 PASS** 확인.
+
+### 9-C. 가입 = center_id 서버 도출 (핵심)
+1. adminA(mju)로 admin.html → 가입자 탭에서 학생 코드 발급(issue_student_code RPC) → 코드 복사.
+2. `?center=mju` 로 index.html → 그 코드로 학생 가입.
+3. 스테이징 SQL 에디터:
+   ```sql
+   select center_id, name, target_type from public.registrations order by created_at desc limit 3;
+   ```
+   → 방금 가입행 **center_id = mju(≠null)** 면 PASS. (demo 코드로 가입하면 center_id=demo 여야 함.)
+4. **폴백 테스트:** `sql/24` 미적용 상태에서 가입 → 기존처럼 그냥 insert 되는지(회귀 0). (RPC 없으면 프론트가 직접 insert 폴백.)
+
+### 9-D. 관리자 쓰기 트리거(25)
+- adminA(mju)로 공지 1건 발행 → `select center_id from notices order by created_at desc limit 1;` → **center_id=mju 자동** 이면 PASS.
+- adminA 가 클라에서 임의 center_id 를 넣어도 **무시되고 mju 강제**(트리거)인지 확인.
+
+### 9-E. 센터 개설·역할(26 + admin 프론트)
+- super_admin(본인)로 admin.html → **'센터' 탭** 노출 확인(center_admin 으로 로그인하면 미노출).
+- '센터 개설'(create_center) → centers 행 생성 / '관리자 발급'(grant_admin, 대상 Auth 계정 선존재 필요) → admin_users 매핑.
+- **배포 갭 확인:** admin_users 매핑이 없는 새 Auth 계정으로 로그인 → '권한 없음'(#noperm) 뜨는지. (단, 미적용 DB면 기존 전체 콘솔 폴백.)
+
+### 9-F. 통과 기준
+- rls-check 전 PASS / 가입행 center_id 채워짐 / 트리거 자동주입 / super만 센터탭 / 교차센터(adminA=mju만·adminB=demo만) 0건.
+- → 통과하면 5RPC(마스터 스키마)·6스토리지·7 NOT NULL 진행해도 안전한 토대 확보.

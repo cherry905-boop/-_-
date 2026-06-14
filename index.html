@@ -594,6 +594,19 @@
         consent_collect: true, consent_transfer: true, consent_at: new Date().toISOString(),
         user_agent: navigator.userAgent
       };
+      // [2단계] center_id 서버 도출 — 초대코드가 있으면 register_with_code 로 가입(센터 귀속).
+      //   RPC 미적용(함수없음)·코드불일치면 아래 기존 직접 insert 로 폴백(파일럿 동일·회귀 0).
+      if (rec.code) {
+        try {
+          const { data: rd, error: re } = await supabase.rpc('register_with_code', { p_code: rec.code, p_row: row });
+          if (re && /too_many/i.test(re.message || '')) { setStatus(statusEl, '시도가 너무 많아요. 잠시 후 다시 시도해주세요.', 'error'); btn.disabled = false; return; }
+          if (!re && rd && rd.ok) {
+            if (rd.center_slug) { try { localStorage.setItem('ilhak_center', rd.center_slug); } catch (_) {} }
+            try { localStorage.setItem('ilhak_profile', JSON.stringify({ name: rec.name, target_type: rec.target_type, job_key: rec.job_key, company: rec.company, type1: rec.type1, manager: rec.manager || null, token: rec.token || null })); } catch (_) {}
+            location.href = './install.html?joined=1'; return;
+          }
+        } catch (_) { /* 폴백 진행 */ }
+      }
       let { error } = await supabase.from('registrations').insert(row);
       if (error && /manager|column/i.test(error.message || '')) {   // R15 미적용 시 manager 컬럼 없음 → 폴백
         const r2 = { ...row }; delete r2.manager; ({ error } = await supabase.from('registrations').insert(r2));
@@ -652,6 +665,16 @@
           consent_collect: true, consent_transfer: true, consent_at: new Date().toISOString(),
           user_agent: navigator.userAgent
         };
+        // [2단계] 지원자도 center_id 서버 도출(슬러그를 서버가 해석). RPC 미적용/오류면 아래 직접 insert 폴백.
+        try {
+          const { data: ad, error: ae } = await supabase.rpc('register_applicant', { p_slug: (window.CENTER_SLUG || 'mju'), p_row: row });
+          if ((!ae && ad && ad.ok) || (ae && ae.code === '23505')) {   // 성공 또는 이미 등록(23505)=정상
+            btn.disabled = false;
+            try { localStorage.setItem('ilhak_profile', JSON.stringify({ name, target_type: 'applicant', job_key: null, company: null, type1: null, manager: null, token: null, interest_jobs: interests })); } catch (_) {}
+            location.href = './install.html?joined=1'; return;
+          }
+          // 함수없음·23514(미오픈)·기타 → 아래 기존 insert 가 동일 케이스 처리
+        } catch (_) { /* 폴백 진행 */ }
         let { error } = await supabase.from('registrations').insert(row);
         if (error && /interest_jobs|dept|column/i.test(error.message || '')) {   // 01 SQL 미적용 폴백
           const r2 = { ...row }; delete r2.interest_jobs; delete r2.dept;
@@ -676,7 +699,7 @@
         // (코드를 고치면 아래 재검증으로 자연 복귀, 가입 실패 시 pendingCompany를 유지해 재시도가 코드 재검증·rate-limit을 안 태움)
         if (pendingCompany && coCode === pendingCompany.code) {
           if (!name || phone.replace(/\D/g, '').length < 10) { setStatus(statusEl, '이름과 휴대폰 번호(숫자 10~11자리)를 입력해주세요.', 'error'); return; }
-          return doRegister({ name, phone, target_type: 'company', job_key: null, company: pendingCompany.co, type1: null, manager: null, token: null });
+          return doRegister({ name, phone, target_type: 'company', job_key: null, company: pendingCompany.co, type1: null, manager: null, token: null, code: coCode });
         }
         pendingCompany = null;
         btn.disabled = true; setStatus(statusEl, '코드 확인 중...', 'info');
@@ -692,7 +715,7 @@
         const hn = (r.data.hrd_name || '').trim();
         const hp = (r.data.hrd_phone || '').trim();
         if (hn && hp) {
-          return doRegister({ name: hn, phone: hp, target_type: 'company', job_key: null, company: co, type1: null, manager: null, token: null });
+          return doRegister({ name: hn, phone: hp, target_type: 'company', job_key: null, company: co, type1: null, manager: null, token: null, code: coCode });
         }
         // 노션 명단에 HRD담당자 정보가 비어 있음(또는 sql/13 전) → 이름·휴대폰 직접 입력 2단계
         pendingCompany = { co, code: coCode };
@@ -709,7 +732,7 @@
         const job_key = jobSel.value || null;
         if (!job_key) { setStatus(statusEl, '본인 직무를 선택해주세요.', 'error'); return; }
         const s = pendingStudent; pendingStudent = null;
-        return doRegister({ name: s.name, phone: s.phone || phone, target_type: 'student', job_key, company: s.company, type1: s.type1, manager: s.manager || null, token: s.token || null });
+        return doRegister({ name: s.name, phone: s.phone || phone, target_type: 'student', job_key, company: s.company, type1: s.type1, manager: s.manager || null, token: s.token || null, code: joinCode });
       }
 
       // ── 매칭 확인 성공 후 공통 처리 (코드·명단 두 경로가 공유) ──
@@ -728,7 +751,7 @@
           return;
         }
         // 직무 0~1개 → 바로 가입 (직무·기업·유형은 노션 값 자동입력, 휴대폰은 명단 값 우선)
-        return doRegister({ name: v.name, phone: v.phone || phone, target_type: 'student', job_key: jobs[0] || null, company: v.company, type1: v.type1, manager: v.manager || null, token: v.token || null });
+        return doRegister({ name: v.name, phone: v.phone || phone, target_type: 'student', job_key: jobs[0] || null, company: v.company, type1: v.type1, manager: v.manager || null, token: v.token || null, code: joinCode });
       }
 
       // ── 매칭학생: 초대코드 전용 — 코드 단독(sql/09)으로 명단 정보를 받아 가입 ──

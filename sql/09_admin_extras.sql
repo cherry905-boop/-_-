@@ -12,14 +12,16 @@ do $$ begin
   end if;
 end $$;
 
--- ── B. 자료실 파일 업로드용 Storage 버킷 'library' (공개 읽기 / 관리자만 쓰기) ──
+-- ── B. 자료실 파일 업로드용 Storage 버킷 'library' (비공개 / 관리자만 쓰기) ──
+-- ⚠️ 0단계 하드닝(2026-06): 과거엔 public=true + anon 공개읽기였으나, 이는 20_storage_isolation
+--    (비공개 전환)을 매 실행 덮어써 공개 URL 을 되살렸다(절대규칙8 위반). → 비공개로 고정하고
+--    공개읽기 정책을 제거한다. 센터별 경로 스코프 정책은 20 에서, 학생 다운로드는 서명기(sign-library)로.
 -- SQL Editor(postgres 롤)에서 실행되므로 buckets upsert는 안전. 클라이언트에서 createBucket 호출 금지.
-insert into storage.buckets (id, name, public) values ('library', 'library', true)
-  on conflict (id) do update set public = true;
+insert into storage.buckets (id, name, public) values ('library', 'library', false)
+  on conflict (id) do nothing;
 
+-- 과거 공개읽기 정책이 남아있으면 제거(멱등). 재생성하지 않는다.
 drop policy if exists "library public read" on storage.objects;
-create policy "library public read" on storage.objects
-  for select to public using (bucket_id = 'library');
 drop policy if exists "library admin insert" on storage.objects;
 create policy "library admin insert" on storage.objects
   for insert to public with check (bucket_id = 'library' and auth.uid() is not null);

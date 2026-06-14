@@ -48,6 +48,11 @@
       <button class="btn" id="loginBtn">로그인</button>
       <div class="status" id="loginStatus"></div>
     </div>
+    <div class="card" id="noperm" style="display:none">
+      <p class="ph-card-title">권한 없음</p>
+      <p class="ph-note">로그인된 계정에 센터 관리자 권한이 없습니다. 슈퍼관리자에게 관리자 발급을 요청하세요.</p>
+      <button class="btn" id="noperm-logout">로그아웃</button>
+    </div>
   </div>
 
   <!-- 관리자 패널 -->
@@ -63,6 +68,7 @@
         <button class="adm-nav-item" data-tab="members"><i data-lucide="users"></i>가입자</button>
         <button class="adm-nav-item" data-tab="recruit"><i data-lucide="briefcase"></i>모집</button>
         <button class="adm-nav-item" data-tab="stages"><i data-lucide="route"></i>기업</button>
+        <button class="adm-nav-item" data-tab="centers" style="display:none"><i data-lucide="building-2"></i>센터</button>
       </nav>
 
       <main class="adm-main">
@@ -343,6 +349,34 @@
           <div id="st-list"><p class="note">로그인 후 표시됩니다.</p></div>
         </div>
       </div>
+      <div class="tabsec" id="sec-centers" style="display:none">
+        <div class="card">
+          <p class="ph-card-title">새 센터 개설 (슈퍼관리자)</p>
+          <label>슬러그 (소문자·숫자·하이픈, 예: demo)</label>
+          <input id="cc-slug" placeholder="demo" />
+          <label>센터명</label>
+          <input id="cc-name" placeholder="○○대학교 공동훈련센터" />
+          <label>지역 (선택)</label>
+          <input id="cc-region" placeholder="서울" />
+          <button class="btn" id="cc-create">센터 개설</button>
+          <div class="status" id="cc-status"></div>
+        </div>
+        <div class="card">
+          <p class="ph-card-title">관리자 발급</p>
+          <p class="ph-note" style="margin-bottom:4px">대상 이메일로 먼저 Supabase Auth 계정(초대)이 있어야 합니다. 직접 INSERT 없이 RPC로만 발급됩니다.</p>
+          <label>이메일</label>
+          <input id="ga-email" type="email" placeholder="admin@example.ac.kr" />
+          <label>센터 슬러그</label>
+          <input id="ga-slug" placeholder="demo" />
+          <label>역할</label>
+          <select id="ga-role">
+            <option value="center_admin">center_admin (자기 센터만)</option>
+            <option value="super_admin">super_admin (전체)</option>
+          </select>
+          <button class="btn" id="ga-grant">관리자 발급</button>
+          <div class="status" id="ga-status"></div>
+        </div>
+      </div>
       </main>
     </div>
 
@@ -496,7 +530,7 @@
     // 탭 전환
     document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => {
       document.querySelectorAll('.tabs button').forEach(x => x.classList.toggle('on', x === b));
-      ['dash', 'notice', 'library', 'calendar', 'consult', 'survey', 'members', 'recruit', 'stages'].forEach(t => $('sec-' + t).style.display = (t === b.dataset.tab ? 'block' : 'none'));
+      ['dash', 'notice', 'library', 'calendar', 'consult', 'survey', 'members', 'recruit', 'stages', 'centers'].forEach(t => { const el = $('sec-' + t); if (el) el.style.display = (t === b.dataset.tab ? 'block' : 'none'); });
     }));
 
     // ===== 받는 대상 상세 지정 (전체 / 상세 칩 조합 + 예상 대상 N명) =====
@@ -1275,6 +1309,11 @@
     // 학생 1명 코드 발급 (이미 있으면 기존 행 갱신 — 같은 학생에게 행이 쌓이지 않게)
     async function issueCode(name, phone) {
       const key = (name || '') + '|' + (phone || '');
+      // [2단계] center 서버 주입 발급 — issue_student_code RPC(center=current_admin_center). 미적용/오류면 기존 직접 발급 폴백.
+      try {
+        const { data: rc, error: re } = await supabase.rpc('issue_student_code', { p_name: name, p_phone: phone });
+        if (!re && rc) { codeMap[key] = { id: (codeMap[key] && codeMap[key].id) || null, code: rc }; return rc; }
+      } catch (_) { /* 폴백 */ }
       const existing = codeMap[key];
       for (let i = 0; i < 2; i++) {
         const code = genCode();
@@ -1961,6 +2000,11 @@
       setStatus($('cn-status'), '✅ 발행했습니다 — 해당 기업 구성원에게 푸시가 나갑니다.', 'ok');
     });
     async function issueCoCode(company) {
+      // [2단계] center 서버 주입 발급 — issue_company_code RPC. 미적용/오류면 기존 upsert 폴백.
+      try {
+        const { data: rc, error: re } = await supabase.rpc('issue_company_code', { p_company: company });
+        if (!re && rc) { coCodeMap[company] = rc; return rc; }
+      } catch (_) { /* 폴백 */ }
       for (let i = 0; i < 2; i++) {
         const code = genCode();
         const { error } = await supabase.from('company_codes').upsert({ company, code, active: true });
@@ -2050,14 +2094,38 @@
     }
 
     // ===== 인증 =====
+    // [4단계] 역할 게이팅 — super 전용 '센터' 탭 가시성. (데이터 경계는 RLS(sql/21)가 강제; UI는 편의.)
+    function applyRoleUI() {
+      const cbtn = document.querySelector('.adm-nav-item[data-tab="centers"]');
+      if (cbtn) cbtn.style.display = (window.ADMIN_ROLE === 'super_admin') ? '' : 'none';
+    }
     async function refresh() {
       const { data: { session } } = await supabase.auth.getSession();
       const authed = !!session;
       $('login').style.display = authed ? 'none' : 'block';
       $('panel').style.display = authed ? 'block' : 'none';
+      const _np = $('noperm'); if (_np) _np.style.display = 'none';
       adminEmail = authed ? session.user.email : ''; $('me').textContent = adminEmail;
       const _u = $('adm-user'); if (_u) _u.style.display = authed ? 'flex' : 'none';
-      if (authed) { dashLoad(); initPickers().then(fillRecruitPickers); nLoad(); plLoad(); lLoad(); cLoad(); clLoad(); regLoad(); uvLoad(); rcLoad(); stLoad(); svEvLoadList(); poLoad(); }
+      if (!authed) return;
+      // 자기 admin_users 매핑 조회. 테이블 없음(미적용 DB)=레거시 전체 콘솔 폴백(회귀 0). 매핑 없음=권한 없음.
+      window.ADMIN_ROLE = null; window.ADMIN_CENTER_ID = null;
+      try {
+        const { data: m, error: me } = await supabase.from('admin_users').select('role,center_id').eq('user_id', session.user.id).maybeSingle();
+        if (me && /relation|does not exist|PGRST205|42P01|schema cache/i.test(me.message || '')) {
+          // 미적용 DB → 레거시 전체 콘솔(ADMIN_ROLE=null). 회귀 없음.
+        } else if (!me && !m) {
+          // 로그인됐지만 어떤 센터의 관리자도 아님 → 권한 없음(패널 숨김).
+          $('panel').style.display = 'none';
+          if (_np) _np.style.display = 'block';
+          if (_u) _u.style.display = 'none';
+          return;
+        } else if (m) {
+          window.ADMIN_ROLE = m.role; window.ADMIN_CENTER_ID = m.center_id;
+        }
+      } catch (_) { /* 폴백: 레거시 전체 콘솔 */ }
+      applyRoleUI();
+      dashLoad(); initPickers().then(fillRecruitPickers); nLoad(); plLoad(); lLoad(); cLoad(); clLoad(); regLoad(); uvLoad(); rcLoad(); stLoad(); svEvLoadList(); poLoad();
     }
     $('loginBtn').addEventListener('click', async () => {
       const email = $('email').value.trim(), password = $('pw').value;
@@ -2072,6 +2140,26 @@
       refresh();
     });
     $('logout').addEventListener('click', async () => { await supabase.auth.signOut(); refresh(); });
+    $('noperm-logout')?.addEventListener('click', async () => { await supabase.auth.signOut(); refresh(); });
+    // [4단계] 센터 개설·관리자 발급 — 직접 INSERT 없이 RPC만(서버가 is_super_admin 가드).
+    $('cc-create')?.addEventListener('click', async () => {
+      const slug = $('cc-slug').value.trim(), name = $('cc-name').value.trim(), region = $('cc-region').value.trim() || null;
+      if (!slug || !name) { setStatus($('cc-status'), '슬러그·센터명을 입력하세요.', 'error'); return; }
+      $('cc-create').disabled = true; setStatus($('cc-status'), '개설 중...', 'info');
+      const { error } = await supabase.rpc('create_center', { p_slug: slug, p_name: name, p_region: region });
+      $('cc-create').disabled = false;
+      if (error) { setStatus($('cc-status'), '오류: ' + (error.message || error), 'error'); return; }
+      setStatus($('cc-status'), '✅ 센터 개설됨 — 이제 관리자를 발급하세요.', 'ok');
+    });
+    $('ga-grant')?.addEventListener('click', async () => {
+      const email = $('ga-email').value.trim(), slug = $('ga-slug').value.trim(), role = $('ga-role').value;
+      if (!email || !slug) { setStatus($('ga-status'), '이메일·센터 슬러그를 입력하세요.', 'error'); return; }
+      $('ga-grant').disabled = true; setStatus($('ga-status'), '발급 중...', 'info');
+      const { error } = await supabase.rpc('grant_admin', { p_email: email, p_center_slug: slug, p_role: role });
+      $('ga-grant').disabled = false;
+      if (error) { setStatus($('ga-status'), '오류: ' + (error.message || error), 'error'); return; }
+      setStatus($('ga-status'), '✅ 관리자 발급됨 (' + email + ' → ' + slug + ' / ' + role + ')', 'ok');
+    });
     refresh();
   </script>
 </body>

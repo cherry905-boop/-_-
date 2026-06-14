@@ -60,3 +60,28 @@
 
 ## 9. 결론
 보안 기본기(anon 차단 + SECURITY DEFINER RPC + 자가점검)는 견고하나, **단일 테넌트·개인 계정·수기 의존**이 곳곳에 박혀 있음. 멀티테넌트 전환의 본질 = 이 개인·수기·단일 의존을 '조직 계정이 소유한 자동화 인프라 + center_id 격리'로 옮기는 것. 다음 작업 = `docs/PLAN.md` P1(센터 컨텍스트)부터 계획-동의-구현.
+
+## 10. 멀티테넌트 전환 진행 (sql/22~, /goal 자율모드 2026-06-14)
+> 로드맵·단계표는 `docs/MULTITENANT.md`. 핵심 진단: 토대(sql/19·21)는 운영 적용됨, 비어있는 핵심 = **'center_id 서버 도출 경로'**(가입·관리자쓰기·발급이 center_id 미주입 → 신규행 NULL 고아).
+
+- **0단계 토대 하드닝 — 🟢 코드+정적검증 완료 / 라이브·커밋 대기.**
+  - `sql/22_baseline_hardening.sql`(신규): registrations RLS + anon insert 정책 박제(`to public with check(true)`, permissive=운영 무해·재구축 안전). registrations CREATE TABLE 은 여전히 대시보드만 → 스키마 덤프 캡처 남음.
+  - `sql/08`: `delete from success_cases` 전체삭제에 다센터 가드(센터>1이면 중단, center_id 있으면 mju만) + NULL행 mju 귀속.
+  - `sql/09` Section B: 버킷 `public=false`·`on conflict do nothing`, `library public read`(anon) 제거 → sql/20 안 덮음.
+  - `rls-check.html` MUST_BE_BLOCKED += student_codes·company_codes·unverified_signups.
+  - **대기(사용자):** 스테이징에 sql/22 적용 → rls-check 전항목 PASS, 학생 가입 1건 테스트, 커밋. (이 작업 환경엔 node/pglite·라이브 접근 없음 → 동적검증 불가.)
+- **1단계 코드 센터 스코프 — 🟢 코드 완료 / 라이브·검증 대기.**
+  - `sql/23_codes_center_scope.sql`(신규): student_codes person-uniq → `(center_id, name, phone) where active`. code 는 전역 unique 유지(센터 도출 근거).
+  - **보정:** 회사 키(`company` PK)+사업자번호 자연키 전환은 **5단계로 통합**(사업자번호 컬럼 부재 + admin.html company upsert가 기본 PK 충돌에 의존 → 키 변경은 프론트 upsert 변경과 한 묶음).
+- **2단계 가입·발급 RPC — 🟢 코드 완료(SQL+프론트) / 라이브·검증 대기.**
+  - `sql/24_signup_issue_rpc.sql`(신규): verify_by_code·verify_code_solo·verify_company_code_solo 에 `center_id`·`center_slug` 추가(verify_student 호출·HRD 자동채움 보존, HRD 조회 센터 스코프화). `register_with_code`·`register_applicant`·`issue_student_code`·`issue_company_code` 신설 — 모두 SECURITY DEFINER, **center_id 서버 도출**(코드/슬러그/admin_users), 클라 center_id 미신뢰. registrations insert 는 `_insert_registration`(p_row 키 ∩ 실제 컬럼만 동적 insert → 가변 스키마·기본값 보존).
+  - **프론트 전환 완료:** index.html doRegister·지원자 → register_with_code/register_applicant, admin.html issueCode·issueCoCode(일괄발급 포함) → issue_* RPC. 전부 **RPC 우선 + 함수없음/오류 시 기존 insert·발급 폴백**(회귀 0). 가입 성공 시 `center_slug`로 `localStorage('ilhak_center')` 센터 바인딩. **critical path라 스테이징 검증 필수.**
+- **3단계 관리자 쓰기 center_id 자동주입 — 🟢 코드 완료(SQL) / 라이브·검증 대기.**
+  - `sql/25_center_id_writes.sql`(신규): `_set_center_id_on_write` 트리거(super_admin=명시 center_id honor, center_admin=**클라값 무시·current_admin_center() 강제**) → 관리자-쓰기 **13개** 테이블(student_codes·company_codes·company_contacts·company_info·company_stages·job_postings·qna_posts·success_cases·surveys·polls·notices·library·calendar_events) BEFORE INSERT 부착. `sql/14` registrations admin read/delete 의 `auth.uid() is not null`(전센터 OR 구멍) → 센터 스코프 교체. `unverified_signups` anon insert 박제 + 센터 admin 정책.
+  - **의도적 제외(중요):** registrations(register_* RPC가 처리)·poll_votes·survey_answers·company_survey_responses·consultations·consultation_messages·push_tokens·notice_recipients 등 **anon/학생/시스템 쓰기 테이블엔 트리거 미부착**(비관리자 insert 때 center null 덮어쓰기 방지). 이들 학생·기업 응답은 **부모(poll/survey)·토큰등록 RPC로 center 도출하는 보강이 별도 필요**(미구현, 2번째 센터 전). admin.html 콘텐츠 insert는 트리거가 자동 처리 → 무수정.
+- **4단계 센터개설·역할게이팅 — 🟢 코드 완료(SQL+프론트) / 라이브·검증 대기.**
+  - `sql/26_center_provisioning.sql`(신규): `create_center(slug,name,…)`·`seed_center(center_id)`(현재 빈 센터=no-op, mju 시드 복사 금지)·`grant_admin(email,slug,role)`(이메일→auth.users→admin_users upsert) — 전부 `is_super_admin()` 가드. `admin_users` super 한정 쓰기 정책 추가(본인행 select 정책은 유지).
+  - **프론트 완료:** admin.html `refresh` role-aware(2096~) — `admin_users` 자기행 조회. **테이블 없음(미적용)=레거시 전체 콘솔 폴백**(미적용 DB 잠김 방지, prod엔 본인 super 매핑돼 잠김 없음), 매핑 존재+미매핑일 때만 `#noperm`(권한없음). super 전용 `sec-centers` 탭(나브 71·섹션 352)=create_center/grant_admin RPC 폼만. `applyRoleUI`가 super일 때만 탭 노출. **안전 속성:** UI 게이팅이 실패로 열려도 데이터는 sql/21 RLS가 센터 스코프로 강제 → blind 변경 안전(보안경계는 UI 아님).
+- **5단계 명단 일괄등록 — 🟡 스키마 추가분만 완료 / RPC·UI 대기.**
+  - `sql/27_roster_master_schema.sql`(신규, **추가만**): companies/students 에 center_id(+mju 백필, 19 배열 누락분), companies·company_codes·company_stages·company_info 에 `biz_no`(사업자번호) + `unique(center_id, biz_no) where biz_no is not null`. **company PK 무손상** → admin.html company upsert 무회귀.
+  - **대기(마스터 스키마 필요):** `bulk_upsert_student_roster`/`bulk_upsert_companies` RPC + admin.html 엑셀/CSV 업로드 UI — students/companies 마스터 컬럼이 레포에 없어 정확히 쓰려면 **두 테이블 스키마 덤프 필요**. **별도 micro:** company PK→biz_no 키 전환(biz_no 적재 + 프론트 onConflict 전환 후).

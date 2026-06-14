@@ -6,7 +6,26 @@
 
 begin;
 
-delete from public.success_cases;
+-- 멀티테넌트 안전장치(0단계): 이 파일은 명지대(mju) 전용 시드다.
+-- · 다른 센터가 이미 존재하면 전체 삭제를 막는다(다른 센터 사례 보호). 새 센터는 seed_center() 사용.
+-- · center_id 컬럼이 있으면(19 적용 후) mju 행만 삭제, 없으면(초기 빌드) 전체 삭제.
+do $guard$
+declare mju uuid; has_cid boolean;
+begin
+  if to_regclass('public.centers') is not null
+     and (select count(*) from public.centers) > 1 then
+    raise exception '08_cases_seed 는 mju 전용 시드입니다 — success_cases 전체 삭제 방지. 다른 센터는 seed_center() 사용.';
+  end if;
+  has_cid := exists (select 1 from information_schema.columns
+              where table_schema='public' and table_name='success_cases' and column_name='center_id');
+  if has_cid then
+    select id into mju from public.centers where slug='mju';
+    delete from public.success_cases where center_id = mju or center_id is null;
+  else
+    delete from public.success_cases;
+  end if;
+end
+$guard$;
 
 insert into public.success_cases (title, job_key, company, body, published) values
 ($sc$기계시스템공학부 → 인지컨트롤스 구조해석설계$sc$, $sc$기계설계$sc$, $sc$인지컨트롤스$sc$, $sc$■ 준비 과정
@@ -160,5 +179,21 @@ select '2026 일학습병행 참여 사례 모음집 (원본 PDF)',
        '기타', null, true
 where not exists (select 1 from public.library
                   where url = 'https://cherry905-boop.github.io/-_-/files/common/casebook-2026.pdf');
+
+-- 멱등·센터 안전(0단계): center_id 컬럼이 있으면(19 적용 후) 이 시드가 만든 NULL 행을 mju 로 귀속.
+do $rehome$
+declare mju uuid;
+begin
+  if to_regclass('public.centers') is not null
+     and exists (select 1 from information_schema.columns
+                 where table_schema='public' and table_name='success_cases' and column_name='center_id') then
+    select id into mju from public.centers where slug='mju';
+    update public.success_cases set center_id = mju where center_id is null;
+    update public.library set center_id = mju
+      where center_id is null
+        and url = 'https://cherry905-boop.github.io/-_-/files/common/casebook-2026.pdf';
+  end if;
+end
+$rehome$;
 
 commit;
