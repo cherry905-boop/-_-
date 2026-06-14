@@ -76,7 +76,7 @@
     if (window.lucide) window.lucide.createIcons();
     import { initializeApp, getApps } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
     import { getMessaging, getToken, isSupported } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js';
-    import { supabase, configReady, getPlatform, isInAppBrowser, isStandalone, getQueryParam, setStatus } from './app.js';
+    import { supabase, configReady, getPlatform, isInAppBrowser, isStandalone, getQueryParam, setStatus, getCenterId } from './app.js';
 
     if (getQueryParam('joined') === '1') document.getElementById('joined').style.display = 'block';
     // 지원자에게는 안내 문구를 모집 중심으로
@@ -134,11 +134,12 @@
           company: prof.company || null, type1: prof.type1 || null,
           manager: prof.manager || null, device_key: prof.token || null,
           interest_jobs: prof.interest_jobs || null,   // 지원자 관심직무 (01 SQL)
-          platform: p, updated_at: new Date().toISOString()
+          platform: p, updated_at: new Date().toISOString(),
+          center_id: (await getCenterId()) || null   // [5 푸시] 슬러그→center 서버해석(RPC). null이면 미적용=현재 동작(폴백)
         };
         let { error } = await supabase.from('push_tokens').insert(row);
         if (error && /device_key|manager|interest_jobs|column/i.test(error.message || '')) {   // 마이그레이션 미적용 폴백
-          const r2 = { ...row }; delete r2.device_key; delete r2.manager; delete r2.interest_jobs;
+          const r2 = { ...row }; delete r2.device_key; delete r2.manager; delete r2.interest_jobs; delete r2.center_id;
           ({ error } = await supabase.from('push_tokens').insert(r2));
         }
         if (error && error.code === '23505') {

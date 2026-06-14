@@ -52,13 +52,13 @@
 - **센터 선택 화면** 🟢 코드 완료(`index.html`): 활성 센터 ≥2 + 미선택(`ilhak_center_chosen`)일 때만 전체화면 오버레이 → 고르면 `localStorage('ilhak_center')`+reload. **단일 센터/오류/미적용이면 안 뜸 = 현재 동작(폴백 안전)**. 지원자 섞임 방지. (남음: '센터 변경' 링크, 배포)
 - config 센터별 DB화 🟡 **토대 완료**(`sql/29` centers.vocab jsonb + `app.js` loadCenterConfig 가 vocab 있으면 window.JOBS/MANAGERS/TYPES/… override, mju=null→config.js 정적값 폴백=현재 동작). **남음:** admin.html 이 픽스 빌드 전 `await loadCenterConfig()` 호출 + super 센터설정 UI로 vocab 입력. (companies 는 마스터 테이블 조회라 vocab 제외.)
 - **학생 수기 추가 폼** 🟢 코드 완료(admin.html 가입자 탭): 이름·학번·휴대폰 + 직무(window.JOBS)·기업(companies 테이블→config 폴백) 드롭다운 → `bulk_upsert_student_roster([1])`(center 서버주입) + `issueCode`(즉시 코드발급) 재사용. 단발 합격용. CSV 일괄은 이미 있음.
-- **기수(cohort)** 컬럼 + 졸업 일괄처리 + 목록/타게팅 '진행중' 기본필터 → 다음 기수 전환.
+- **기수(cohort)** 🟢 **v1 코드 완료**(`sql/31` + admin.html): registrations·students 에 `cohort` text(NULL=전체=폴백). 학생 수기폼·CSV 에 기수 입력(동적 insert 자동) + 가입자 목록 기수 필터(`rg-fcohort`). 졸업=새 기수 태깅+현재 기수로 필터(데이터 보존). cohort 수정은 센터스코프 RLS 로 client update. **후속:** 타게팅 picker 의 cohort 자동필터.
 - **푸시 center+기수 인지**(push_tokens center 주입 + 발송기 분기).
 - **설문(만족도) CSV 업로드**(센터별 양식).
 - 공지/자료/일정 명단·상세 타게팅 = 대부분 있음(`buildPicker`), config DB화로 연결.
 
 ### ③ 노션 졸업 (명지대도 완전 인앱)
-`company_contacts` **인앱 입력**(기업 CSV 담당자 컬럼 or 편집폼)이 유일한 빈틈 → 채운 뒤 노션 데이터 CSV 이관 → sync 끄기. (푸시 발송은 별개 = P7.)
+`company_contacts` **인앱 입력**이 유일한 빈틈이었음. 🟢 **코드 완료**(`sql/30` + admin.html): bulk_upsert_companies 가 기업 CSV 의 담당자명·연락처·이메일로 `company_contacts`(role='hrd')를 회사와 같은 notion_id 로 함께 upsert(center_id 서버 주입). CSV 머리글 담당자 컬럼 추가 → verify_company_code_solo 가 이 담당자로 기업 가입 자동채움. **남은(사용자 운영):** 노션 데이터 CSV 이관 → sync 끄기. (푸시 발송은 별개 = P7.)
 
 ### ④ 인프라 (B2G 전, P4/P7 — 별도 사용자 트랙)
 서울 리전 / 개인→조직 계정 / Capacitor 네이티브(install.html 졸업·가입후 리다이렉트 변경) / 푸시 발송기 조직계정 / 커스텀 도메인 / ⚠️ service_role 키 재발급(채팅 노출분 미확인).
