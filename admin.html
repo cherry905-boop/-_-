@@ -254,6 +254,21 @@
       <div class="tabsec" id="sec-members" style="display:none">
         <h2 class="adm-h2">가입자 <span class="hint">참여학생은 정렬·필터 후 체크 → 개인 공지·코드 발급 / 휴대폰은 운영자만 열람</span></h2>
         <div class="card">
+          <p class="ph-card-title">명단 일괄등록 (CSV)</p>
+          <p class="ph-note" style="margin-bottom:6px">학생/기업 명단을 CSV로 올려요. 첫 줄=머리글(예: 이름,학번,휴대폰…). center_id 는 서버가 자동으로 채워요.</p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:6px">
+            <select id="bulk-type">
+              <option value="student">학생 명단</option>
+              <option value="company">기업 명단</option>
+            </select>
+            <button class="mju-btn mju-btn--secondary mju-btn--sm" id="bulk-template" type="button">템플릿 받기</button>
+            <input type="file" id="bulk-file" accept=".csv,text/csv" />
+            <button class="btn" id="bulk-upload" type="button" disabled>업로드</button>
+          </div>
+          <div id="bulk-preview" class="note" style="margin:4px 0"></div>
+          <div class="status" id="bulk-status"></div>
+        </div>
+        <div class="card">
           <div class="filter-chips" id="rg-seg" role="group" aria-label="가입자 구분" style="margin-bottom:10px"></div>
           <div class="mtbl-bar">
             <input type="text" id="rg-search" placeholder="이름·기업·직무·담당직원 검색" style="flex:1;min-width:150px" />
@@ -2094,6 +2109,78 @@
     }
 
     // ===== 인증 =====
+    // [5단계] 명단 일괄등록(CSV) — center_id 는 서버(bulk RPC)가 주입. 머리글(한글) → 컬럼 매핑.
+    const BULK_MAP = {
+      student: { '이름':'name','성명':'name','학번':'student_no','휴대폰':'phone','전화':'phone','연락처':'phone','학과':'dept_key','전공':'dept_key','소속기업':'company','기업':'company','회사':'company','직무':'job_keys','유형':'type1','학기':'semester','담당':'manager','담당직원':'manager' },
+      company: { '회사명':'name','기업명':'name','이름':'name','사업자번호':'biz_no','사업자등록번호':'biz_no','상태':'status' }
+    };
+    const BULK_TPL = {
+      student: '이름,학번,휴대폰,학과,소속기업,직무\n홍길동,202012345,010-1234-5678,컴퓨터공학과,ABC전자,SW개발\n',
+      company: '회사명,사업자번호,상태\nABC전자,1234567890,진행\n'
+    };
+    function parseCSV(text) {
+      const rows = []; let row = [], cell = '', q = false;
+      for (let i = 0; i < text.length; i++) {
+        const c = text[i];
+        if (q) { if (c === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; } else cell += c; }
+        else if (c === '"') q = true;
+        else if (c === ',') { row.push(cell); cell = ''; }
+        else if (c === '\r') { /* skip */ }
+        else if (c === '\n') { row.push(cell); rows.push(row); row = []; cell = ''; }
+        else cell += c;
+      }
+      if (cell !== '' || row.length) { row.push(cell); rows.push(row); }
+      return rows.filter(r => r.some(x => (x || '').trim() !== ''));
+    }
+    let bulkRows = [];
+    function bulkBuild() {
+      const map = BULK_MAP[$('bulk-type').value];
+      const f = ($('bulk-file').files || [])[0];
+      bulkRows = [];
+      if (!f) { $('bulk-preview').textContent = ''; $('bulk-upload').disabled = true; return; }
+      const rd = new FileReader();
+      rd.onload = () => {
+        const grid = parseCSV(String(rd.result || '').replace(/^﻿/, ''));
+        if (grid.length < 2) { $('bulk-preview').textContent = '데이터 행이 없어요(머리글 + 1행 이상).'; $('bulk-upload').disabled = true; return; }
+        const hdr = grid[0].map(h => (h || '').trim());
+        bulkRows = grid.slice(1).map(cells => {
+          const o = {};
+          hdr.forEach((h, i) => {
+            const col = map[h]; if (!col) return;
+            const v = (cells[i] || '').trim(); if (v === '') return;
+            if (col === 'job_keys') o[col] = v.split(/[;|]/).map(s => s.trim()).filter(Boolean);
+            else o[col] = v;
+          });
+          return o;
+        }).filter(o => o.name);
+        const unmapped = hdr.filter(h => h && !map[h]);
+        $('bulk-preview').innerHTML = '인식된 행 <b>' + bulkRows.length + '</b>개' + (unmapped.length ? ' · 무시된 열: ' + unmapped.join(', ') : '');
+        $('bulk-upload').disabled = bulkRows.length === 0;
+      };
+      rd.readAsText(f, 'utf-8');
+    }
+    $('bulk-type')?.addEventListener('change', bulkBuild);
+    $('bulk-file')?.addEventListener('change', bulkBuild);
+    $('bulk-template')?.addEventListener('click', () => {
+      const type = $('bulk-type').value;
+      const blob = new Blob(['﻿' + BULK_TPL[type]], { type: 'text/csv;charset=utf-8' });
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+      a.download = (type === 'student' ? '학생명단' : '기업명단') + '_템플릿.csv'; a.click();
+    });
+    $('bulk-upload')?.addEventListener('click', async () => {
+      if (!bulkRows.length) return;
+      const fn = $('bulk-type').value === 'student' ? 'bulk_upsert_student_roster' : 'bulk_upsert_companies';
+      $('bulk-upload').disabled = true; setStatus($('bulk-status'), '업로드 중...', 'info');
+      const { data, error } = await supabase.rpc(fn, { p_rows: bulkRows });
+      $('bulk-upload').disabled = false;
+      if (error) {
+        const msg = /function|PGRST202|42883|schema cache/i.test(error.message || '') ? '서버 업데이트(sql/27·28) 적용 전이에요 — 센터로 문의.' : (error.message || error);
+        setStatus($('bulk-status'), '오류: ' + msg, 'error'); return;
+      }
+      setStatus($('bulk-status'), '✅ ' + ((data && data.count) || 0) + '건 처리됐어요.', 'ok');
+      $('bulk-file').value = ''; bulkRows = []; $('bulk-preview').textContent = '';
+    });
+
     // [4단계] 역할 게이팅 — super 전용 '센터' 탭 가시성. (데이터 경계는 RLS(sql/21)가 강제; UI는 편의.)
     function applyRoleUI() {
       const cbtn = document.querySelector('.adm-nav-item[data-tab="centers"]');

@@ -82,6 +82,8 @@
 - **4단계 센터개설·역할게이팅 — 🟢 코드 완료(SQL+프론트) / 라이브·검증 대기.**
   - `sql/26_center_provisioning.sql`(신규): `create_center(slug,name,…)`·`seed_center(center_id)`(현재 빈 센터=no-op, mju 시드 복사 금지)·`grant_admin(email,slug,role)`(이메일→auth.users→admin_users upsert) — 전부 `is_super_admin()` 가드. `admin_users` super 한정 쓰기 정책 추가(본인행 select 정책은 유지).
   - **프론트 완료:** admin.html `refresh` role-aware(2096~) — `admin_users` 자기행 조회. **테이블 없음(미적용)=레거시 전체 콘솔 폴백**(미적용 DB 잠김 방지, prod엔 본인 super 매핑돼 잠김 없음), 매핑 존재+미매핑일 때만 `#noperm`(권한없음). super 전용 `sec-centers` 탭(나브 71·섹션 352)=create_center/grant_admin RPC 폼만. `applyRoleUI`가 super일 때만 탭 노출. **안전 속성:** UI 게이팅이 실패로 열려도 데이터는 sql/21 RLS가 센터 스코프로 강제 → blind 변경 안전(보안경계는 UI 아님).
-- **5단계 명단 일괄등록 — 🟡 스키마 추가분만 완료 / RPC·UI 대기.**
+- **5단계 명단 일괄등록 — 🟢 코드 완료(스키마+RPC+UI) / 라이브·검증 대기.**
   - `sql/27_roster_master_schema.sql`(신규, **추가만**): companies/students 에 center_id(+mju 백필, 19 배열 누락분), companies·company_codes·company_stages·company_info 에 `biz_no`(사업자번호) + `unique(center_id, biz_no) where biz_no is not null`. **company PK 무손상** → admin.html company upsert 무회귀.
-  - **대기(마스터 스키마 필요):** `bulk_upsert_student_roster`/`bulk_upsert_companies` RPC + admin.html 엑셀/CSV 업로드 UI — students/companies 마스터 컬럼이 레포에 없어 정확히 쓰려면 **두 테이블 스키마 덤프 필요**. **별도 micro:** company PK→biz_no 키 전환(biz_no 적재 + 프론트 onConflict 전환 후).
+  - **RPC 완료:** `sql/28_roster_bulk_rpc.sql` — `bulk_upsert_companies`(notion_id NOT NULL → 합성 `csv:센터:사업자`, biz_no/name 키로 갱신 후 신규 insert)·`bulk_upsert_student_roster`(학번 우선 → 이름+전화 중복 skip). 둘 다 center 서버주입(super=인자/center_admin=강제), 동적 insert(키∩실제컬럼), authenticated grant.
+  - **UI 완료:** admin.html 가입자 탭 상단 CSV 업로드 카드 — 학생/기업 선택, 템플릿 다운로드, 한글 머리글→컬럼 매핑(이름/학번/휴대폰/소속기업/직무, 회사명/사업자번호), 미리보기(인식 행수·무시 열), bulk RPC 호출(함수없음 시 안내). 마스터 스키마(권순천 제공: companies=notion_id NOT NULL·id 없음, students=id PK·name_norm·student_no·job_keys[])에 정확히 맞춤.
+  - **별도 micro(추후):** company_codes/stages/info 의 `company text PK`→`(center_id, biz_no)` 전환(biz_no 적재 + admin.html company upsert onConflict 전환 후).
