@@ -57,6 +57,17 @@ export async function getCenterId() {
 // 이렇게 하면 라이브 적용 전엔 기존 동작 그대로, 적용 후 자동으로 센터별 값이 반영된다.
 export async function loadCenterConfig() {
   if (!supabase) return null;
+  // [②b] 센터별 어휘(vocab) 적용 — 직무·담당·유형·단계·설문을 센터 DB값으로 override.
+  //   vocab 컬럼이 없거나(미적용) 값이 null(mju 등)이면 조용히 스킵 = config.js 정적값(현재 동작·회귀 0).
+  try {
+    const { data: v } = await supabase.from('centers').select('vocab').eq('slug', getCenter()).maybeSingle();
+    if (v && v.vocab) {
+      ['JOBS', 'COMPANIES', 'TYPES', 'TYPE2', 'MANAGERS', 'STATUSES', 'COMPANY_STAGES', 'COMPANY_SURVEYS'].forEach(k => {
+        const val = v.vocab[k.toLowerCase()];
+        if (val != null) window[k] = val;
+      });
+    }
+  } catch (_) { /* vocab 컬럼 미적용 → 스킵 */ }
   try {
     const { data, error } = await supabase.from('centers')
       .select('name,app_title,privacy_officer,privacy_officer_contact,privacy_effective_date,privacy_retention,privacy_retention_applicant,privacy_transfer')

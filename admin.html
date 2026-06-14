@@ -269,6 +269,21 @@
           <div class="status" id="bulk-status"></div>
         </div>
         <div class="card">
+          <p class="ph-card-title">학생 1명 추가 (단발 합격)</p>
+          <p class="ph-note" style="margin-bottom:6px">합격자가 나올 때마다 한 명씩 명단에 추가하고 초대코드를 바로 발급해요.</p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <input id="as-name" placeholder="이름" style="flex:1;min-width:110px" />
+            <input id="as-no" placeholder="학번(선택)" style="flex:1;min-width:110px" />
+            <input id="as-phone" placeholder="휴대폰(선택)" inputmode="numeric" style="flex:1;min-width:130px" />
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;align-items:center">
+            <select id="as-job" style="flex:1;min-width:140px"><option value="">직무(선택)</option></select>
+            <select id="as-company" style="flex:1;min-width:140px"><option value="">소속기업(선택)</option></select>
+            <button class="btn" id="as-add" type="button" style="margin-top:0;width:auto;flex:0 0 auto;padding:11px 16px">추가 + 코드발급</button>
+          </div>
+          <div class="status" id="as-status"></div>
+        </div>
+        <div class="card">
           <div class="filter-chips" id="rg-seg" role="group" aria-label="가입자 구분" style="margin-bottom:10px"></div>
           <div class="mtbl-bar">
             <input type="text" id="rg-search" placeholder="이름·기업·직무·담당직원 검색" style="flex:1;min-width:150px" />
@@ -2179,6 +2194,39 @@
       }
       setStatus($('bulk-status'), '✅ ' + ((data && data.count) || 0) + '건 처리됐어요.', 'ok');
       $('bulk-file').value = ''; bulkRows = []; $('bulk-preview').textContent = '';
+    });
+
+    // [②c] 학생 1명 수기 추가 + 즉시 코드발급 — bulk_upsert_student_roster([1])·issueCode 재사용(center 서버 주입).
+    (function initAddStudent() {
+      const jobSel = $('as-job');
+      if (jobSel) (window.JOBS || []).forEach(j => { const o = document.createElement('option'); o.value = j.key; o.textContent = j.label; jobSel.appendChild(o); });
+      const coSel = $('as-company');
+      (async () => {
+        let names = [];
+        try { const { data } = await supabase.from('companies').select('name').eq('active', true).order('name'); names = (data || []).map(c => c.name); } catch (_) {}
+        if (!names.length) names = (window.COMPANIES || []).slice();
+        if (coSel) names.forEach(n => { const o = document.createElement('option'); o.value = n; o.textContent = n; coSel.appendChild(o); });
+      })();
+    })();
+    $('as-add')?.addEventListener('click', async () => {
+      const name = $('as-name').value.trim();
+      if (!name) { setStatus($('as-status'), '이름을 입력하세요.', 'error'); return; }
+      const row = { name };
+      const no = $('as-no').value.trim(); if (no) row.student_no = no;
+      const ph = $('as-phone').value.trim(); if (ph) row.phone = ph;
+      const job = $('as-job').value; if (job) row.job_keys = [job];
+      const co = $('as-company').value; if (co) row.company = co;
+      $('as-add').disabled = true; setStatus($('as-status'), '추가 중...', 'info');
+      const { error: e1 } = await supabase.rpc('bulk_upsert_student_roster', { p_rows: [row] });
+      if (e1) {
+        const m = /function|PGRST202|42883|schema cache/i.test(e1.message || '') ? '서버 업데이트(sql/28) 적용 전이에요.' : (e1.message || e1);
+        setStatus($('as-status'), '오류: ' + m, 'error'); $('as-add').disabled = false; return;
+      }
+      let codeMsg = '';
+      try { const code = await issueCode(name, ph); if (code) codeMsg = ' · 초대코드 ' + code; } catch (_) {}
+      $('as-add').disabled = false;
+      setStatus($('as-status'), '✅ ' + name + ' 명단 추가됨' + codeMsg + ' (가입은 학생이 코드로)', 'ok');
+      $('as-name').value = ''; $('as-no').value = ''; $('as-phone').value = ''; $('as-job').value = ''; $('as-company').value = '';
     });
 
     // [4단계] 역할 게이팅 — super 전용 '센터' 탭 가시성. (데이터 경계는 RLS(sql/21)가 강제; UI는 편의.)

@@ -87,3 +87,10 @@
   - **RPC 완료:** `sql/28_roster_bulk_rpc.sql` — `bulk_upsert_companies`(notion_id NOT NULL → 합성 `csv:센터:사업자`, biz_no/name 키로 갱신 후 신규 insert)·`bulk_upsert_student_roster`(학번 우선 → 이름+전화 중복 skip). 둘 다 center 서버주입(super=인자/center_admin=강제), 동적 insert(키∩실제컬럼), authenticated grant.
   - **UI 완료:** admin.html 가입자 탭 상단 CSV 업로드 카드 — 학생/기업 선택, 템플릿 다운로드, 한글 머리글→컬럼 매핑(이름/학번/휴대폰/소속기업/직무, 회사명/사업자번호), 미리보기(인식 행수·무시 열), bulk RPC 호출(함수없음 시 안내). 마스터 스키마(권순천 제공: companies=notion_id NOT NULL·id 없음, students=id PK·name_norm·student_no·job_keys[])에 정확히 맞춤.
   - **별도 micro(추후):** company_codes/stages/info 의 `company text PK`→`(center_id, biz_no)` 전환(biz_no 적재 + admin.html company upsert onConflict 전환 후).
+- **[백본 이후 ②a] 센터 선택 화면 — 🟢 코드 완료 / 미배포.**
+  - `index.html`: `maybePickCenter()` — 활성 센터 ≥2 + `ilhak_center_chosen` 미설정일 때만 전체화면 오버레이(`#center-picker`, centers active 목록) → 선택 시 `localStorage('ilhak_center')`+`ilhak_center_chosen` 저장 후 reload. `?center` URL·이전 선택·단일 센터·쿼리 오류면 스킵 = **현재 동작 그대로(회귀 0, 단일 mju라 지금은 안 뜸)**. 단일 앱 진입점·지원자 섞임 방지.
+- **[백본 이후 ②b] config 센터별 DB화 — 🟡 토대만 / 미배포.**
+  - `sql/29_center_vocab.sql`: centers 에 `vocab jsonb`(추가만, 읽는 데 없으면 무동작). `app.js loadCenterConfig`: 별도 가드 쿼리로 vocab 읽어 window.JOBS/COMPANIES/TYPES/TYPE2/MANAGERS/STATUSES/COMPANY_STAGES/COMPANY_SURVEYS override(있는 키만). 컬럼 없음/mju=null→스킵=정적값(회귀 0).
+  - **남음:** admin.html 픽스/드롭다운 빌드 전 `await loadCenterConfig()` 호출(현재 호출 여부 미확인) + super 센터설정 UI로 vocab 입력. 이게 돼야 신규 센터 직무·담당이 타게팅에 반영됨.
+- **[백본 이후 ②c] 학생 1명 수기 추가 폼 — 🟢 코드 완료 / 미배포.**
+  - `admin.html` 가입자 탭: 이름·학번·휴대폰 + 직무(`window.JOBS`)·기업(`companies` 테이블 active→`window.COMPANIES` 폴백) 드롭다운 + "추가 + 코드발급" → `bulk_upsert_student_roster([1])`(center 서버 주입, 5단계 RPC 재사용) → `issueCode`(issue_student_code RPC, 즉시 코드). 새 SQL 없음. 단발 합격마다 1명씩. (학생은 명부에 추가될 뿐, 가입자 목록엔 학생이 코드로 가입해야 나타남.)
