@@ -77,7 +77,9 @@ begin
      where role = 'hrd' and company = c.company and coalesce(status, '') <> '종료'
        and center_id = c.center_id
      order by updated_at desc limit 1;
-  exception when undefined_table then
+  -- undefined_table(테이블 없음)뿐 아니라 undefined_column(부분 마이그레이션: status/center_id 등 컬럼 부재)도
+  -- 'HRD 자동채움 없음'으로 우아하게 강등한다. 안 그러면 기업 코드 검증 RPC 전체가 500 → 기업 가입 차단.
+  exception when undefined_table or undefined_column then
     return jsonb_build_object('ok', true, 'company', c.company, 'hrd_name', null, 'hrd_phone', null,
               'center_id', c.center_id, 'center_slug', (select slug from centers where id = c.center_id));
   end;
@@ -196,12 +198,19 @@ begin
                    else current_admin_center() end;
   if v_center is null then raise exception 'no_center'; end if;
 
-  -- ⚠️ company_codes 는 아직 `company text PK`(센터 스코프 키는 5단계). 현재 단일테넌트라 company 기준 재사용.
-  --    5단계서 사업자번호 키로 전환되면 (center_id, 사업자번호) 기준으로 바꾼다.
-  select code into v_code from company_codes where company = p_company limit 1;
+  -- ⚠️ company_codes 는 아직 `company text PK`(전역 unique, 센터 스코프 키는 5단계 사업자번호 전환).
+  --    재사용은 '내 센터' 행으로 한정한다(이전엔 company 만으로 매칭·update → 타 센터의 동명기업 코드 행을
+  --    내 센터로 가로채는 교차센터 손상이 있었다).
+  select code into v_code from company_codes where company = p_company and center_id = v_center limit 1;
   if v_code is not null then
-    update company_codes set center_id = v_center, active = true where company = p_company;
+    update company_codes set active = true where company = p_company and center_id = v_center;
     return v_code;
+  end if;
+
+  -- 동명 회사가 '다른' 센터에 이미 있으면(전역 PK 충돌) 가로채지 말고 명시적으로 실패한다.
+  -- (사업자번호 자연키 전환(5단계, sql/27) 전까지의 안전장치. 그 후엔 (center_id, biz_no) 로 충돌 없이 공존.)
+  if exists (select 1 from company_codes where company = p_company and center_id is distinct from v_center) then
+    raise exception 'company_name_taken_other_center';
   end if;
 
   v_code := gen_join_code();

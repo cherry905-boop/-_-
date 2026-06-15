@@ -54,14 +54,19 @@ Deno.serve(async (req) => {
   const path = objectPath(row.url || "");
   if (!path) return json({ error: "not a stored file" }, 422);
 
-  // 2) 요청자의 센터 자격 검증 — 토큰/코드의 center_id 가 자료의 center_id 와 일치해야 함
+  // 2) 요청자의 센터 자격 검증 — 토큰/코드의 center_id 가 자료의 center_id 와 일치해야 함.
+  //   ⚠️ 클라(library.html)가 보내는 token = profile.token = 가입 시 발급된 타게팅 토큰이고,
+  //      이 값은 push_tokens 의 'device_key' 컬럼에 저장된다('token' 컬럼은 FCM 토큰 = 다른 값).
+  //      그래서 device_key 로 조회해야 행이 잡힌다(예전엔 'token' 으로 조회 → 항상 미스 → 403).
   let entitledCenter: string | null = null;
   if (token) {
-    const { data: t } = await admin.from("push_tokens").select("center_id").eq("token", token).maybeSingle();
+    const { data: t } = await admin.from("push_tokens").select("center_id").eq("device_key", token).maybeSingle();
     entitledCenter = t?.center_id ?? null;
   }
   if (!entitledCenter && code) {
-    const { data: sc } = await admin.from("student_codes").select("center_id").eq("code", code).maybeSingle();
+    // 코드 정규화 — SQL verify_* 와 동일(대문자 + 영숫자만). 클라가 하이픈/공백 포함해 보내도 매칭되게.
+    const normCode = code.toUpperCase().replace(/[^A-Z0-9]/g, "");
+    const { data: sc } = await admin.from("student_codes").select("center_id").eq("code", normCode).maybeSingle();
     entitledCenter = sc?.center_id ?? null;
   }
   if (!entitledCenter || entitledCenter !== row.center_id) return json({ error: "forbidden" }, 403);

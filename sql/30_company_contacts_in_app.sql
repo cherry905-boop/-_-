@@ -43,32 +43,55 @@ begin
       select notion_id into v_nid from public.companies where center_id = v_center and name = v_name limit 1;
     end if;
     if v_nid is null then
-      v_nid := 'csv:' || v_center::text || ':' || coalesce(v_biz, md5(v_name));
+      -- 합성 키: 사업자번호 우선, 없으면 정규화된 이름(md5 제거 → 서로 다른 이름끼리의 키 충돌 0·사람이 읽을 수 있음).
+      -- ⚠️ 사업자번호 없는 '서로 다른' 동명 회사는 같은 키로 묶인다(이름만으론 구분 불가). 구분하려면 CSV 에 사업자번호 기입.
+      v_nid := 'csv:' || v_center::text || ':' || coalesce(v_biz, 'name:' || lower(btrim(v_name)));
     end if;
 
-    -- 회사 upsert (notion_id 기준)
-    update public.companies
-       set name = v_name, active = true, updated_at = now(),
-           biz_no = coalesce(v_biz, biz_no),
-           status = coalesce(v_status, status)
-     where center_id = v_center and notion_id = v_nid;
-    if not found then
-      insert into public.companies (notion_id, name, biz_no, status, center_id, active)
-      values (v_nid, v_name, v_biz, v_status, v_center, true);
-    end if;
+    -- 회사 upsert (notion_id 기준). status/biz_no 는 sql/27 추가분이라 부분 마이그레이션 DB 엔 없을 수 있다 →
+    -- undefined_column 이면 핵심 컬럼만으로 강등 upsert(전체 RPC 가 'column does not exist' 로 500 나는 것 방지).
+    begin
+      update public.companies
+         set name = v_name, active = true, updated_at = now(),
+             biz_no = coalesce(v_biz, biz_no),
+             status = coalesce(v_status, status)
+       where center_id = v_center and notion_id = v_nid;
+      if not found then
+        insert into public.companies (notion_id, name, biz_no, status, center_id, active)
+        values (v_nid, v_name, v_biz, v_status, v_center, true);
+      end if;
+    exception when undefined_column then
+      update public.companies set name = v_name, active = true, updated_at = now()
+       where center_id = v_center and notion_id = v_nid;
+      if not found then
+        insert into public.companies (notion_id, name, center_id, active)
+        values (v_nid, v_name, v_center, true);
+      end if;
+    end;
     n := n + 1;
 
-    -- 담당자(HRD) upsert — 회사와 같은 notion_id, role='hrd' (담당자 정보가 있을 때만)
+    -- 담당자(HRD) upsert — 회사와 같은 notion_id, role='hrd' (담당자 정보가 있을 때만). email/status 도 동일 강등.
     if v_cname is not null or v_cphone is not null or v_cemail is not null then
-      update public.company_contacts
-         set name = coalesce(v_cname, name), phone = coalesce(v_cphone, phone),
-             email = coalesce(v_cemail, email), company = v_name,
-             status = coalesce(v_status, status), updated_at = now()
-       where center_id = v_center and notion_id = v_nid and role = 'hrd';
-      if not found then
-        insert into public.company_contacts (notion_id, role, company, name, phone, email, status, center_id)
-        values (v_nid, 'hrd', v_name, v_cname, v_cphone, v_cemail, v_status, v_center);
-      end if;
+      begin
+        update public.company_contacts
+           set name = coalesce(v_cname, name), phone = coalesce(v_cphone, phone),
+               email = coalesce(v_cemail, email), company = v_name,
+               status = coalesce(v_status, status), updated_at = now()
+         where center_id = v_center and notion_id = v_nid and role = 'hrd';
+        if not found then
+          insert into public.company_contacts (notion_id, role, company, name, phone, email, status, center_id)
+          values (v_nid, 'hrd', v_name, v_cname, v_cphone, v_cemail, v_status, v_center);
+        end if;
+      exception when undefined_column then
+        update public.company_contacts
+           set name = coalesce(v_cname, name), phone = coalesce(v_cphone, phone),
+               company = v_name, updated_at = now()
+         where center_id = v_center and notion_id = v_nid and role = 'hrd';
+        if not found then
+          insert into public.company_contacts (notion_id, role, company, name, phone, center_id)
+          values (v_nid, 'hrd', v_name, v_cname, v_cphone, v_center);
+        end if;
+      end;
       nc := nc + 1;
     end if;
   end loop;

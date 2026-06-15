@@ -29,11 +29,22 @@ begin
   foreach t in array tbls loop
     if to_regclass('public.' || t) is null then continue; end if;
 
-    -- (a) 갓모드 정책만 정확히 제거: cmd=ALL 이고 USING 조건이 true 인 것.
+    -- (a) 갓모드 정책 제거 — 두 형태 모두:
+    --   (1) cmd=ALL & USING=true (원조 갓모드)
+    --   (2) USING/WITH CHECK = (auth.uid() IS NOT NULL) (= '로그인한 어떤 관리자든' = 센터 무스코프).
+    --       이 형태가 레포의 실제 관리자 정책이다: surveys/polls/company_info 의 ALL,
+    --       company_contacts/survey_answers/poll_votes/company_survey_responses 의 SELECT·DELETE.
+    --       (1) 만 지우면 이들이 살아남아 permissive OR 로 센터 스코프 정책을 무효화한다 → cmd 무관 제거.
+    --   ⚠️ anon/공개읽기 정책은 qual 형태가 달라(예: 'true'(SELECT), '(open = true OR auth.uid() IS NOT NULL)',
+    --      '(published = true)') 매칭되지 않으므로 보존된다. 본인행 정책('(user_id = auth.uid())')도 보존.
     for pol in
       select policyname from pg_policies
       where schemaname = 'public' and tablename = t
-        and cmd = 'ALL' and qual = 'true'
+        and (
+              (cmd = 'ALL' and qual = 'true')
+           or qual = '(auth.uid() IS NOT NULL)'
+           or with_check = '(auth.uid() IS NOT NULL)'
+        )
     loop
       execute format('drop policy if exists %I on public.%I', pol.policyname, t);
     end loop;
