@@ -1123,6 +1123,11 @@ $master$;
 --   · 스키마 안전: 패치 키 중 '실제 존재하는 컬럼'만 동적 set(마스터 스키마가 대시보드 관리라 가변).
 --   · 화이트리스트: cohort/status/manager/type1 만 허용(center_id·role 등 변조 차단).
 --   · 센터 스코프: current_admin_center() 로 한정(super_admin 도 자기 홈센터). 교차센터 편집 불가.
+--
+-- ⚠️ 후속(대시보드 전용): admin_students() RPC 가 cohort/status 를 '반환'하지 않아, 마스터 경로 행은
+--    가입자 표에서 기수/상태가 '-' 로 보인다(편집은 RPC 로 정상 적용·저장됨). 편집기는 '바뀐 필드만'
+--    전송(더티 트래킹)하므로 기존값을 덮어쓰진 않지만, 마스터 경로에서 현재값을 화면에 보이려면
+--    admin_students() 가 cohort·status(가능하면 center_id)도 반환하도록 대시보드에서 보강할 것.
 -- =====================================================================
 
 -- ── A. status 컬럼 + (center_id, status) 인덱스 (registrations·students) ──

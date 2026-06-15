@@ -1553,7 +1553,12 @@
         let editorTr = null;
         editBtn.addEventListener('click', () => {
           if (editorTr) { editorTr.remove(); editorTr = null; return; }
-          const opt = (arr, cur) => ['<option value="">(미지정)</option>'].concat((arr || []).map(o => `<option value="${esc(o)}"${o === cur ? ' selected' : ''}>${esc(o)}</option>`)).join('');
+          // (미지정) + 어휘 + 어휘 밖 현재값도 선택지로 보존(표시·클로버 방지)
+          const opt = (arr, cur) => {
+            const list = (arr || []).slice();
+            if (cur && !list.includes(cur)) list.unshift(cur);
+            return ['<option value="">(미지정)</option>'].concat(list.map(o => `<option value="${esc(o)}"${o === cur ? ' selected' : ''}>${esc(o)}</option>`)).join('');
+          };
           editorTr = document.createElement('tr');
           const td = document.createElement('td'); td.colSpan = cols.length + 3; td.style.cssText = 'padding:10px;background:var(--gray-50,#f6f6f7)';
           td.innerHTML =
@@ -1565,20 +1570,21 @@
             '<button type="button" class="btn le-save" style="margin-top:0;width:auto;padding:8px 14px">저장</button>' +
             '<span class="le-msg note"></span></div>';
           editorTr.appendChild(td); tr.after(editorTr);
+          const elC = td.querySelector('.le-cohort'), elS = td.querySelector('.le-status'), elM = td.querySelector('.le-manager'), elT = td.querySelector('.le-type1');
+          const init = { cohort: elC.value.trim(), status: elS.value, manager: elM.value, type1: elT.value };   // 더티 트래킹 기준
           td.querySelector('.le-save').addEventListener('click', async () => {
-            const patch = {
-              cohort: td.querySelector('.le-cohort').value.trim(),
-              status: td.querySelector('.le-status').value,
-              manager: td.querySelector('.le-manager').value,
-              type1: td.querySelector('.le-type1').value
-            };
+            // 바뀐 필드만 전송 — 마스터(admin_students) 경로는 status 등을 미반환하므로 전부 보내면 기존값을 ''로 덮어쓸 위험.
+            const curv = { cohort: elC.value.trim(), status: elS.value, manager: elM.value, type1: elT.value };
+            const patch = {};
+            ['cohort', 'status', 'manager', 'type1'].forEach(k => { if (curv[k] !== init[k]) patch[k] = curv[k]; });
             const sb = td.querySelector('.le-save'), msg = td.querySelector('.le-msg');
+            if (!Object.keys(patch).length) { msg.textContent = '변경된 내용이 없어요.'; return; }
             sb.disabled = true; msg.textContent = '저장 중...';
             try {
               const { data, error } = await supabase.rpc('update_student_lifecycle', { p_name: r.name, p_phone: r.phone || null, p_patch: patch });
               if (error) throw error;
               if (!data || !data.rows) { msg.textContent = '해당 가입자를 못 찾았어요(센터·이름 확인).'; sb.disabled = false; return; }
-              logAction('가입자수정', r.name + ' · 기수 ' + (patch.cohort || '-') + ' · ' + (patch.status || '-'));
+              logAction('가입자수정', r.name + ' · ' + Object.keys(patch).map(k => k + '=' + (patch[k] || '(해제)')).join(' '));
               regLoad();
             } catch (e) {
               const m = e.message || e;
