@@ -212,6 +212,7 @@
           <textarea id="cl-reply" class="ph-ta" rows="2" style="min-height:64px"></textarea>
           <button class="btn" id="cl-send">답변 보내기</button>
           <button class="mju-btn mju-btn--secondary mju-btn--full" id="cl-toqna" style="margin-top:8px"><i data-lucide="share-2"></i> 이 상담을 FAQ 사례로 공개 (익명화)</button>
+          <button class="mju-btn mju-btn--secondary mju-btn--full" id="cl-close" style="margin-top:8px"><i data-lucide="check-circle"></i> 상담 종료 (해결됨으로 표시)</button>
           <button class="mju-btn mju-btn--secondary mju-btn--full" id="cl-del" style="margin-top:8px;color:var(--coral-600);border-color:var(--coral-500)"><i data-lucide="trash-2"></i> 이 상담 삭제 (완료된 상담 정리)</button>
           <div class="status" id="cl-status"></div>
         </div>
@@ -283,6 +284,18 @@
             <button class="btn" id="as-add" type="button" style="margin-top:0;width:auto;flex:0 0 auto;padding:11px 16px">추가 + 코드발급</button>
           </div>
           <div class="status" id="as-status"></div>
+        </div>
+        <div class="card">
+          <p class="ph-card-title">기수 일괄 이동 (졸업)</p>
+          <p class="ph-note" style="margin-bottom:6px">한 기수를 다른 라벨로 한 번에 옮겨요(데이터는 보존·이력 유지). 졸업이면 상태를 '수료'로 함께 표시할 수 있어요.</p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <select id="gr-from"><option value="">옮길 기수 선택</option></select>
+            <span class="note">→</span>
+            <input id="gr-to" placeholder="새 기수(예: 졸업·2025)" style="min-width:140px" />
+            <label class="note" style="display:flex;align-items:center;gap:4px"><input type="checkbox" id="gr-done" /> 상태를 '수료'로 표시</label>
+            <button class="btn" id="gr-go" type="button" style="margin-top:0;width:auto;flex:0 0 auto;padding:11px 16px">기수 일괄 이동</button>
+          </div>
+          <div class="status" id="gr-status"></div>
         </div>
         <div class="card">
           <div class="filter-chips" id="rg-seg" role="group" aria-label="가입자 구분" style="margin-bottom:10px"></div>
@@ -947,6 +960,11 @@
         tg.style.cssText = 'padding:4px 10px;font-size:12.5px;border:1px solid var(--line);border-radius:8px;background:var(--surface-card);cursor:pointer';
         tg.addEventListener('click', async () => { await supabase.from('polls').update({ open: !p.open }).eq('id', p.id); logAction(p.open ? '투표마감' : '투표재개', p.question); poLoad(); });
         btns.appendChild(tg);
+        // [정합성] 결과 공개 여부 토글 — 생성 후에도 바꿀 수 있게. poll_results RPC(sql/17)가 results_public 기준으로 노출.
+        const rp = document.createElement('button'); rp.type = 'button'; rp.textContent = p.results_public ? '결과 비공개로' : '결과 공개로';
+        rp.style.cssText = 'padding:4px 10px;font-size:12.5px;border:1px solid var(--line);border-radius:8px;background:var(--surface-card);cursor:pointer';
+        rp.addEventListener('click', async () => { await supabase.from('polls').update({ results_public: !p.results_public }).eq('id', p.id); logAction(p.results_public ? '결과비공개' : '결과공개', p.question); poLoad(); });
+        btns.appendChild(rp);
         btns.appendChild(mkDelBtn('삭제', async () => {
           const { data: del, error: derr } = await supabase.from('polls').delete().eq('id', p.id).select('id');
           if (derr) throw derr;
@@ -1133,7 +1151,8 @@
     let curConsult = null, curLabel = '';
     async function clLoad() {
       const { data } = await supabase.from('consultations').select('id,name,job_key,status,last_at').order('last_at', { ascending: false }).limit(50);
-      const rows = (data || []).slice().sort((a, b) => (a.status === '열림' ? 0 : 1) - (b.status === '열림' ? 0 : 1)); // 미답변(열림) 먼저
+      const clRank = s => s === '열림' ? 0 : s === '종료' ? 2 : 1;
+      const rows = (data || []).slice().sort((a, b) => clRank(a.status) - clRank(b.status)); // 미답변(열림) 먼저, 종료는 맨 아래
       const open = rows.filter(c => c.status === '열림').length;
       const el = $('cl-list');
       el.innerHTML = rows.length ? `<p class="note" style="margin:0 0 10px">미답변 <b style="color:var(--err)">${open}건</b> · 전체 ${rows.length}건 (미답변이 위에)</p>` : '<p class="note">상담 없음</p>';
@@ -1211,6 +1230,16 @@
       if (error) { setStatus($('cl-status'), '오류: ' + error.message, 'error'); return; }
       $('cl-reply').value = ''; setStatus($('cl-status'), '✅ 답변 전송', 'ok'); logAction('상담답변', curLabel); openConsult(curConsult, curLabel); clLoad();
     });
+    // [정합성] 상담 종료 — consultations.status 를 '종료'로(이미 존재하는 컬럼·센터 스코프 RLS). 학생측은 상태 텍스트로 표시.
+    $('cl-close')?.addEventListener('click', async () => {
+      if (!curConsult) return;
+      $('cl-close').disabled = true;
+      const { data, error } = await supabase.from('consultations').update({ status: '종료', last_at: new Date().toISOString() }).eq('id', curConsult).select('id');
+      $('cl-close').disabled = false;
+      if (error) { setStatus($('cl-status'), '오류: ' + error.message, 'error'); return; }
+      if (!data || !data.length) { setStatus($('cl-status'), '권한이 없어요 — 센터 범위를 확인하세요.', 'error'); return; }
+      setStatus($('cl-status'), '✅ 상담을 종료했어요.', 'ok'); logAction('상담종료', curLabel); clLoad();
+    });
 
     // ===== 가입자 관리 =====
     let regCache = [];
@@ -1248,7 +1277,7 @@
         } catch (_) {}
       } else {
         // 폴백(R15 admin_students 미적용): 앱 가입자(registrations)
-        let { data, error } = await supabase.from('registrations').select('id,name,phone,target_type,job_key,company,type1,manager,role,interest_jobs,created_at,cohort').order('created_at', { ascending: false }).limit(1000);
+        let { data, error } = await supabase.from('registrations').select('id,name,phone,target_type,job_key,company,type1,manager,role,interest_jobs,created_at,cohort,status').order('created_at', { ascending: false }).limit(1000);
         if (error && /column|schema cache/i.test(error.message || '')) ({ data, error } = await supabase.from('registrations').select('id,name,phone,target_type,job_key,company,type1,created_at').order('created_at', { ascending: false }).limit(1000));
         if (error) { $('rg-table').innerHTML = '<tbody><tr><td style="padding:10px;color:var(--text-muted)">명단 조회 권한이 없습니다 — R12/R15 SQL 실행 필요</td></tr></tbody>'; return; }
         rows = (data || []).map(r => ({ ...r, signed: true, interest: regInterest(r) }));
@@ -1293,7 +1322,9 @@
       fillSel('rg-ftype', (window.TYPES || []).slice());
       fillSel('rg-fstatus', [...new Set(regCache.filter(r => r.target_type === 'company').map(r => r.status).filter(Boolean))].sort());
       fillSel('rg-fsigned', ['가입', '미가입']);
-      fillSel('rg-fcohort', [...new Set(regCache.map(r => r.cohort).filter(Boolean))].sort());
+      const cohorts = [...new Set(regCache.map(r => r.cohort).filter(Boolean))].sort();
+      fillSel('rg-fcohort', cohorts);
+      fillSel('gr-from', cohorts);   // [정합성] 졸업(기수 일괄 이동) 출발 기수 선택지
       regRender();
     }
     function fillSel(id, vals) {
@@ -1382,7 +1413,7 @@
       }
       $('rg-count').textContent = cntTxt + (rows.length !== segTotal ? ' · 필터 ' + rows.length + '명' : '');
       const cols = isStu
-        ? [['name', '이름'], ['manager', '담당직원'], ['job_key', '직무'], ['company', '기업'], ['type1', '유형'], ['signed', '가입']]
+        ? [['name', '이름'], ['manager', '담당직원'], ['job_key', '직무'], ['company', '기업'], ['type1', '유형'], ['cohort', '기수'], ['status', '상태'], ['signed', '가입']]
         : regSeg === 'applicant'
           ? [['name', '이름'], ['interest', '관심직무'], ['created_at', '등록일']]
           : ccReady
@@ -1406,7 +1437,7 @@
         }
         const signed = r.signed ? '<span class="mju-badge mju-badge--success">가입</span>' : '<span class="note">미가입</span>';
         const vals = isStu
-          ? [esc(r.name || ''), esc(r.manager || '-'), esc(r.job_key || '-'), esc(r.company || '-'), esc(r.type1 || '-'), signed]
+          ? [esc(r.name || ''), esc(r.manager || '-'), esc(r.job_key || '-'), esc(r.company || '-'), esc(r.type1 || '-'), esc(r.cohort || '-'), esc(r.status || '-'), signed]
           : regSeg === 'applicant'
             ? [esc(r.name || ''), esc(r.interest || '-'), fmtD(r.created_at)]
             : ccReady
@@ -1499,7 +1530,70 @@
             cbtn.disabled = false;
           });
           tdc.appendChild(cbtn);
+          // [정합성] 초대코드 회수 — student_codes.active=false (soft, 유니크 슬롯 해제·재발급 가능). 행 id 확인된 경우만 노출.
+          const cm = codeMap[(r.name || '') + '|' + (r.phone || '')];
+          if (issuedCode && cm && cm.id) {
+            const rv = document.createElement('button'); rv.type = 'button'; rv.className = 'phone-btn'; rv.title = '초대코드 회수(비활성화 — 재발급 가능)';
+            rv.style.marginLeft = '4px'; rv.innerHTML = '<i data-lucide="x"></i>';
+            rv.addEventListener('click', async () => {
+              if (!confirm(`${r.name} 의 초대코드를 회수할까요? (비활성화되며 다시 발급할 수 있어요)`)) return;
+              rv.disabled = true;
+              const { data: d, error } = await supabase.from('student_codes').update({ active: false }).eq('id', cm.id).select('id');
+              rv.disabled = false;
+              if (error) { setStatus($('rg-status'), '회수 오류: ' + error.message, 'error'); return; }
+              if (!d || !d.length) { setStatus($('rg-status'), '회수 권한이 없어요 — 센터 범위를 확인하세요.', 'error'); return; }
+              logAction('코드회수', r.name); regLoad();
+            });
+            tdc.appendChild(rv);
+          }
         }
+        // [정합성] 가입자 생애주기 편집 — 기수/상태/담당/유형. update_student_lifecycle RPC(센터 스코프·스키마 안전).
+        const editBtn = document.createElement('button'); editBtn.type = 'button'; editBtn.className = 'phone-btn';
+        editBtn.style.marginLeft = '4px'; editBtn.title = '기수·상태·담당·유형 수정'; editBtn.innerHTML = '<i data-lucide="pencil"></i>';
+        let editorTr = null;
+        editBtn.addEventListener('click', () => {
+          if (editorTr) { editorTr.remove(); editorTr = null; return; }
+          // (미지정) + 어휘 + 어휘 밖 현재값도 선택지로 보존(표시·클로버 방지)
+          const opt = (arr, cur) => {
+            const list = (arr || []).slice();
+            if (cur && !list.includes(cur)) list.unshift(cur);
+            return ['<option value="">(미지정)</option>'].concat(list.map(o => `<option value="${esc(o)}"${o === cur ? ' selected' : ''}>${esc(o)}</option>`)).join('');
+          };
+          editorTr = document.createElement('tr');
+          const td = document.createElement('td'); td.colSpan = cols.length + 3; td.style.cssText = 'padding:10px;background:var(--gray-50,#f6f6f7)';
+          td.innerHTML =
+            '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">' +
+            `<label class="note">기수 <input class="le-cohort" value="${esc(r.cohort || '')}" placeholder="예 2026" style="width:96px"></label>` +
+            `<label class="note">상태 <select class="le-status">${opt(window.STATUSES, r.status || '')}</select></label>` +
+            `<label class="note">담당 <select class="le-manager">${opt(window.MANAGERS, r.manager || '')}</select></label>` +
+            `<label class="note">유형 <select class="le-type1">${opt(window.TYPES, r.type1 || '')}</select></label>` +
+            '<button type="button" class="btn le-save" style="margin-top:0;width:auto;padding:8px 14px">저장</button>' +
+            '<span class="le-msg note"></span></div>';
+          editorTr.appendChild(td); tr.after(editorTr);
+          const elC = td.querySelector('.le-cohort'), elS = td.querySelector('.le-status'), elM = td.querySelector('.le-manager'), elT = td.querySelector('.le-type1');
+          const init = { cohort: elC.value.trim(), status: elS.value, manager: elM.value, type1: elT.value };   // 더티 트래킹 기준
+          td.querySelector('.le-save').addEventListener('click', async () => {
+            // 바뀐 필드만 전송 — 마스터(admin_students) 경로는 status 등을 미반환하므로 전부 보내면 기존값을 ''로 덮어쓸 위험.
+            const curv = { cohort: elC.value.trim(), status: elS.value, manager: elM.value, type1: elT.value };
+            const patch = {};
+            ['cohort', 'status', 'manager', 'type1'].forEach(k => { if (curv[k] !== init[k]) patch[k] = curv[k]; });
+            const sb = td.querySelector('.le-save'), msg = td.querySelector('.le-msg');
+            if (!Object.keys(patch).length) { msg.textContent = '변경된 내용이 없어요.'; return; }
+            sb.disabled = true; msg.textContent = '저장 중...';
+            try {
+              const { data, error } = await supabase.rpc('update_student_lifecycle', { p_name: r.name, p_phone: r.phone || null, p_patch: patch });
+              if (error) throw error;
+              if (!data || !data.rows) { msg.textContent = '해당 가입자를 못 찾았어요(센터·이름 확인).'; sb.disabled = false; return; }
+              logAction('가입자수정', r.name + ' · ' + Object.keys(patch).map(k => k + '=' + (patch[k] || '(해제)')).join(' '));
+              regLoad();
+            } catch (e) {
+              const m = e.message || e;
+              msg.textContent = /not_admin|no_center/.test(m) ? '권한 없음' : (/PGRST202|42883|function|schema cache/i.test(m) ? '서버 업데이트(sql/33) 적용 전이에요.' : '오류: ' + m);
+              sb.disabled = false;
+            }
+          });
+        });
+        tdc.appendChild(editBtn);
         tr.appendChild(tdc);
         tb.appendChild(tr);
       });
@@ -1515,6 +1609,24 @@
     ['rg-search', 'rg-fmanager', 'rg-fjob', 'rg-ftype', 'rg-fstatus', 'rg-fsigned', 'rg-fcohort'].forEach(id => { const e = $(id); if (e) e.addEventListener('input', regRender); });
     $('rg-refresh').addEventListener('click', regLoad);
     $('rg-clearsel').addEventListener('click', () => { regSel.clear(); regRender(); });
+    // [정합성] 졸업 = 기수 일괄 이동(graduate_cohort RPC, 센터 스코프). 데이터 보존, 선택 시 status='수료'.
+    $('gr-go')?.addEventListener('click', async () => {
+      const from = $('gr-from').value, to = $('gr-to').value.trim(), done = $('gr-done').checked;
+      if (!from || !to) { setStatus($('gr-status'), '옮길 기수와 새 기수를 입력하세요.', 'error'); return; }
+      if (!confirm(`'${from}' 기수를 '${to}'(으)로 일괄 이동할까요?` + (done ? " 상태도 '수료'로 표시됩니다." : ''))) return;
+      $('gr-go').disabled = true; setStatus($('gr-status'), '이동 중...', 'info');
+      try {
+        const { data, error } = await supabase.rpc('graduate_cohort', { p_from: from, p_to: to, p_set_completed: done });
+        if (error) throw error;
+        setStatus($('gr-status'), `✅ ${(data && data.rows) || 0}건 이동했어요.`, 'ok');
+        logAction('기수이동', from + '→' + to + (done ? ' (수료)' : ''));
+        $('gr-to').value = ''; $('gr-done').checked = false; regLoad();
+      } catch (e) {
+        const m = e.message || e;
+        setStatus($('gr-status'), /not_admin|no_center/.test(m) ? '권한 없음' : (/PGRST202|42883|function|schema cache/i.test(m) ? '서버 업데이트(sql/33) 적용 전이에요.' : '오류: ' + m), 'error');
+      }
+      $('gr-go').disabled = false;
+    });
     // 선택 학생 코드 일괄 발급 (이미 있으면 건너뜀)
     $('rg-codes').addEventListener('click', async () => {
       if (!codesReady) { setStatus($('rg-status'), '초대코드 기능이 꺼져 있어요 — sql/02_codes.sql 을 먼저 실행하세요.', 'error'); return; }
