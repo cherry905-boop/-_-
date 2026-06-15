@@ -37,8 +37,8 @@ window.__resolveCenterSlug = function (fromUrl, saved, def) {
 window.APP_CONFIG = {
   // ── 1) Supabase 연결값 (Supabase 대시보드 > Project Settings > API 에서 복사) ──
   //    아직 없으면 placeholder 그대로 두고, README_SETUP.md 2번 순서대로 만든 뒤 붙여넣으세요.
-  SUPABASE_URL:      'https://ummuyzqyanrearbzgqyp.supabase.co',
-  SUPABASE_ANON_KEY: 'sb_publishable_XzwIozsND6H-wTKmCQxGCQ_iM_aKhmx', // publishable(공개용) 키 — 노출돼도 안전
+  SUPABASE_URL:      'https://ggitgqijycvnhhraxzgn.supabase.co',
+  SUPABASE_ANON_KEY: 'sb_publishable_kZe4svXj8ZmsGeXOT3xHyA_N9z1tFpU', // publishable(공개용) 키 — 노출돼도 안전
 
   // ── 2) 센터/앱 표시 정보 ──
   CENTER_NAME: '일학습병행 공동훈련센터',
@@ -46,7 +46,7 @@ window.APP_CONFIG = {
 
   // ── 3) 개인정보 처리방침 안내 (가입 동의 화면에 표시) ──
   PRIVACY_RETENTION: '훈련 종료 후 3년',          // 보유기간 (기관 규정에 맞게 수정)
-  PRIVACY_TRANSFER:  'Supabase Inc.(미국), Google LLC(미국)', // 국외 이전받는 자
+  PRIVACY_TRANSFER:  'Google LLC(미국)', // 국외 이전받는 자 (Supabase 데이터는 서울 리전=국내)
   // ⚠️ 학생 배포 전 반드시 실제값으로 — 개인정보보호법 게시의무(privacy.html에 표시됨):
   PRIVACY_OFFICER:         '권순천 (일학습병행운영팀)',                // 개인정보 보호책임자 성명·직책
   PRIVACY_OFFICER_CONTACT: '전화 031-324-1228 / 이메일 cherry905@mju.ac.kr',  // 보호책임자 연락처(열람·삭제·철회 창구)
