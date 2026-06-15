@@ -58,9 +58,11 @@
     function cardFor(n) {
       const card = document.createElement('div');
       card.className = 'card';
-      const unread = !readBefore.has(n.id) ? `<span class="unread-dot" aria-hidden="true"></span><span class="sr-only">안 읽음</span> ` : '';
+      const isUnread = !readBefore.has(n.id);
+      const unread = isUnread ? `<span class="unread-dot" aria-hidden="true"></span><span class="sr-only">안 읽음</span> ` : '';
+      // 항목당 신호 1개: 미읽음=점 / (읽었지만 최근)=NEW(차분한 sky) / 개인=중립 — 중복 배지 제거
       card.innerHTML = `<p class="ph-card-title">${unread}${esc(n.title)}` +
-        (n._personal ? ` <span class="mju-badge mju-badge--coral">개인 안내</span>` : (isNew(n.created_at) ? ` <span class="mju-badge mju-badge--coral">NEW</span>` : ``)) + `</p>` +
+        (n._personal ? ` <span class="mju-badge mju-badge--neutral">개인 안내</span>` : (!isUnread && isNew(n.created_at) ? ` <span class="mju-badge mju-badge--sky">NEW</span>` : ``)) + `</p>` +
         `<p class="notice-card-time">${fmt(n.created_at)}</p>` +
         `<p class="notice-body">${esc(n.body)}</p>`;
       return card;

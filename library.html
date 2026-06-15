@@ -50,7 +50,8 @@
       if (r.job_key.indexOf('custom:') === 0) { try { return matchSel(JSON.parse(r.job_key.slice(7)), profile); } catch (_) { return false; } }
       return r.job_key === profile.job_key;                          // 단일 직무(기존)
     };
-    const KIND_BADGE = { '학습안내서': 'mju-badge--navy', 'OFF-JT공지': 'mju-badge--coral', '일정표': 'mju-badge--gold', '서식': 'mju-badge--sky', '기타': 'mju-badge--neutral' };
+    // 종류는 중립 태그(텍스트로 구분) — 자료 목록의 '무지개 배지' 절제
+    const KIND_BADGE = { '학습안내서': 'mju-badge--neutral', 'OFF-JT공지': 'mju-badge--neutral', '일정표': 'mju-badge--neutral', '서식': 'mju-badge--neutral', '기타': 'mju-badge--neutral' };
 
     const $ = id => document.getElementById(id);
     const listEl = $('list'), emptyEl = $('empty'), moreBtn = $('more');

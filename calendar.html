@@ -53,7 +53,8 @@
       if (r.job_key.indexOf('custom:') === 0) { try { return matchSel(JSON.parse(r.job_key.slice(7)), profile); } catch (_) { return false; } }
       return r.job_key === profile.job_key;                          // 단일 직무(기존)
     };
-    const KIND_BADGE = { '외부평가': 'mju-badge--coral', '마감': 'mju-badge--gold', 'OT': 'mju-badge--navy', '특강': 'mju-badge--sky', '행사': 'mju-badge--navy', '기타': 'mju-badge--neutral' };
+    // 종류는 중립 태그(텍스트로 구분), 색 신호는 D-day(시간 긴급도)가 담당 — '무지개 배지' 절제
+    const KIND_BADGE = { '외부평가': 'mju-badge--neutral', '마감': 'mju-badge--neutral', 'OT': 'mju-badge--neutral', '특강': 'mju-badge--neutral', '행사': 'mju-badge--neutral', '기타': 'mju-badge--neutral' };
 
     // D-day 계산 (로컬 자정 기준)
     function dday(dateStr) {

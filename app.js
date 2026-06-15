@@ -322,6 +322,45 @@ if ('serviceWorker' in navigator) {
   } catch (_) {}
 })();
 
+// 헤더 워드마크 락업 — 전 학생 페이지의 .ph-lockup 을 KDP 워드마크로 통일(한 곳에서 일괄).
+//   KOREA DUAL PROGRAM 마크(GO) + 「일학습병행 / KOREA DUAL PROGRAM」 워드마크 + 센터명 chip.
+//   다크모드는 토큰으로 자동 대응. index.html 이 import 직후 #t-center 에 쓰므로 충돌 피하려 DOMContentLoaded 에 실행.
+const KDP_MARK_SVG = '<svg width="24" height="22" viewBox="0 0 58 54" aria-hidden="true" style="display:block">'
+  + '<g fill="#1078C4">'
+  + '<rect x="42.5" y="12.4" width="5" height="5.4" rx="1" transform="rotate(0 42.5 27)"/>'
+  + '<rect x="42.5" y="12.4" width="5" height="5.4" rx="1" transform="rotate(45 42.5 27)"/>'
+  + '<rect x="42.5" y="12.4" width="5" height="5.4" rx="1" transform="rotate(90 42.5 27)"/>'
+  + '<rect x="42.5" y="12.4" width="5" height="5.4" rx="1" transform="rotate(135 42.5 27)"/>'
+  + '<rect x="42.5" y="12.4" width="5" height="5.4" rx="1" transform="rotate(180 42.5 27)"/>'
+  + '<rect x="42.5" y="12.4" width="5" height="5.4" rx="1" transform="rotate(225 42.5 27)"/>'
+  + '<rect x="42.5" y="12.4" width="5" height="5.4" rx="1" transform="rotate(270 42.5 27)"/>'
+  + '<rect x="42.5" y="12.4" width="5" height="5.4" rx="1" transform="rotate(315 42.5 27)"/>'
+  + '<circle cx="42.5" cy="27" r="11.2"/></g>'
+  + '<circle cx="42.5" cy="27" r="5.4" fill="#fff"/>'
+  + '<path d="M40.2 29.3 L44.8 24.7" stroke="#1078C4" stroke-width="1.7" stroke-linecap="round"/>'
+  + '<circle cx="44.9" cy="24.6" r="1.3" fill="#1078C4"/>'
+  + '<path d="M38.16 37.29 A 17.5 17.5 0 1 1 38.16 16.71" fill="none" stroke="#EF7D00" stroke-width="7" stroke-linecap="round"/>'
+  + '<rect x="30.5" y="33.4" width="7.5" height="6.6" rx="2" fill="#EF7D00"/>'
+  + '<path d="M17.5 25 Q17.5 31 24 31 Q30.5 31 30.5 25 Z" fill="#EF7D00"/>'
+  + '<polygon points="24,17 39.5,24 24,30 8.5,24" fill="#EF7D00"/>'
+  + '<rect x="23.4" y="15.4" width="1.2" height="3.2" fill="#EF7D00"/>'
+  + '<circle cx="24" cy="15.2" r="1.7" fill="#EF7D00"/>'
+  + '<path d="M12 24 L12 31.4" stroke="#EF7D00" stroke-width="1.6" stroke-linecap="round"/>'
+  + '<rect x="10.5" y="31" width="3" height="4" rx="1" fill="#EF7D00"/></svg>';
+function renderHeaderLockup() {
+  try {
+    const cc = (window.APP_CONFIG || {});
+    const center = cc.CENTER_SHORT || cc.CENTER_NAME || '';   // chip은 짧은 식별명(기관) 우선
+    document.querySelectorAll('.ph-lockup').forEach(el => {
+      el.innerHTML = '<span class="kdp-mark">' + KDP_MARK_SVG + '</span>'
+        + '<span class="kdp-word"><b>일학습병행</b><small>KOREA DUAL PROGRAM</small></span>'
+        + (center ? '<span class="ph-center-chip">' + esc(center) + '</span>' : '');
+    });
+  } catch (_) {}
+}
+// 각 페이지 인라인 스크립트(index 의 #t-center 설정 등)가 끝난 뒤 실행되도록 매크로태스크로 지연 → 충돌 없이 항상 적용.
+setTimeout(renderHeaderLockup, 0);
+
 // 접근성 — 상태 메시지를 스크린리더가 자동 낭독하도록
 (function a11yStatus() {
   try {
