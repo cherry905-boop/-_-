@@ -16,6 +16,12 @@ update storage.buckets set public = false where id = 'library';
 drop policy if exists "library admin all" on storage.objects;
 drop policy if exists "library public read" on storage.objects;
 drop policy if exists "library admin manage own center" on storage.objects;
+-- ⚠️ sql/09 의 센터 무스코프 쓰기 정책(= bucket_id='library' AND auth.uid() IS NOT NULL)도 반드시 제거.
+--    안 지우면 permissive OR 로 '로그인한 어떤 관리자든' 타 센터 폴더(<other>/lib/..)에 업로드·수정·삭제 가능
+--    → 아래 '자기 센터 폴더만' 정책이 무효화된다(쓰기 격리 실패).
+drop policy if exists "library admin insert" on storage.objects;
+drop policy if exists "library admin update" on storage.objects;
+drop policy if exists "library admin delete" on storage.objects;
 
 -- ── 3) 관리자: 자기 센터 폴더(<slug>/...)만 업로드·수정·삭제 ──
 --   객체 경로 첫 폴더 = 센터 슬러그. admin_users 의 센터 슬러그와 일치해야 함.

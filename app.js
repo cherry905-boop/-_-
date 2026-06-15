@@ -39,17 +39,40 @@ export function centerUrl(path) {
 // [P3] 활성 센터의 uuid — `center_id_for_slug` RPC(sql/19)로 1회 해석 후 캐시.
 // 마이그레이션 전에는 RPC 가 없어 null → 공개읽기 스코프 미적용 = 파일럿 동일.
 // 적용 후에는 공개읽기를 자기 센터로 좁힌다(공개 콘텐츠라 클라 필터로 충분).
-let _centerIdCache;
+let _centerIdCache;   // undefined=미해석(재시도 가능), string=해석 성공(영구 캐시)
 export async function getCenterId() {
   if (_centerIdCache !== undefined) return _centerIdCache;
-  _centerIdCache = null;
+  // 성공했을 때만 캐시한다. 일시 오류·미초기화로 null 을 캐시하면(_centerIdCache 가 undefined 가 아니게 되면)
+  // 페이지 생애 내내 스코프가 꺼져버리므로(공개읽기 미필터·push_tokens.center_id=null) 실패 시엔 캐시하지 않는다.
   if (supabase) {
     try {
       const { data, error } = await supabase.rpc('center_id_for_slug', { p_slug: getCenter() });
-      if (!error && data) _centerIdCache = data;
+      if (!error && data) { _centerIdCache = data; return _centerIdCache; }
     } catch (_) {}
   }
-  return _centerIdCache;
+  return null;   // 미해석 → 캐시 안 함(_centerIdCache 는 undefined 유지) → 다음 호출에서 재시도
+}
+
+// [②b] 센터별 어휘(vocab) 적용 — 직무·담당·유형·단계·설문을 센터 DB값으로 override.
+//   vocab 컬럼이 없거나(미적용) 값이 null(mju 등)이면 조용히 스킵 = config.js 정적값(현재 동작·회귀 0).
+//   ⚠️ 드롭다운(가입폼·관리자 타게팅)을 만들기 '전에' await 로 호출해야 적용된다. 호출부: index.html·admin.html·privacy.html.
+let _vocabPromise;
+export function applyCenterVocab() {
+  // 프로미스 캐시 — 동시 호출(여러 드롭다운 IIFE)이 같은 fetch 를 공유하고 모두 적용 완료까지 대기한다.
+  if (_vocabPromise) return _vocabPromise;
+  _vocabPromise = (async () => {
+    if (!supabase) return;
+    try {
+      const { data: v } = await supabase.from('centers').select('vocab').eq('slug', getCenter()).maybeSingle();
+      if (v && v.vocab) {
+        ['JOBS', 'COMPANIES', 'TYPES', 'TYPE2', 'MANAGERS', 'STATUSES', 'COMPANY_STAGES', 'COMPANY_SURVEYS'].forEach(k => {
+          const val = v.vocab[k.toLowerCase()];
+          if (val != null) window[k] = val;
+        });
+      }
+    } catch (_) { /* vocab 컬럼 미적용 → 스킵 */ }
+  })();
+  return _vocabPromise;
 }
 
 // [P3/P4] 활성 센터의 설정을 DB(centers)에서 로드 → APP_CONFIG 키 형태로 반환.
@@ -57,17 +80,7 @@ export async function getCenterId() {
 // 이렇게 하면 라이브 적용 전엔 기존 동작 그대로, 적용 후 자동으로 센터별 값이 반영된다.
 export async function loadCenterConfig() {
   if (!supabase) return null;
-  // [②b] 센터별 어휘(vocab) 적용 — 직무·담당·유형·단계·설문을 센터 DB값으로 override.
-  //   vocab 컬럼이 없거나(미적용) 값이 null(mju 등)이면 조용히 스킵 = config.js 정적값(현재 동작·회귀 0).
-  try {
-    const { data: v } = await supabase.from('centers').select('vocab').eq('slug', getCenter()).maybeSingle();
-    if (v && v.vocab) {
-      ['JOBS', 'COMPANIES', 'TYPES', 'TYPE2', 'MANAGERS', 'STATUSES', 'COMPANY_STAGES', 'COMPANY_SURVEYS'].forEach(k => {
-        const val = v.vocab[k.toLowerCase()];
-        if (val != null) window[k] = val;
-      });
-    }
-  } catch (_) { /* vocab 컬럼 미적용 → 스킵 */ }
+  await applyCenterVocab();   // vocab override(직무·유형 등) — privacy.html 외 페이지는 직접 applyCenterVocab() 호출
   try {
     const { data, error } = await supabase.from('centers')
       .select('name,app_title,privacy_officer,privacy_officer_contact,privacy_effective_date,privacy_retention,privacy_retention_applicant,privacy_transfer')

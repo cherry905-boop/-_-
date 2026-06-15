@@ -59,10 +59,11 @@
     let all = [], filtered = [], shownCount = 0, kindSel = '';
 
     // [P2] 비공개 버킷 자료는 서버 서명기로 다운로드.
-    //  - r.url 이 http(s) 공개 URL/외부 링크면 그대로 사용(기존·외부 링크 = 회귀 없음).
-    //  - r.url 이 path 형(예: 'mju/lib/..')이면 Edge Function(sign-library)으로 60초 서명 URL 요청.
-    //    (버킷 비공개 전환 + 함수 배포 전에는 path형 행이 없으므로 이 분기는 비활성 = 파일럿 무해.)
-    const isPathUrl = (u) => !!u && !/^https?:\/\//i.test(u);
+    //  - 자료실(library) 버킷 객체면 = path형('mju/lib/..') 또는 우리 storage 의 /library/ URL → 서명기(sign-library)로 60초 서명 URL.
+    //    ⚠️ 관리자 업로드는 getPublicUrl(전체 https URL)을 저장한다. 버킷 비공개화(sql/20) 후엔 그 공개 URL 이 깨지므로
+    //       'http면 그대로 연다'(예전 isPathUrl)로는 신규 자료가 안 열린다 → 우리 storage URL 도 서명 대상에 포함한다.
+    //  - 그 외 외부 링크(드라이브 등 우리 storage 아닌 http)는 그대로 연다(회귀 없음).
+    const isLibraryObject = (u) => !!u && (!/^https?:\/\//i.test(u) || /\/storage\/v1\/object\/(?:public\/|sign\/)?library\//i.test(u));
     async function signedHref(r) {
       const base = (window.APP_CONFIG || {}).SUPABASE_URL;
       if (!base || !r || r.id == null) return null;
@@ -80,7 +81,7 @@
       const card = document.createElement('div');
       card.className = 'card';
       const badgeCls = KIND_BADGE[r.kind] || 'mju-badge--neutral';
-      const needsSign = isPathUrl(r.url);
+      const needsSign = isLibraryObject(r.url);
       card.innerHTML =
         `<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">` +
         `<span class="mju-badge ${badgeCls}">${esc(r.kind)}</span>` +
@@ -94,6 +95,9 @@
           const url = await signedHref(r);
           a.removeAttribute('aria-busy');
           if (url) window.open(url, '_blank', 'noopener');
+          // 서명기 미배포/과도기 폴백: 서명 실패 + 공개 http URL 이면 기존 공개 URL 로 연다(버킷 공개 시 동작 = 회귀 0).
+          //   서명기·비공개버킷 배포 후엔 자격 있는 학생은 위 서명 URL 을 받고, 미자격자는 비공개 버킷이라 403(누출 없음).
+          else if (/^https?:\/\//i.test(r.url || '')) window.open(encodeURI(r.url), '_blank', 'noopener');
           else alert('자료를 여는 권한을 확인하지 못했어요. 잠시 후 다시 시도하거나 담당자에게 문의해주세요.');
         });
       }

@@ -42,7 +42,8 @@ begin
              || jsonb_build_object('name', v_name, 'center_id', v_center, 'active', true);
     if v_biz is not null then v_row := v_row || jsonb_build_object('biz_no', v_biz); end if;
     if nullif(v_row->>'notion_id', '') is null then
-      v_row := v_row || jsonb_build_object('notion_id', 'csv:' || v_center::text || ':' || coalesce(v_biz, md5(v_name)));
+      -- 합성 키: 사업자번호 우선, 없으면 정규화된 이름(md5 제거 → 서로 다른 이름끼리의 키 충돌 0). 동명 구분은 사업자번호로.
+      v_row := v_row || jsonb_build_object('notion_id', 'csv:' || v_center::text || ':' || coalesce(v_biz, 'name:' || lower(btrim(v_name))));
     end if;
 
     select string_agg(quote_ident(k), ',') into cols

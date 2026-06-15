@@ -223,7 +223,7 @@
 
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   <script type="module">
-    import { supabase, configReady, getQueryParam, isInAppBrowser, isStandalone, setStatus, friendlyError, attachPhoneFormat } from './app.js';
+    import { supabase, configReady, getQueryParam, isInAppBrowser, isStandalone, setStatus, friendlyError, attachPhoneFormat, getCenter, getCenterId, applyCenterVocab } from './app.js';
 
     if (window.lucide) window.lucide.createIcons();
 
@@ -523,10 +523,14 @@
       if (rCompSel) { const o2 = document.createElement('option'); o2.value = name; o2.textContent = name; rCompSel.appendChild(o2); }
     };
     (async () => {
+      await applyCenterVocab();                  // [vocab] window.COMPANIES 폴백을 센터값으로
       let compsLoaded = false;
       if (configReady()) {
         try {
-          const { data } = await supabase.from('companies').select('name').eq('active', true).order('name');
+          const cid = await getCenterId();        // [센터격리] 활성 센터의 회사만 표시(가능할 때)
+          let cq = supabase.from('companies').select('name').eq('active', true);
+          if (cid) cq = cq.eq('center_id', cid);
+          const { data } = await cq.order('name');
           if (data && data.length) { data.forEach(r => addCompany(r.name)); compsLoaded = true; }
         } catch (_) {}
       }
@@ -576,6 +580,7 @@
     // 관심직무 칩(지원자) — jobs 테이블(없으면 config JOBS 라벨)
     const interestSel = new Set();
     (async () => {
+      await applyCenterVocab();                  // [vocab] window.JOBS 폴백을 센터값으로
       let names = [];
       if (configReady()) {
         try {
@@ -637,21 +642,29 @@
       if (rec.code) {
         try {
           const { data: rd, error: re } = await supabase.rpc('register_with_code', { p_code: rec.code, p_row: row });
-          if (re && /too_many/i.test(re.message || '')) { setStatus(statusEl, '시도가 너무 많아요. 잠시 후 다시 시도해주세요.', 'error'); btn.disabled = false; return; }
-          if (!re && rd && rd.ok) {
+          if (re) {
+            if (/too_many/i.test(re.message || '')) { setStatus(statusEl, '시도가 너무 많아요. 잠시 후 다시 시도해주세요.', 'error'); btn.disabled = false; return; }
+            // 함수 미배포(마이그레이션 전)일 때만 아래 레거시 직접 insert 로 폴백. 그 외 서버오류는 알리고 멈춘다(미스코프 insert 방지).
+            if (!/PGRST202|PGRST203|42883|schema cache|function|does not exist/i.test(re.message || '')) {
+              setStatus(statusEl, friendlyError(re), 'error'); btn.disabled = false; return;
+            }
+          } else if (rd && rd.ok) {
             if (rd.center_slug) { try { localStorage.setItem('ilhak_center', rd.center_slug); } catch (_) {} }
-            try { localStorage.setItem('ilhak_profile', JSON.stringify({ name: rec.name, target_type: rec.target_type, job_key: rec.job_key, company: rec.company, type1: rec.type1, manager: rec.manager || null, token: rec.token || null })); } catch (_) {}
+            try { localStorage.setItem('ilhak_profile', JSON.stringify({ name: rec.name, target_type: rec.target_type, job_key: rec.job_key, company: rec.company, type1: rec.type1, manager: rec.manager || null, token: rec.token || null, code: rec.code || null })); } catch (_) {}
             location.href = './install.html?joined=1'; return;
+          } else {
+            // RPC 가 실행됐고 ok:false → 코드가 유효하지 않음(검증 후 비활성화·센터불일치 등). center 없는 직접 insert 로 우회하지 않는다.
+            setStatus(statusEl, '초대코드를 확인할 수 없어요. 코드를 다시 확인해주세요.', 'error'); btn.disabled = false; return;
           }
-        } catch (_) { /* 폴백 진행 */ }
+        } catch (_) { /* 네트워크 예외 → 레거시 폴백 진행 */ }
       }
       let { error } = await supabase.from('registrations').insert(row);
       if (error && /manager|column/i.test(error.message || '')) {   // R15 미적용 시 manager 컬럼 없음 → 폴백
         const r2 = { ...row }; delete r2.manager; ({ error } = await supabase.from('registrations').insert(r2));
       }
       if (error) { setStatus(statusEl, friendlyError(error), 'error'); btn.disabled = false; return; }
-      // 기기 프로필 저장 — 공지 필터링에 사용(서버에서 명단을 읽지 않기 위함)
-      try { localStorage.setItem('ilhak_profile', JSON.stringify({ name: rec.name, target_type: rec.target_type, job_key: rec.job_key, company: rec.company, type1: rec.type1, manager: rec.manager || null, token: rec.token || null })); } catch (_) {}
+      // 기기 프로필 저장 — 공지 필터링에 사용(서버에서 명단을 읽지 않기 위함). code = 자료실 서명 다운로드 자격용.
+      try { localStorage.setItem('ilhak_profile', JSON.stringify({ name: rec.name, target_type: rec.target_type, job_key: rec.job_key, company: rec.company, type1: rec.type1, manager: rec.manager || null, token: rec.token || null, code: rec.code || null })); } catch (_) {}
       location.href = './install.html?joined=1';
     }
 
@@ -705,7 +718,7 @@
         };
         // [2단계] 지원자도 center_id 서버 도출(슬러그를 서버가 해석). RPC 미적용/오류면 아래 직접 insert 폴백.
         try {
-          const { data: ad, error: ae } = await supabase.rpc('register_applicant', { p_slug: (window.CENTER_SLUG || 'mju'), p_row: row });
+          const { data: ad, error: ae } = await supabase.rpc('register_applicant', { p_slug: getCenter(), p_row: row });
           if ((!ae && ad && ad.ok) || (ae && ae.code === '23505')) {   // 성공 또는 이미 등록(23505)=정상
             btn.disabled = false;
             try { localStorage.setItem('ilhak_profile', JSON.stringify({ name, target_type: 'applicant', job_key: null, company: null, type1: null, manager: null, token: null, interest_jobs: interests })); } catch (_) {}

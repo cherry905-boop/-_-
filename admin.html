@@ -512,7 +512,7 @@
 
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   <script type="module">
-    import { supabase, configReady, setStatus } from './app.js';
+    import { supabase, configReady, setStatus, applyCenterVocab } from './app.js';
     const $ = id => document.getElementById(id);
     const esc = s => { const e = document.createElement('div'); e.textContent = s || ''; return e.innerHTML; };
     const maskPhone = p => (p && p.length >= 7) ? (p.slice(0, 3) + '-****-' + p.slice(-4)) : (p || '');
@@ -585,7 +585,10 @@
     let companies = null;
     async function loadCompanies() {
       if (companies) return companies;
-      const { data } = await supabase.from('companies').select('name').eq('active', true).order('name');
+      // [센터격리] center_admin 은 자기 센터 회사만(companies 는 anon 읽기가 열려 있어 RLS 로 못 좁히므로 클라에서 필터).
+      let cq = supabase.from('companies').select('name').eq('active', true);
+      if (window.ADMIN_ROLE === 'center_admin' && window.ADMIN_CENTER_ID) cq = cq.eq('center_id', window.ADMIN_CENTER_ID);
+      const { data } = await cq.order('name');
       companies = (data || []).map(r => r.name);
       if (!companies.length) companies = (window.COMPANIES || []).slice();
       return companies;
@@ -781,6 +784,7 @@
     }
     let nPicker = null, lPicker = null, cPicker = null;
     async function initPickers() {
+      await applyCenterVocab();   // [vocab] 센터별 직무·유형·담당 등을 타게팅·드롭다운에 반영(드롭다운 생성 전에)
       await loadJobs(); await loadCompanies();
       if (!nPicker) nPicker = buildPicker('n-tgt', '전체 발송', '가입자 모두');
       if (!lPicker) lPicker = buildPicker('l-tgt', '전체 공개', '가입자 모두 열람');
@@ -2142,7 +2146,7 @@
       for (let i = 0; i < text.length; i++) {
         const c = text[i];
         if (q) { if (c === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; } else cell += c; }
-        else if (c === '"') q = true;
+        else if (c === '"' && cell === '') q = true;   // 인용은 '필드 시작'에서만 연다(RFC4180). 필드 중간의 떠돌이 " 는 리터럴로(아래 else)
         else if (c === ',') { row.push(cell); cell = ''; }
         else if (c === '\r') { /* skip */ }
         else if (c === '\n') { row.push(cell); rows.push(row); row = []; cell = ''; }
@@ -2151,18 +2155,21 @@
       if (cell !== '' || row.length) { row.push(cell); rows.push(row); }
       return rows.filter(r => r.some(x => (x || '').trim() !== ''));
     }
-    let bulkRows = [];
+    let bulkRows = [], bulkType = '', _bulkGen = 0;
     function bulkBuild() {
-      const map = BULK_MAP[$('bulk-type').value];
+      const gen = ++_bulkGen;                 // 레이스 가드: 더 최신 선택이 생기면 이 onload 결과는 폐기
+      const type = $('bulk-type').value;
+      const map = BULK_MAP[type];
       const f = ($('bulk-file').files || [])[0];
-      bulkRows = [];
+      bulkRows = []; bulkType = '';
       if (!f) { $('bulk-preview').textContent = ''; $('bulk-upload').disabled = true; return; }
       const rd = new FileReader();
       rd.onload = () => {
+        if (gen !== _bulkGen) return;         // 그 사이 타입/파일이 바뀜 → 이 결과 무시(엉뚱한 매핑 업로드 방지)
         const grid = parseCSV(String(rd.result || '').replace(/^﻿/, ''));
-        if (grid.length < 2) { $('bulk-preview').textContent = '데이터 행이 없어요(머리글 + 1행 이상).'; $('bulk-upload').disabled = true; return; }
+        if (grid.length < 2) { $('bulk-preview').textContent = '데이터 행이 없어요(머리글 + 1행 이상).'; bulkRows = []; bulkType = ''; $('bulk-upload').disabled = true; return; }
         const hdr = grid[0].map(h => (h || '').trim());
-        bulkRows = grid.slice(1).map(cells => {
+        const built = grid.slice(1).map(cells => {
           const o = {};
           hdr.forEach((h, i) => {
             const col = map[h]; if (!col) return;
@@ -2172,6 +2179,7 @@
           });
           return o;
         }).filter(o => o.name);
+        bulkRows = built; bulkType = type;     // 파싱에 쓴 타입을 행과 함께 고정 → 업로드가 그 타입의 RPC 를 호출
         const unmapped = hdr.filter(h => h && !map[h]);
         $('bulk-preview').innerHTML = '인식된 행 <b>' + bulkRows.length + '</b>개' + (unmapped.length ? ' · 무시된 열: ' + unmapped.join(', ') : '');
         $('bulk-upload').disabled = bulkRows.length === 0;
@@ -2187,8 +2195,9 @@
       a.download = (type === 'student' ? '학생명단' : '기업명단') + '_템플릿.csv'; a.click();
     });
     $('bulk-upload')?.addEventListener('click', async () => {
-      if (!bulkRows.length) return;
-      const fn = $('bulk-type').value === 'student' ? 'bulk_upsert_student_roster' : 'bulk_upsert_companies';
+      if (!bulkRows.length || !bulkType) return;
+      // 라이브 select 가 아니라, bulkRows 를 파싱할 때 고정해둔 bulkType 으로 RPC 선택(타입/행 불일치 방지)
+      const fn = bulkType === 'student' ? 'bulk_upsert_student_roster' : 'bulk_upsert_companies';
       $('bulk-upload').disabled = true; setStatus($('bulk-status'), '업로드 중...', 'info');
       const { data, error } = await supabase.rpc(fn, { p_rows: bulkRows });
       $('bulk-upload').disabled = false;
@@ -2201,17 +2210,17 @@
     });
 
     // [②c] 학생 1명 수기 추가 + 즉시 코드발급 — bulk_upsert_student_roster([1])·issueCode 재사용(center 서버 주입).
-    (function initAddStudent() {
+    //   ⚠️ 파스타임이 아니라 로그인(refresh) 후 호출한다 → ADMIN_CENTER_ID 가 정해진 뒤라야 회사 목록이 센터로 좁혀진다.
+    let _addStuPickersDone = false;
+    async function populateAddStudentPickers() {
+      if (_addStuPickersDone) return; _addStuPickersDone = true;
+      await applyCenterVocab();   // [vocab] as-job 직무 목록을 센터값으로
       const jobSel = $('as-job');
       if (jobSel) (window.JOBS || []).forEach(j => { const o = document.createElement('option'); o.value = j.key; o.textContent = j.label; jobSel.appendChild(o); });
       const coSel = $('as-company');
-      (async () => {
-        let names = [];
-        try { const { data } = await supabase.from('companies').select('name').eq('active', true).order('name'); names = (data || []).map(c => c.name); } catch (_) {}
-        if (!names.length) names = (window.COMPANIES || []).slice();
-        if (coSel) names.forEach(n => { const o = document.createElement('option'); o.value = n; o.textContent = n; coSel.appendChild(o); });
-      })();
-    })();
+      const names = await loadCompanies();   // 센터 스코프 + vocab 폴백 + 캐시(중복 쿼리 제거)
+      if (coSel) names.forEach(n => { const o = document.createElement('option'); o.value = n; o.textContent = n; coSel.appendChild(o); });
+    }
     $('as-add')?.addEventListener('click', async () => {
       const name = $('as-name').value.trim();
       if (!name) { setStatus($('as-status'), '이름을 입력하세요.', 'error'); return; }
@@ -2265,7 +2274,7 @@
         }
       } catch (_) { /* 폴백: 레거시 전체 콘솔 */ }
       applyRoleUI();
-      dashLoad(); initPickers().then(fillRecruitPickers); nLoad(); plLoad(); lLoad(); cLoad(); clLoad(); regLoad(); uvLoad(); rcLoad(); stLoad(); svEvLoadList(); poLoad();
+      dashLoad(); initPickers().then(fillRecruitPickers); nLoad(); plLoad(); lLoad(); cLoad(); clLoad(); regLoad(); uvLoad(); rcLoad(); stLoad(); svEvLoadList(); poLoad(); populateAddStudentPickers();
     }
     $('loginBtn').addEventListener('click', async () => {
       const email = $('email').value.trim(), password = $('pw').value;
