@@ -23,11 +23,12 @@
 <body class="adm">
   <div class="adm-header">
     <div class="adm-header-inner">
-      <img class="sym" src="./assets/logo-mono-white.png" alt="" />
+      <span class="adm-mark" aria-hidden="true"><svg width="26" height="24" viewBox="0 0 58 54" style="display:block"><g fill="#1078C4"><rect x="42.5" y="12.4" width="5" height="5.4" rx="1" transform="rotate(0 42.5 27)"/><rect x="42.5" y="12.4" width="5" height="5.4" rx="1" transform="rotate(45 42.5 27)"/><rect x="42.5" y="12.4" width="5" height="5.4" rx="1" transform="rotate(90 42.5 27)"/><rect x="42.5" y="12.4" width="5" height="5.4" rx="1" transform="rotate(135 42.5 27)"/><rect x="42.5" y="12.4" width="5" height="5.4" rx="1" transform="rotate(180 42.5 27)"/><rect x="42.5" y="12.4" width="5" height="5.4" rx="1" transform="rotate(225 42.5 27)"/><rect x="42.5" y="12.4" width="5" height="5.4" rx="1" transform="rotate(270 42.5 27)"/><rect x="42.5" y="12.4" width="5" height="5.4" rx="1" transform="rotate(315 42.5 27)"/><circle cx="42.5" cy="27" r="11.2"/></g><circle cx="42.5" cy="27" r="5.4" fill="#fff"/><path d="M40.2 29.3 L44.8 24.7" stroke="#1078C4" stroke-width="1.7" stroke-linecap="round"/><circle cx="44.9" cy="24.6" r="1.3" fill="#1078C4"/><path d="M38.16 37.29 A 17.5 17.5 0 1 1 38.16 16.71" fill="none" stroke="#EF7D00" stroke-width="7" stroke-linecap="round"/><rect x="30.5" y="33.4" width="7.5" height="6.6" rx="2" fill="#EF7D00"/><path d="M17.5 25 Q17.5 31 24 31 Q30.5 31 30.5 25 Z" fill="#EF7D00"/><polygon points="24,17 39.5,24 24,30 8.5,24" fill="#EF7D00"/><rect x="23.4" y="15.4" width="1.2" height="3.2" fill="#EF7D00"/><circle cx="24" cy="15.2" r="1.7" fill="#EF7D00"/><path d="M12 24 L12 31.4" stroke="#EF7D00" stroke-width="1.6" stroke-linecap="round"/><rect x="10.5" y="31" width="3" height="4" rx="1" fill="#EF7D00"/></svg></span>
       <div>
-        <div class="lk">MYONGJI UNIVERSITY · 일학습병행</div>
+        <div class="lk">일학습병행 · KOREA DUAL PROGRAM</div>
         <div class="ttl">관리자 콘솔</div>
       </div>
+      <span class="adm-center" id="adm-center"></span>
       <span style="flex:1"></span>
       <span class="adm-user" id="adm-user" style="display:none;align-items:center;gap:12px">
         <span class="mail" id="me"></span>
@@ -35,6 +36,7 @@
       </span>
     </div>
   </div>
+  <script>try{var _ac=(window.APP_CONFIG||{});var _c=_ac.CENTER_SHORT||_ac.CENTER_NAME;if(_c)document.getElementById('adm-center').textContent=_c;}catch(e){}</script>
 
   <!-- 로그인 -->
   <div style="max-width:440px;margin:44px auto 0;padding:0 20px">
@@ -60,14 +62,19 @@
     <div class="adm-shell">
       <nav class="adm-nav tabs">
         <button class="adm-nav-item on" data-tab="dash"><i data-lucide="layout-dashboard"></i>요약</button>
+        <div class="adm-nav-sep"></div>
         <button class="adm-nav-item" data-tab="notice"><i data-lucide="megaphone"></i>공지</button>
+        <button class="adm-nav-item" data-tab="vote"><i data-lucide="vote"></i>투표</button>
+        <button class="adm-nav-item" data-tab="consult"><i data-lucide="message-circle"></i>상담</button>
+        <div class="adm-nav-sep"></div>
         <button class="adm-nav-item" data-tab="library"><i data-lucide="folder"></i>자료</button>
         <button class="adm-nav-item" data-tab="calendar"><i data-lucide="calendar-days"></i>일정</button>
-        <button class="adm-nav-item" data-tab="consult"><i data-lucide="message-circle"></i>상담</button>
-        <button class="adm-nav-item" data-tab="survey"><i data-lucide="clipboard-list"></i>만족도</button>
-        <button class="adm-nav-item" data-tab="members"><i data-lucide="users"></i>가입자</button>
         <button class="adm-nav-item" data-tab="recruit"><i data-lucide="briefcase"></i>모집</button>
+        <div class="adm-nav-sep"></div>
+        <button class="adm-nav-item" data-tab="members"><i data-lucide="users"></i>가입자</button>
+        <button class="adm-nav-item" data-tab="onboard"><i data-lucide="user-plus"></i>명단 등록</button>
         <button class="adm-nav-item" data-tab="stages"><i data-lucide="route"></i>기업</button>
+        <button class="adm-nav-item" data-tab="survey"><i data-lucide="clipboard-list"></i>만족도</button>
         <button class="adm-nav-item" data-tab="centers" style="display:none"><i data-lucide="building-2"></i>센터</button>
       </nav>
 
@@ -119,8 +126,12 @@
             </div>
           </div>
         </div>
-        <!-- 사안별 투표 -->
-        <div class="adm-2col" style="margin-top:18px">
+      </div>
+
+      <!-- 투표 (공지에서 분리) -->
+      <div class="tabsec" id="sec-vote" style="display:none">
+        <h2 class="adm-h2">투표</h2>
+        <div class="adm-2col">
           <div class="card">
             <p class="ph-card-title">투표 만들기</p>
             <label>질문 <span class="req">*</span></label>
@@ -255,6 +266,40 @@
       <div class="tabsec" id="sec-members" style="display:none">
         <h2 class="adm-h2">가입자 <span class="hint">참여학생은 정렬·필터 후 체크 → 개인 공지·코드 발급 / 휴대폰은 운영자만 열람</span></h2>
         <div class="card">
+          <div class="filter-chips" id="rg-seg" role="group" aria-label="가입자 구분" style="margin-bottom:10px"></div>
+          <div class="mtbl-bar">
+            <input type="text" id="rg-search" placeholder="이름·기업·직무·담당직원 검색" style="flex:1;min-width:150px" />
+            <select id="rg-fmanager"><option value="">담당직원 전체</option></select>
+            <select id="rg-fjob"><option value="">직무 전체</option></select>
+            <select id="rg-ftype"><option value="">유형 전체</option></select>
+            <select id="rg-fstatus"><option value="">기업 상태 전체</option></select>
+            <select id="rg-fsigned"><option value="">가입 전체</option></select>
+            <select id="rg-fcohort"><option value="">기수 전체</option></select>
+            <button class="mju-btn mju-btn--secondary mju-btn--sm" id="rg-refresh"><i data-lucide="refresh-cw"></i> 새로고침</button>
+          </div>
+          <div class="selbar" id="rg-selbar" style="display:none">
+            <b id="rg-selcount">선택 0명</b>
+            <button class="mju-btn mju-btn--gold mju-btn--sm" id="rg-notify"><i data-lucide="send"></i> 개인 공지</button>
+            <button class="mju-btn mju-btn--secondary mju-btn--sm" id="rg-bcohort"><i data-lucide="users"></i> 기수 변경</button>
+            <button class="mju-btn mju-btn--secondary mju-btn--sm" id="rg-bstatus"><i data-lucide="tag"></i> 상태 변경</button>
+            <button class="mju-btn mju-btn--coral mju-btn--sm" id="rg-bdelete"><i data-lucide="trash-2"></i> 삭제</button>
+            <button class="mju-btn mju-btn--secondary mju-btn--sm" id="rg-clearsel">선택 해제</button>
+          </div>
+          <p class="note" id="rg-count"></p>
+          <div class="mtbl-wrap"><table class="mtbl" id="rg-table"></table></div>
+          <div class="status" id="rg-status"></div>
+        </div>
+        <div class="card">
+          <p class="ph-card-title">가입 도움 요청</p>
+          <p class="note">명단 매칭에 실패한 학생이 남긴 요청입니다. 명단(이름·번호)을 점검하고 '처리완료'로 지우세요.</p>
+          <div id="uv-list"></div>
+        </div>
+      </div>
+
+      <!-- 명단 등록 (가입자에서 분리) -->
+      <div class="tabsec" id="sec-onboard" style="display:none">
+        <h2 class="adm-h2">명단 등록 <span class="hint">CSV 일괄등록 · 단건 추가 · 기수 이동(졸업)</span></h2>
+        <div class="card">
           <p class="ph-card-title">명단 일괄등록 (CSV)</p>
           <p class="ph-note" style="margin-bottom:6px">학생/기업 명단을 CSV로 올려요. 첫 줄=머리글(예: 이름,학번,휴대폰…). center_id 는 서버가 자동으로 채워요.</p>
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:6px">
@@ -286,6 +331,20 @@
           <div class="status" id="as-status"></div>
         </div>
         <div class="card">
+          <p class="ph-card-title">기업 1개 추가 (단발 지정)</p>
+          <p class="ph-note" style="margin-bottom:6px">학습기업이 새로 지정될 때 한 곳씩 추가하고 기업 초대코드를 바로 발급해요(HRD담당자 정보는 선택).</p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <input id="ac-name" placeholder="기업명" style="flex:2;min-width:150px" />
+            <input id="ac-mgr" placeholder="담당자명(선택)" style="flex:1;min-width:120px" />
+            <input id="ac-phone" placeholder="담당자 연락처(선택)" inputmode="numeric" style="flex:1;min-width:140px" />
+            <input id="ac-email" placeholder="담당자 이메일(선택)" style="flex:1;min-width:150px" />
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;align-items:center">
+            <button class="btn" id="ac-add" type="button" style="margin-top:0;width:auto;flex:0 0 auto;padding:11px 16px">추가 + 코드발급</button>
+          </div>
+          <div class="status" id="ac-status"></div>
+        </div>
+        <div class="card">
           <p class="ph-card-title">기수 일괄 이동 (졸업)</p>
           <p class="ph-note" style="margin-bottom:6px">한 기수를 다른 라벨로 한 번에 옮겨요(데이터는 보존·이력 유지). 졸업이면 상태를 '수료'로 함께 표시할 수 있어요.</p>
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
@@ -296,33 +355,6 @@
             <button class="btn" id="gr-go" type="button" style="margin-top:0;width:auto;flex:0 0 auto;padding:11px 16px">기수 일괄 이동</button>
           </div>
           <div class="status" id="gr-status"></div>
-        </div>
-        <div class="card">
-          <div class="filter-chips" id="rg-seg" role="group" aria-label="가입자 구분" style="margin-bottom:10px"></div>
-          <div class="mtbl-bar">
-            <input type="text" id="rg-search" placeholder="이름·기업·직무·담당직원 검색" style="flex:1;min-width:150px" />
-            <select id="rg-fmanager"><option value="">담당직원 전체</option></select>
-            <select id="rg-fjob"><option value="">직무 전체</option></select>
-            <select id="rg-ftype"><option value="">유형 전체</option></select>
-            <select id="rg-fstatus"><option value="">기업 상태 전체</option></select>
-            <select id="rg-fsigned"><option value="">가입 전체</option></select>
-            <select id="rg-fcohort"><option value="">기수 전체</option></select>
-            <button class="mju-btn mju-btn--secondary mju-btn--sm" id="rg-refresh"><i data-lucide="refresh-cw"></i> 새로고침</button>
-          </div>
-          <div class="selbar" id="rg-selbar" style="display:none">
-            <b id="rg-selcount">선택 0명</b>
-            <button class="mju-btn mju-btn--gold mju-btn--sm" id="rg-notify"><i data-lucide="send"></i> 선택한 사람에게 개인 공지</button>
-            <button class="mju-btn mju-btn--secondary mju-btn--sm" id="rg-codes"><i data-lucide="key-round"></i> 선택 학생 코드 발급</button>
-            <button class="mju-btn mju-btn--secondary mju-btn--sm" id="rg-clearsel">선택 해제</button>
-          </div>
-          <p class="note" id="rg-count"></p>
-          <div class="mtbl-wrap"><table class="mtbl" id="rg-table"></table></div>
-          <div class="status" id="rg-status"></div>
-        </div>
-        <div class="card">
-          <p class="ph-card-title">가입 도움 요청</p>
-          <p class="note">명단 매칭에 실패한 학생이 남긴 요청입니다. 명단(이름·번호)을 점검하고 '처리완료'로 지우세요.</p>
-          <div id="uv-list"></div>
         </div>
       </div>
 
@@ -391,6 +423,7 @@
         <h2 class="adm-h2">학습기업 진행단계 <span class="hint">단계를 바꾸면 해당 기업담당자 홈에 바로 반영 · 알림 체크 시 푸시 발송</span></h2>
         <div class="card">
           <div class="status" id="st-status"></div>
+          <div class="mtbl-bar"><input type="text" id="st-search" placeholder="기업·담당자·진행단계 검색" style="flex:1;min-width:200px" /></div>
           <div id="st-list"><p class="note">로그인 후 표시됩니다.</p></div>
         </div>
       </div>
@@ -505,6 +538,17 @@
         </div>
       </div>
     </div>
+    <div class="modal-veil" id="bst-veil" style="display:none">
+      <div class="modal">
+        <h3>상태 일괄 변경</h3>
+        <p class="note" id="bst-n"></p>
+        <select id="bst-sel" style="width:100%;margin:6px 0 14px;height:42px"></select>
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+          <button class="mju-btn mju-btn--secondary" id="bst-cancel">취소</button>
+          <button class="mju-btn" id="bst-apply">적용</button>
+        </div>
+      </div>
+    </div>
     <div class="modal-veil" id="pv-veil" style="display:none">
       <div class="modal" style="width:480px">
         <h3>선택한 <span id="pv-n">0</span>명에게 개인 공지</h3>
@@ -575,7 +619,7 @@
     // 탭 전환
     document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => {
       document.querySelectorAll('.tabs button').forEach(x => x.classList.toggle('on', x === b));
-      ['dash', 'notice', 'library', 'calendar', 'consult', 'survey', 'members', 'recruit', 'stages', 'centers'].forEach(t => { const el = $('sec-' + t); if (el) el.style.display = (t === b.dataset.tab ? 'block' : 'none'); });
+      ['dash', 'notice', 'vote', 'library', 'calendar', 'consult', 'survey', 'members', 'onboard', 'recruit', 'stages', 'centers'].forEach(t => { const el = $('sec-' + t); if (el) el.style.display = (t === b.dataset.tab ? 'block' : 'none'); });
     }));
 
     // ===== 받는 대상 상세 지정 (전체 / 상세 칩 조합 + 예상 대상 N명) =====
@@ -1265,6 +1309,15 @@
       const { data: roster, error: rerr } = await supabase.rpc('admin_students');   // 전체 학생 명단(R15)
       if (!rerr && Array.isArray(roster)) {
         rows = roster.map(s => ({ id: 'st:' + (s.name || '') + '|' + (s.phone || ''), name: s.name, phone: s.phone, target_type: 'student', job_key: s.job_key || null, company: s.company || null, type1: s.type1 || null, manager: s.manager || null, signed: !!s.signed }));
+        // [보강] admin_students 가 id·status·기수를 미반환 → students 마스터 직접 조회(센터 SELECT 허용)로 상태 표시 + 실제 id(삭제용) 채움. 권한 없으면 조용히 스킵(기존 동작).
+        try {
+          const { data: meta } = await supabase.from('students').select('id,name,phone,status,cohort');
+          if (Array.isArray(meta)) {
+            const mk = (n, p) => (n || '') + '|' + (p || ''); const mmap = {};
+            meta.forEach(m => { mmap[mk(m.name, m.phone)] = m; });
+            rows.forEach(r => { const m = mmap[mk(r.name, r.phone)]; if (m) { r.dbId = m.id; r.status = m.status || r.status || null; r.cohort = m.cohort || r.cohort || null; } });
+          }
+        } catch (_) {}
         // 지원자(매칭 전)·기업담당자는 명단이 아닌 registrations 기준 — 표에 병합
         try {
           let { data: extra, error: xerr } = await supabase.from('registrations')
@@ -1286,7 +1339,7 @@
       ccReady = false;
       try {
         const { data: cc, error: ce } = await supabase.from('company_contacts')
-          .select('notion_id,role,company,name,phone,email,status,manager');
+          .select('id,notion_id,role,company,name,phone,email,status,manager');
         // 매칭된 학생이 있는 기업만 표시 (학생 로스터의 기업 집합과 대조 — 발굴 단계 기업 등 제외)
         const stuCos = new Set(rows.filter(r => (r.target_type || 'student') === 'student' && r.company).map(r => normCo(r.company)));
         const roster = (!ce && Array.isArray(cc)) ? cc.filter(c => c.status !== '종료' && stuCos.has(normCo(c.company))) : [];
@@ -1301,7 +1354,7 @@
             const hit = coRegs.find(r => normCo(r.company) === normCo(c.company) &&
               (nn(r.name) === nn(c.name) || (dg(c.phone) && dg(r.phone) === dg(c.phone))));
             if (hit) matched.add(hit.id);
-            return { id: 'cc:' + c.notion_id + ':' + c.role, name: c.name, phone: c.phone || (hit && hit.phone) || '',
+            return { id: 'cc:' + c.notion_id + ':' + c.role, ccId: c.id, name: c.name, phone: c.phone || (hit && hit.phone) || '',
                      target_type: 'company', company: c.company, role: 'HRD담당자', email: c.email || null,
                      status: c.status || null,
                      manager: c.manager || null, signed: !!hit, created_at: hit ? hit.created_at : null };
@@ -1372,7 +1425,10 @@
     }
     function regSelBar() {
       const n = regSel.size;
-      $('rg-selbar').style.display = (regSeg === 'student' && n) ? 'flex' : 'none';
+      $('rg-selbar').style.display = ((regSeg === 'student' || regSeg === 'company') && n) ? 'flex' : 'none';
+      const stuOnly = regSeg === 'student';
+      if ($('rg-bcohort')) $('rg-bcohort').style.display = stuOnly ? '' : 'none';
+      if ($('rg-notify')) $('rg-notify').style.display = stuOnly ? '' : 'none';
       $('rg-selcount').textContent = '선택 ' + n + '명';
     }
     // 학생 1명 코드 발급 (이미 있으면 기존 행 갱신 — 같은 학생에게 행이 쌓이지 않게)
@@ -1413,73 +1469,56 @@
       }
       $('rg-count').textContent = cntTxt + (rows.length !== segTotal ? ' · 필터 ' + rows.length + '명' : '');
       const cols = isStu
-        ? [['name', '이름'], ['manager', '담당직원'], ['job_key', '직무'], ['company', '기업'], ['type1', '유형'], ['cohort', '기수'], ['status', '상태'], ['signed', '가입']]
+        ? [['name', '이름'], ['manager', '담당직원'], ['job_key', '직무'], ['company', '기업'], ['cohort', '기수'], ['status', '상태'], ['signed', '가입']]
         : regSeg === 'applicant'
           ? [['name', '이름'], ['interest', '관심직무'], ['created_at', '등록일']]
           : ccReady
             ? [['name', '이름'], ['company', '기업'], ['role', '구분'], ['manager', '담당직원'], ['status', '상태'], ['signed', '가입']]
             : [['name', '이름'], ['company', '기업'], ['role', '역할'], ['created_at', '등록일']];
       const arrow = k => regSort.key === k ? (regSort.dir < 0 ? ' ▼' : ' ▲') : '';
-      const allOn = isStu && rows.length && rows.every(r => regSel.has(r.id));
+      const canSel = isStu || regSeg === 'company';
+      const allOn = canSel && rows.length && rows.every(r => regSel.has(r.id));
       $('rg-table').innerHTML = '<thead><tr>' +
-        (isStu ? `<th class="nosort"><input type="checkbox" id="rg-all" ${allOn ? 'checked' : ''}></th>` : '') +
+        (canSel ? `<th class="nosort"><input type="checkbox" id="rg-all" ${allOn ? 'checked' : ''}></th>` : '') +
         cols.map(c => `<th data-k="${c[0]}">${c[1]}${arrow(c[0])}</th>`).join('') +
-        '<th class="nosort">전화</th>' + (isStu || (regSeg === 'company' && ccReady) ? '<th class="nosort">코드</th>' : '') + '</tr></thead>';
+        ((isStu || (regSeg === 'company' && ccReady) || regSeg === 'applicant') ? '<th class="nosort">관리</th>' : '') + '</tr></thead>';
       const tb = document.createElement('tbody');
-      if (!rows.length) tb.innerHTML = `<tr><td colspan="${cols.length + (isStu ? 3 : (regSeg === 'company' && ccReady ? 2 : 1))}" style="color:var(--text-muted)">없음</td></tr>`;
+      if (!rows.length) tb.innerHTML = `<tr><td colspan="${cols.length + (isStu ? 2 : (regSeg === 'company' ? (ccReady ? 2 : 1) : (regSeg === 'applicant' ? 1 : 0)))}" style="color:var(--text-muted)">없음</td></tr>`;
       const fmtD = v => v ? new Date(v).toLocaleDateString('ko-KR') : '-';
       rows.forEach(r => {
-        const tr = document.createElement('tr'); if (isStu && regSel.has(r.id)) tr.className = 'on';
-        if (isStu) {
+        const tr = document.createElement('tr'); if (canSel && regSel.has(r.id)) tr.className = 'on';
+        if (canSel) {
           const cb = document.createElement('td'); cb.innerHTML = `<input type="checkbox" ${regSel.has(r.id) ? 'checked' : ''}>`;
           cb.querySelector('input').addEventListener('change', e => { e.target.checked ? regSel.add(r.id) : regSel.delete(r.id); tr.className = e.target.checked ? 'on' : ''; regSelBar(); });
           tr.appendChild(cb);
         }
         const signed = r.signed ? '<span class="mju-badge mju-badge--success">가입</span>' : '<span class="note">미가입</span>';
         const vals = isStu
-          ? [esc(r.name || ''), esc(r.manager || '-'), esc(r.job_key || '-'), esc(r.company || '-'), esc(r.type1 || '-'), esc(r.cohort || '-'), esc(r.status || '-'), signed]
+          ? [esc(r.name || ''), esc(r.manager || '-'), esc(r.job_key || '-'), esc(r.company || '-'), esc(r.cohort || '-'), esc(r.status || '-'), signed]
           : regSeg === 'applicant'
             ? [esc(r.name || ''), esc(r.interest || '-'), fmtD(r.created_at)]
             : ccReady
               ? [esc(r.name || ''), esc(r.company || '-'), esc(r.role || '명단 외'), esc(r.manager || '-'), esc(r.status || '-'), signed]
               : [esc(r.name || ''), esc(r.company || '-'), esc(r.role || '-'), fmtD(r.created_at)];
         vals.forEach(v => { const td = document.createElement('td'); td.innerHTML = v; tr.appendChild(td); });
-        const tdp = document.createElement('td'); const ph = document.createElement('button'); ph.type = 'button'; ph.className = 'phone-btn'; const pv = r.phone || ''; let rv = false;
-        const dph = () => { ph.innerHTML = `<i data-lucide="${rv ? 'eye-off' : 'eye'}"></i>${rv ? esc(pv) : esc(maskPhone(pv))}`; if (window.lucide) window.lucide.createIcons(); };
-        ph.addEventListener('click', () => { rv = !rv; dph(); }); dph(); tdp.appendChild(ph); tr.appendChild(tdp);
+        // (전화 열 제거 — 개인정보 최소화)
         // 기업담당자 코드 열 — 기업 초대코드 발급/복사 + HRD 이메일로 안내 메일 초안 (02 SQL 적용 후)
         if (!isStu && regSeg === 'company' && ccReady) {
           const tdc = document.createElement('td');
           tdc.style.whiteSpace = 'nowrap';
-          if (!coCodesReady) tdc.innerHTML = '<span class="note">-</span>';
-          else {
-            const cbtn = document.createElement('button'); cbtn.type = 'button'; cbtn.className = 'phone-btn';
-            const drawC = (label, ic) => { cbtn.innerHTML = `<i data-lucide="${ic}"></i>${label}`; if (window.lucide) window.lucide.createIcons(); };
-            let cc = coCodeMap[r.company] || null;
-            drawC(cc || '발급', cc ? 'copy' : 'key-round');
-            if (cc) cbtn.title = '클릭하면 복사';
-            cbtn.addEventListener('click', async () => {
-              if (cc) { navigator.clipboard?.writeText(cc).then(() => { drawC('복사됨', 'check'); setTimeout(() => drawC(cc, 'copy'), 1200); }); return; }
-              cbtn.disabled = true;
-              try { cc = await issueCoCode(r.company); drawC(cc, 'copy'); cbtn.title = '클릭하면 복사'; logAction('기업코드발급', r.company); }
-              catch (err) { setStatus($('rg-status'), '코드 발급 오류: ' + (err.message || err), 'error'); }
-              cbtn.disabled = false;
+          if (r.email) {
+            const mb = document.createElement('button'); mb.type = 'button'; mb.className = 'phone-btn';
+            mb.title = '코드 안내 메일 쓰기 (' + r.email + ')';
+            mb.innerHTML = '<i data-lucide="mail"></i>';
+            mb.addEventListener('click', () => {
+              const code = coCodeMap[r.company];
+              if (!code) { setStatus($('rg-status'), '먼저 기업 코드를 발급하세요(기업 탭).', 'error'); return; }
+              const url = location.origin + location.pathname.replace(/admin\.html$/, '') + '?as=company';
+              const subject = '[명지대 일학습병행] 기업 담당자 앱 가입 안내 — ' + r.company;
+              const body = (r.name || '담당자') + ' 님, 안녕하세요.\n명지대학교 공동훈련센터 일학습병행 앱 가입을 안내드립니다.\n\n1) 접속: ' + url + '\n2) 대상 구분에서 "학습기업 담당자 (HRD)" 선택\n3) 기업 초대코드 입력: ' + code + '\n\n코드만 입력하면 가입이 완료되며, 가입 후 알림을 켜주시면 공지·일정·만족도 조사 안내를 받아보실 수 있습니다.\n감사합니다.';
+              location.href = 'mailto:' + r.email + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
             });
-            tdc.appendChild(cbtn);
-            if (r.email) {
-              const mb = document.createElement('button'); mb.type = 'button'; mb.className = 'phone-btn';
-              mb.style.marginLeft = '6px'; mb.title = '코드 안내 메일 쓰기 (' + r.email + ')';
-              mb.innerHTML = '<i data-lucide="mail"></i>';
-              mb.addEventListener('click', () => {
-                const code = coCodeMap[r.company];
-                if (!code) { setStatus($('rg-status'), '먼저 코드를 발급하세요(발급 버튼).', 'error'); return; }
-                const url = location.origin + location.pathname.replace(/admin\.html$/, '') + '?as=company';
-                const subject = '[명지대 일학습병행] 기업 담당자 앱 가입 안내 — ' + r.company;
-                const body = (r.name || '담당자') + ' 님, 안녕하세요.\n명지대학교 공동훈련센터 일학습병행 앱 가입을 안내드립니다.\n\n1) 접속: ' + url + '\n2) 대상 구분에서 "학습기업 담당자 (HRD)" 선택\n3) 기업 초대코드 입력: ' + code + '\n\n코드만 입력하면 가입이 완료되며, 가입 후 알림을 켜주시면 공지·일정·만족도 조사 안내를 받아보실 수 있습니다.\n감사합니다.';
-                location.href = 'mailto:' + r.email + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
-              });
-              tdc.appendChild(mb);
-            }
+            tdc.appendChild(mb);
           }
           // '명단 외' 행(노션 명단에 없는 가입 기록, id=registrations) — 삭제 가능
           if (!String(r.id).startsWith('cc:')) {
@@ -1505,48 +1544,38 @@
               regLoad();
             });
             tdc.appendChild(db);
+          } else if (r.ccId) {
+            const db2 = document.createElement('button'); db2.type = 'button'; db2.className = 'phone-btn';
+            db2.style.marginLeft = '6px'; db2.title = '명단에서 이 담당자 삭제';
+            db2.innerHTML = '<i data-lucide="trash-2"></i>';
+            db2.addEventListener('click', async () => {
+              if (!confirm(`'${r.name || '(이름 없음)'} / ${r.company || '-'}' 기업담당자를 명단에서 삭제할까요?\n되돌릴 수 없어요(노션 동기화 시 재추가될 수 있음).`)) return;
+              db2.disabled = true;
+              const { data: del, error } = await supabase.from('company_contacts').delete().eq('id', r.ccId).select('id');
+              if (error) { setStatus($('rg-status'), delErr(error), 'error'); db2.disabled = false; return; }
+              if (!del || !del.length) { setStatus($('rg-status'), '삭제된 행이 없어요 — 권한을 확인하세요. 새로고침합니다.', 'error'); regLoad(); return; }
+              logAction('담당자삭제', (r.name || '') + ' / ' + (r.company || '')); setStatus($('rg-status'), '✅ 삭제했습니다.', 'ok'); regLoad();
+            });
+            tdc.appendChild(db2);
           }
           tr.appendChild(tdc);
         }
-        if (!isStu) { tb.appendChild(tr); return; }
-        // 초대코드 — 발급/복사/재발급 (02 SQL 적용 후, 학생만)
-        const tdc = document.createElement('td');
-        if (!codesReady || r.target_type !== 'student') tdc.innerHTML = '<span class="note">-</span>';
-        else {
-          const cbtn = document.createElement('button'); cbtn.type = 'button'; cbtn.className = 'phone-btn';
-          const draw = (label, ic) => { cbtn.innerHTML = `<i data-lucide="${ic}"></i>${label}`; if (window.lucide) window.lucide.createIcons(); };
-          // 발급 후엔 클릭=복사가 되도록 상태로 분기 (리스너 중복 발급 방지)
-          let issuedCode = (codeMap[(r.name || '') + '|' + (r.phone || '')] || {}).code || null;
-          draw(issuedCode || '발급', issuedCode ? 'copy' : 'key-round');
-          if (issuedCode) cbtn.title = '클릭하면 복사';
-          cbtn.addEventListener('click', async () => {
-            if (issuedCode) {
-              navigator.clipboard?.writeText(issuedCode).then(() => { draw('복사됨', 'check'); setTimeout(() => draw(issuedCode, 'copy'), 1200); });
-              return;
-            }
-            cbtn.disabled = true;
-            try { issuedCode = await issueCode(r.name, r.phone); draw(issuedCode, 'copy'); cbtn.title = '클릭하면 복사'; logAction('코드발급', r.name); }
-            catch (err) { setStatus($('rg-status'), '코드 발급 오류: ' + (err.message || err), 'error'); }
-            cbtn.disabled = false;
+        if (regSeg === 'applicant') {
+          const tdd = document.createElement('td');
+          const db = document.createElement('button'); db.type = 'button'; db.className = 'phone-btn'; db.title = '지원자 기록 삭제'; db.innerHTML = '<i data-lucide="trash-2"></i>';
+          db.addEventListener('click', async () => {
+            if (!confirm(`'${r.name || '(이름 없음)'}' 지원자 기록을 삭제할까요? 되돌릴 수 없어요.`)) return;
+            db.disabled = true;
+            const { data: del, error } = await supabase.from('registrations').delete().eq('id', r.id).select('id');
+            if (error) { setStatus($('rg-status'), delErr(error), 'error'); db.disabled = false; return; }
+            if (!del || !del.length) { setStatus($('rg-status'), '삭제된 행이 없어요 — 권한을 확인하세요(sql/14). 새로고침합니다.', 'error'); regLoad(); return; }
+            logAction('지원자삭제', r.name || ''); setStatus($('rg-status'), '✅ 삭제했습니다.', 'ok'); regLoad();
           });
-          tdc.appendChild(cbtn);
-          // [정합성] 초대코드 회수 — student_codes.active=false (soft, 유니크 슬롯 해제·재발급 가능). 행 id 확인된 경우만 노출.
-          const cm = codeMap[(r.name || '') + '|' + (r.phone || '')];
-          if (issuedCode && cm && cm.id) {
-            const rv = document.createElement('button'); rv.type = 'button'; rv.className = 'phone-btn'; rv.title = '초대코드 회수(비활성화 — 재발급 가능)';
-            rv.style.marginLeft = '4px'; rv.innerHTML = '<i data-lucide="x"></i>';
-            rv.addEventListener('click', async () => {
-              if (!confirm(`${r.name} 의 초대코드를 회수할까요? (비활성화되며 다시 발급할 수 있어요)`)) return;
-              rv.disabled = true;
-              const { data: d, error } = await supabase.from('student_codes').update({ active: false }).eq('id', cm.id).select('id');
-              rv.disabled = false;
-              if (error) { setStatus($('rg-status'), '회수 오류: ' + error.message, 'error'); return; }
-              if (!d || !d.length) { setStatus($('rg-status'), '회수 권한이 없어요 — 센터 범위를 확인하세요.', 'error'); return; }
-              logAction('코드회수', r.name); regLoad();
-            });
-            tdc.appendChild(rv);
-          }
+          tdd.appendChild(db); tr.appendChild(tdd);
         }
+        if (!isStu) { tb.appendChild(tr); return; }
+        // 관리 셀 — 코드 발급/회수 제거(명단등록·기업 탭에서 발급). 편집·삭제만.
+        const tdc = document.createElement('td');
         // [정합성] 가입자 생애주기 편집 — 기수/상태/담당/유형. update_student_lifecycle RPC(센터 스코프·스키마 안전).
         const editBtn = document.createElement('button'); editBtn.type = 'button'; editBtn.className = 'phone-btn';
         editBtn.style.marginLeft = '4px'; editBtn.title = '기수·상태·담당·유형 수정'; editBtn.innerHTML = '<i data-lucide="pencil"></i>';
@@ -1560,7 +1589,7 @@
             return ['<option value="">(미지정)</option>'].concat(list.map(o => `<option value="${esc(o)}"${o === cur ? ' selected' : ''}>${esc(o)}</option>`)).join('');
           };
           editorTr = document.createElement('tr');
-          const td = document.createElement('td'); td.colSpan = cols.length + 3; td.style.cssText = 'padding:10px;background:var(--gray-50,#f6f6f7)';
+          const td = document.createElement('td'); td.colSpan = cols.length + 2; td.style.cssText = 'padding:10px;background:var(--gray-50,#f6f6f7)';
           td.innerHTML =
             '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">' +
             `<label class="note">기수 <input class="le-cohort" value="${esc(r.cohort || '')}" placeholder="예 2026" style="width:96px"></label>` +
@@ -1594,6 +1623,19 @@
           });
         });
         tdc.appendChild(editBtn);
+        if (r.dbId) {
+          const sdel = document.createElement('button'); sdel.type = 'button'; sdel.className = 'phone-btn';
+          sdel.style.marginLeft = '4px'; sdel.title = '명단에서 학생 영구 삭제'; sdel.innerHTML = '<i data-lucide="trash-2"></i>';
+          sdel.addEventListener('click', async () => {
+            if (!confirm(`'${r.name || '(이름 없음)'}' 학생을 명단에서 영구 삭제할까요?\n되돌릴 수 없어요. (초대코드·앱 가입과 별개로 명단 행이 삭제됩니다)`)) return;
+            sdel.disabled = true;
+            const { data: del, error } = await supabase.from('students').delete().eq('id', r.dbId).select('id');
+            if (error) { setStatus($('rg-status'), delErr(error), 'error'); sdel.disabled = false; return; }
+            if (!del || !del.length) { setStatus($('rg-status'), '삭제된 행이 없어요 — 권한을 확인하세요. 새로고침합니다.', 'error'); regLoad(); return; }
+            logAction('학생삭제', r.name || ''); setStatus($('rg-status'), '✅ 삭제했습니다.', 'ok'); regLoad();
+          });
+          tdc.appendChild(sdel);
+        }
         tr.appendChild(tdc);
         tb.appendChild(tr);
       });
@@ -1627,19 +1669,60 @@
       }
       $('gr-go').disabled = false;
     });
-    // 선택 학생 코드 일괄 발급 (이미 있으면 건너뜀)
-    $('rg-codes').addEventListener('click', async () => {
-      if (!codesReady) { setStatus($('rg-status'), '초대코드 기능이 꺼져 있어요 — sql/02_codes.sql 을 먼저 실행하세요.', 'error'); return; }
-      const targets = regCache.filter(r => regSel.has(r.id) && r.target_type === 'student' && !codeMap[(r.name || '') + '|' + (r.phone || '')]);
-      if (!targets.length) { setStatus($('rg-status'), '발급할 대상이 없어요(이미 발급됐거나 학생이 아님).', 'ok'); return; }
-      setStatus($('rg-status'), `코드 발급 중... (${targets.length}명)`, 'info');
-      let ok = 0, fail = 0;
-      for (const r of targets) {
-        try { await issueCode(r.name, r.phone); ok++; } catch (_) { fail++; }
-      }
-      logAction('코드 일괄발급', ok + '명');
-      setStatus($('rg-status'), `✅ ${ok}명 발급 완료${fail ? ` · 실패 ${fail}` : ''} — 코드 열에서 복사해 합격 안내에 동봉하세요.`, fail ? 'error' : 'ok');
-      regRender();
+    // 일괄 삭제 — 학생 students / 기업담당자 company_contacts / 명단외·지원자 registrations (센터 스코프 RLS 직접 삭제)
+    $('rg-bdelete').addEventListener('click', async () => {
+      const sel = regCache.filter(r => regSel.has(r.id));
+      if (!sel.length) return;
+      if (!confirm(`선택한 ${sel.length}명을 명단에서 영구 삭제할까요?\n되돌릴 수 없어요.`)) return;
+      setStatus($('rg-status'), '삭제 중...', 'info');
+      const stuIds = sel.filter(r => r.dbId).map(r => r.dbId);
+      const ccIds = sel.filter(r => r.ccId).map(r => r.ccId);
+      const regIds = sel.filter(r => !r.dbId && !r.ccId && !String(r.id).startsWith('st:') && !String(r.id).startsWith('cc:')).map(r => r.id);
+      let ok = 0, err = null;
+      try {
+        if (stuIds.length) { const { data, error } = await supabase.from('students').delete().in('id', stuIds).select('id'); if (error) err = error; else ok += (data || []).length; }
+        if (!err && ccIds.length) { const { data, error } = await supabase.from('company_contacts').delete().in('id', ccIds).select('id'); if (error) err = error; else ok += (data || []).length; }
+        if (!err && regIds.length) { const { data, error } = await supabase.from('registrations').delete().in('id', regIds).select('id'); if (error) err = error; else ok += (data || []).length; }
+      } catch (e) { err = e; }
+      if (err) { setStatus($('rg-status'), delErr(err), 'error'); return; }
+      logAction('일괄삭제', ok + '명'); regSel.clear();
+      setStatus($('rg-status'), `✅ ${ok}명 삭제했어요.`, 'ok'); regLoad();
+    });
+    // 일괄 기수 변경 (참여학생만)
+    $('rg-bcohort').addEventListener('click', async () => {
+      const ids = regCache.filter(r => regSel.has(r.id) && r.dbId).map(r => r.dbId);
+      if (!ids.length) { setStatus($('rg-status'), '참여학생을 선택하세요(기수 변경은 학생만).', 'error'); return; }
+      const co = prompt(`선택 ${ids.length}명의 기수를 무엇으로 바꿀까요? (예: 2026, 졸업·2025 / 비우면 해제)`);
+      if (co === null) return;
+      setStatus($('rg-status'), '변경 중...', 'info');
+      const { data, error } = await supabase.from('students').update({ cohort: co.trim() || null }).in('id', ids).select('id');
+      if (error) { setStatus($('rg-status'), delErr(error), 'error'); return; }
+      logAction('일괄기수변경', (data || []).length + '명 → ' + (co.trim() || '(해제)')); regSel.clear();
+      setStatus($('rg-status'), `✅ ${(data || []).length}명 기수 변경.`, 'ok'); regLoad();
+    });
+    // 일괄 상태 변경 — 모달 select (학생 students / 기업담당자 company_contacts)
+    $('rg-bstatus').addEventListener('click', () => {
+      const n = regSel.size; if (!n) return;
+      $('bst-sel').innerHTML = (window.STATUSES || []).map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('');
+      $('bst-n').textContent = `선택 ${n}명의 상태를 변경합니다.`; $('bst-veil').style.display = 'flex';
+    });
+    $('bst-cancel').addEventListener('click', () => { $('bst-veil').style.display = 'none'; });
+    $('bst-veil').addEventListener('click', e => { if (e.target === $('bst-veil')) $('bst-veil').style.display = 'none'; });
+    $('bst-apply').addEventListener('click', async () => {
+      const st = $('bst-sel').value; if (!st) return;
+      const sel = regCache.filter(r => regSel.has(r.id));
+      const stuIds = sel.filter(r => r.dbId).map(r => r.dbId);
+      const ccIds = sel.filter(r => r.ccId).map(r => r.ccId);
+      $('bst-apply').disabled = true;
+      let ok = 0, err = null;
+      try {
+        if (stuIds.length) { const { data, error } = await supabase.from('students').update({ status: st }).in('id', stuIds).select('id'); if (error) err = error; else ok += (data || []).length; }
+        if (!err && ccIds.length) { const { data, error } = await supabase.from('company_contacts').update({ status: st }).in('id', ccIds).select('id'); if (error) err = error; else ok += (data || []).length; }
+      } catch (e) { err = e; }
+      $('bst-apply').disabled = false; $('bst-veil').style.display = 'none';
+      if (err) { setStatus($('rg-status'), delErr(err), 'error'); return; }
+      logAction('일괄상태변경', ok + '명 → ' + st); regSel.clear();
+      setStatus($('rg-status'), `✅ ${ok}명 상태 → ${st}`, 'ok'); regLoad();
     });
     // 선택한 사람에게 개인 공지(personal·비공개 수신자)
     $('rg-notify').addEventListener('click', () => {
@@ -2097,6 +2180,7 @@
 
     // ===== 학습기업 진행단계 + 기업 코드 =====
     let coStageMap = {}, coCodeMap = {}, stagesReady = false, coCodesReady = false;
+    let stCos = [], stHrdMap = {}, stSort = { key: 'company', dir: 1 };   // 기업 탭 검색·정렬·HRD담당자 결합
     let ciMap = {}, ciReady = false, ciCompany = null, cnCompany = null;   // 기업 정보·기업 공지 모달 상태
     function openCiModal(co) {
       ciCompany = co;
@@ -2164,7 +2248,7 @@
       throw new Error('코드 생성 충돌');
     }
     async function stLoad() {
-      const cos = await loadCompanies();
+      stCos = await loadCompanies();
       coStageMap = {}; coCodeMap = {}; stagesReady = false; coCodesReady = false;
       try {
         const { data, error } = await supabase.from('company_stages').select('company,stage_key,memo');
@@ -2179,18 +2263,47 @@
         const { data, error } = await supabase.from('company_info').select('company,beacon,commute,schedule,extra');
         if (!error) { ciReady = true; (data || []).forEach(r => { ciMap[r.company] = r; }); }
       } catch (_) {}
-      const el = $('st-list'); el.innerHTML = '';
+      // [기업담당자 결합] company_contacts(HRD담당자)에서 회사별 담당자명·인원 — 검색·정렬·표시에 사용
+      stHrdMap = {};
+      try {
+        const { data } = await supabase.from('company_contacts').select('company,name,manager');
+        (data || []).forEach(r => { const k = normCo(r.company); if (!stHrdMap[k]) stHrdMap[k] = { name: r.name || '', mgr: r.manager || '', n: 0 }; stHrdMap[k].n++; if (!stHrdMap[k].mgr && r.manager) stHrdMap[k].mgr = r.manager; });
+      } catch (_) {}
+      stRender();
+    }
+    function stLabel(co) { const S = window.COMPANY_STAGES || []; return (S.find(s => s.key === (coStageMap[co] || {}).stage_key) || {}).label || ''; }
+    function stMgr(co) { return (stHrdMap[normCo(co)] || {}).mgr || ''; }
+    function stFiltered() {
+      const q = (($('st-search') && $('st-search').value) || '').trim().toLowerCase();
+      const list = stCos.filter(co => !q || [co, stLabel(co), stMgr(co)].some(x => (x || '').toLowerCase().includes(q)));
+      const k = stSort.key, dir = stSort.dir;
+      const kv = co => k === 'stage' ? stLabel(co) : k === 'mgr' ? stMgr(co) : co;
+      list.sort((a, b) => { const va = kv(a) || '', vb = kv(b) || ''; return va < vb ? -dir : va > vb ? dir : 0; });
+      return list;
+    }
+    function stRender() {
+      const el = $('st-list');
       if (!stagesReady) { el.innerHTML = '<p class="note">진행단계 테이블이 없어요 — sql/04_stages.sql 을 실행하면 켜집니다.' + (coCodesReady ? '' : ' (기업 코드는 sql/02_codes.sql)') + '</p>'; return; }
       const STAGES = window.COMPANY_STAGES || [];
-      cos.forEach(co => {
+      const arrow = key => stSort.key === key ? (stSort.dir < 0 ? ' ▼' : ' ▲') : '';
+      el.innerHTML = '<div class="mtbl-wrap"><table class="mtbl"><thead><tr>'
+        + `<th data-k="company">기업${arrow('company')}</th>`
+        + `<th data-k="stage">진행단계${arrow('stage')}</th>`
+        + `<th data-k="mgr">담당직원${arrow('mgr')}</th>`
+        + '<th class="nosort">안내 메모</th><th class="nosort">알림</th><th class="nosort">저장</th><th class="nosort">코드·정보·공지</th></tr></thead><tbody></tbody></table></div>';
+      const stBody = el.querySelector('tbody');
+      el.querySelectorAll('th[data-k]').forEach(th => th.addEventListener('click', () => { const k = th.dataset.k; if (stSort.key === k) stSort.dir = -stSort.dir; else stSort = { key: k, dir: 1 }; stRender(); }));
+      const list = stFiltered();
+      if (!list.length) { stBody.innerHTML = '<tr><td colspan="7" style="color:var(--text-muted)">기업이 없어요.</td></tr>'; return; }
+      const mkTd = (...kids) => { const d = document.createElement('td'); kids.forEach(k => d.appendChild(k)); return d; };
+      list.forEach(co => {
         const cur = coStageMap[co] || { stage_key: 'apply', memo: '' };
-        const row = document.createElement('div');
-        row.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 0;border-bottom:1px solid var(--gray-100)';
-        const nm = document.createElement('b'); nm.textContent = co; nm.style.cssText = 'flex:1;min-width:140px;font-size:13.5px';
+        const row = document.createElement('tr');
+        const nm = document.createElement('b'); nm.textContent = co; nm.style.cssText = 'font-size:13.5px';
         const sel = document.createElement('select'); sel.className = 'ph-select'; sel.style.cssText = 'width:170px;height:38px;font-size:13px';
         STAGES.forEach(s => { const o = document.createElement('option'); o.value = s.key; o.textContent = s.label; if (s.key === cur.stage_key) o.selected = true; sel.appendChild(o); });
         const memo = document.createElement('input'); memo.type = 'text'; memo.placeholder = '안내 메모 (예: 이수증 회신 마감 6/20)'; memo.value = cur.memo || '';
-        memo.style.cssText = 'flex:2;min-width:170px;padding:8px 10px;font-size:13px;border-radius:9px';
+        memo.style.cssText = 'padding:8px 10px;font-size:13px;border-radius:9px';
         const ntf = document.createElement('label'); ntf.style.cssText = 'display:flex;align-items:center;gap:5px;font-size:12.5px;font-weight:600;margin:0';
         ntf.innerHTML = '<input type="checkbox" style="width:16px;height:16px"> 알림';
         const save = document.createElement('button'); save.className = 'mju-btn mju-btn--sm'; save.textContent = '저장';
@@ -2213,8 +2326,12 @@
           setStatus($('st-status'), error ? '오류: ' + error.message : '✅ ' + co + ' 저장' + (ntf.querySelector('input').checked ? ' + 알림 발행' : ''), error ? 'error' : 'ok');
           if (!error) logAction('단계변경', co + ' → ' + sel.value);
         });
-        row.appendChild(nm); row.appendChild(sel); row.appendChild(memo); row.appendChild(ntf); row.appendChild(save);
-        // 기업 초대코드
+        const hrdInfo = stHrdMap[normCo(co)];
+        const hrdTd = document.createElement('td');
+        hrdTd.innerHTML = (hrdInfo && hrdInfo.mgr) ? esc(hrdInfo.mgr) : '<span class="note">-</span>';
+        row.appendChild(mkTd(nm)); row.appendChild(mkTd(sel)); row.appendChild(hrdTd); row.appendChild(mkTd(memo)); row.appendChild(mkTd(ntf)); row.appendChild(mkTd(save));
+        const actTd = document.createElement('td'); actTd.style.cssText = 'white-space:normal';
+        const actWrap = document.createElement('div'); actWrap.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap'; actTd.appendChild(actWrap);
         const codeBtn = document.createElement('button'); codeBtn.type = 'button'; codeBtn.className = 'phone-btn';
         const drawCo = (label, ic) => { codeBtn.innerHTML = `<i data-lucide="${ic}"></i>${label}`; if (window.lucide) window.lucide.createIcons(); };
         if (!coCodesReady) { codeBtn.style.display = 'none'; }
@@ -2228,20 +2345,21 @@
             catch (err) { setStatus($('st-status'), '코드 발급 오류: ' + (err.message || err), 'error'); }
           });
         }
-        row.appendChild(codeBtn);
-        // 기업 정보(내 학습기업 화면용) + 기업별 공지(공지방 글쓰기)
+        actWrap.appendChild(codeBtn);
         const infoBtn = document.createElement('button'); infoBtn.type = 'button'; infoBtn.className = 'phone-btn';
         infoBtn.innerHTML = `<i data-lucide="info"></i>정보${ciMap[co] ? '' : ' 입력'}`;
         infoBtn.addEventListener('click', () => openCiModal(co));
-        row.appendChild(infoBtn);
+        actWrap.appendChild(infoBtn);
         const noticeBtn = document.createElement('button'); noticeBtn.type = 'button'; noticeBtn.className = 'phone-btn';
         noticeBtn.innerHTML = '<i data-lucide="megaphone"></i>공지';
         noticeBtn.addEventListener('click', () => openCnModal(co));
-        row.appendChild(noticeBtn);
-        el.appendChild(row);
+        actWrap.appendChild(noticeBtn);
+        row.appendChild(actTd);
+        stBody.appendChild(row);
       });
       if (window.lucide) window.lucide.createIcons();
     }
+    $('st-search')?.addEventListener('input', () => stRender());
 
     // ===== 인증 =====
     // [5단계] 명단 일괄등록(CSV) — center_id 는 서버(bulk RPC)가 주입. 머리글(한글) → 컬럼 매핑.
@@ -2353,6 +2471,28 @@
       $('as-add').disabled = false;
       setStatus($('as-status'), '✅ ' + name + ' 명단 추가됨' + codeMsg + ' (가입은 학생이 코드로)', 'ok');
       $('as-name').value = ''; $('as-no').value = ''; $('as-phone').value = ''; $('as-job').value = ''; $('as-company').value = ''; $('as-cohort').value = '';
+    });
+
+    // [②c] 기업 1명(곳) 수기 추가 + 즉시 코드발급 — bulk_upsert_companies([1])·issueCoCode 재사용(center 서버 주입).
+    $('ac-add')?.addEventListener('click', async () => {
+      const name = $('ac-name').value.trim();
+      if (!name) { setStatus($('ac-status'), '기업명을 입력하세요.', 'error'); return; }
+      const row = { name };
+      const mgr = $('ac-mgr').value.trim(); if (mgr) row.contact_name = mgr;
+      const ph = $('ac-phone').value.trim(); if (ph) row.contact_phone = ph;
+      const em = $('ac-email').value.trim(); if (em) row.contact_email = em;
+      $('ac-add').disabled = true; setStatus($('ac-status'), '추가 중...', 'info');
+      const { error: e1 } = await supabase.rpc('bulk_upsert_companies', { p_rows: [row] });
+      if (e1) {
+        const m = /function|PGRST202|42883|schema cache/i.test(e1.message || '') ? '서버 업데이트(sql) 적용 전이에요.' : (e1.message || e1);
+        setStatus($('ac-status'), '오류: ' + m, 'error'); $('ac-add').disabled = false; return;
+      }
+      companies = null;   // loadCompanies 캐시 무효화 → 드롭다운·기업 탭에 즉시 반영
+      let codeMsg = '';
+      try { const code = await issueCoCode(name); if (code) codeMsg = ' · 기업코드 ' + code; } catch (_) {}
+      $('ac-add').disabled = false;
+      setStatus($('ac-status'), '✅ ' + name + ' 추가됨' + codeMsg + ' (담당자는 코드로 가입)', 'ok');
+      $('ac-name').value = ''; $('ac-mgr').value = ''; $('ac-phone').value = ''; $('ac-email').value = '';
     });
 
     // [4단계] 역할 게이팅 — super 전용 '센터' 탭 가시성. (데이터 경계는 RLS(sql/21)가 강제; UI는 편의.)
