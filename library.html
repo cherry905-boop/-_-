@@ -95,6 +95,9 @@
           const url = await signedHref(r);
           a.removeAttribute('aria-busy');
           if (url) window.open(url, '_blank', 'noopener');
+          // 서명기 미배포/과도기 폴백: 서명 실패 + 공개 http URL 이면 기존 공개 URL 로 연다(버킷 공개 시 동작 = 회귀 0).
+          //   서명기·비공개버킷 배포 후엔 자격 있는 학생은 위 서명 URL 을 받고, 미자격자는 비공개 버킷이라 403(누출 없음).
+          else if (/^https?:\/\//i.test(r.url || '')) window.open(encodeURI(r.url), '_blank', 'noopener');
           else alert('자료를 여는 권한을 확인하지 못했어요. 잠시 후 다시 시도하거나 담당자에게 문의해주세요.');
         });
       }
