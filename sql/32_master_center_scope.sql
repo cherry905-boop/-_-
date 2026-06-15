@@ -66,5 +66,18 @@ begin
     create policy "companies anon read active" on public.companies
       for select to public using ( active );
   end if;
+
+  -- (d) unverified_signups(가입도움 요청, center_id 보유): 레거시 무스코프 정책 제거.
+  --   sql/25 가 센터 스코프 정책을 '추가'했지만, 기존 auth.uid()-only 관리자 정책(예: "admin manage help")이
+  --   남아 permissive OR 로 센터 스코프를 무효화했다(교차센터 PII 노출). sql/21 배열 밖이라 누락됐던 것 보강.
+  if to_regclass('public.unverified_signups') is not null then
+    for pol in
+      select policyname from pg_policies
+      where schemaname='public' and tablename='unverified_signups'
+        and (qual='(auth.uid() IS NOT NULL)' or with_check='(auth.uid() IS NOT NULL)')
+    loop
+      execute format('drop policy if exists %I on public.unverified_signups', pol.policyname);
+    end loop;
+  end if;
 end
 $master$;
