@@ -29,19 +29,30 @@ begin
   foreach t in array tbls loop
     if to_regclass('public.' || t) is null then continue; end if;
 
-    -- (a) 갓모드 정책 제거 — 두 형태 모두:
-    --   (1) cmd=ALL & USING=true (원조 갓모드)
+    -- RLS 활성(멱등). notices/library/calendar_events/consultations/consultation_messages/notice_recipients 는
+    -- 레포에 create table 이 없는 대시보드 관리 테이블이라 'enable RLS' 박제가 sql 에 없었다. RLS 가 꺼져 있으면
+    -- 아래 센터 스코프 정책이 무시되고 grant 만으로 전면 개방되므로 명시적으로 켠다(이미 켜져 있으면 no-op).
+    execute format('alter table public.%I enable row level security', t);
+
+    -- (a) 갓모드 정책 제거 — 아래 형태들:
+    --   (1) cmd=ALL & USING=true (원조 갓모드: for all to ... using(true)).
     --   (2) USING/WITH CHECK = (auth.uid() IS NOT NULL) (= '로그인한 어떤 관리자든' = 센터 무스코프).
-    --       이 형태가 레포의 실제 관리자 정책이다: surveys/polls/company_info 의 ALL,
+    --       레포 실제 관리자 정책 다수가 이 형태다: surveys/polls/company_info 의 ALL,
     --       company_contacts/survey_answers/poll_votes/company_survey_responses 의 SELECT·DELETE.
-    --       (1) 만 지우면 이들이 살아남아 permissive OR 로 센터 스코프 정책을 무효화한다 → cmd 무관 제거.
-    --   ⚠️ anon/공개읽기 정책은 qual 형태가 달라(예: 'true'(SELECT), '(open = true OR auth.uid() IS NOT NULL)',
-    --      '(published = true)') 매칭되지 않으므로 보존된다. 본인행 정책('(user_id = auth.uid())')도 보존.
+    --   (3) ★ bare-true(USING=true 또는 WITH CHECK=true) + roles 에 authenticated 포함 — cmd 무관(DELETE/SELECT/UPDATE/INSERT).
+    --       sql/07 "admin delete"(= for delete to authenticated using(true), 즉 cmd=DELETE·qual='true'·with_check=NULL)가
+    --       바로 이 형태다. (1)은 cmd=ALL 이라, (2)는 qual='true'≠'(auth.uid()...)'라 둘 다 비매칭 → 예전 루프에선 살아남아
+    --       센터 스코프 정책과 permissive OR 되어 '아무 로그인 계정이나 타 센터 행 DELETE' 구멍이 됐다(교차센터 삭제).
+    --   ⚠️ 보존: anon/공개읽기 bare-true 정책은 roles 가 {anon}/{public} 이라 (3)의 authenticated 가드로 제외된다
+    --      (예: sql/17 "anyone read polls"=for select to public using(true), sql/16 "anyone submit esurvey"=for insert to public with check(true)).
+    --      본인행 정책('(user_id = auth.uid())')·published/open 게이트 정책도 qual 형태가 달라 보존된다.
     for pol in
       select policyname from pg_policies
       where schemaname = 'public' and tablename = t
         and (
               (cmd = 'ALL' and qual = 'true')
+           or (qual = 'true'      and roles @> array['authenticated']::name[])
+           or (with_check = 'true' and roles @> array['authenticated']::name[])
            or qual = '(auth.uid() IS NOT NULL)'
            or with_check = '(auth.uid() IS NOT NULL)'
         )

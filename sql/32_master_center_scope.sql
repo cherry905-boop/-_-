@@ -37,12 +37,16 @@ begin
 
     execute format('alter table public.%I enable row level security', t);
 
-    -- (a) 센터 무스코프 갓모드 정책 제거(sql/21 과 동일 기준). anon/공개읽기·본인행 정책은 qual 형태가 달라 보존.
+    -- (a) 센터 무스코프 갓모드 정책 제거(sql/21 과 동일 기준). bare-true(using/with check=true)는 roles 에 authenticated
+    --     포함일 때만 제거(cmd 무관) → anon/공개읽기({anon}/{public}) 정책은 보존. 본인행·게이트 정책도 qual 형태가 달라 보존.
+    --     (students 는 PII라 만약 대시보드에 'for delete to authenticated using(true)' 같은 잔존 갓모드가 있으면 함께 제거.)
     for pol in
       select policyname from pg_policies
       where schemaname = 'public' and tablename = t
         and (
               (cmd = 'ALL' and qual = 'true')
+           or (qual = 'true'      and roles @> array['authenticated']::name[])
+           or (with_check = 'true' and roles @> array['authenticated']::name[])
            or qual = '(auth.uid() IS NOT NULL)'
            or with_check = '(auth.uid() IS NOT NULL)'
         )

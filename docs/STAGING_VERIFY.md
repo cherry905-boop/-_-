@@ -64,8 +64,9 @@ center_admin 로그인은 비밀번호 인증이라 내가 못 하니, 본인이
      ('<adminB uid>', (select id from public.centers where slug='demo'), 'center_admin');
    ```
 3. 앱(또는 admin.html)에서 **adminA 로 로그인** → `registrations`/`notices` 등 조회 → **mju 행만** 보이고 demo 0건인지 확인. adminB 는 그 반대.
-4. `rls-check.html` 실행 → `admin_users` 차단(PASS)·`centers` 공개·PII 전부 PASS 확인.
-- → 통과 시 "관리자 갓모드 제거 + center_admin 격리" 검증 완료.
+4. `rls-check.html` 실행 → `admin_users` 차단(PASS)·`centers` 공개·PII 전부 PASS·하단 **삭제 경로** 전부 PASS 확인.
+5. **삭제 격리(sql/07 갓모드 제거 보강):** adminB(demo)로 로그인한 채로 공지/자료를 삭제 시도 → **mju 행은 0건 영향**(자기 센터 demo 만 삭제). admin.html 삭제 버튼은 보통 id 필터라 SELECT 가시성으로도 막히지만, **무필터 삭제 경로**까지 닫혔는지는 `docs/VERIFICATION.md` 의 DELETE 경로 표(pglite)가 증명 — sql/07 "admin delete"(for delete to authenticated using(true)) 갓모드가 sql/21·32 정리 루프에서 제거됐는지 함께 확인.
+- → 통과 시 "관리자 갓모드 제거(ALL·SELECT·DELETE 무스코프 + bare-true) + center_admin 격리" 검증 완료.
 
 ---
 

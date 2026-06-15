@@ -50,6 +50,15 @@
     const MUST_BE_BLOCKED = ['students', 'registrations', 'push_logs', 'push_tokens', 'consultations', 'consultation_messages', 'survey_responses', 'deletion_log', 'sync_log', 'notice_recipients', 'company_contacts', 'survey_answers', 'poll_votes', 'company_info', 'admin_users', 'student_codes', 'company_codes', 'unverified_signups'];
     // 익명이 "공개분만" 읽어야 하는 테이블 (의도된 공개 — 읽히는 게 정상)
     const PUBLIC_OK = ['notices', 'library', 'calendar_events', 'jobs', 'companies', 'surveys', 'polls', 'centers'];
+    // 익명이 콘텐츠를 '삭제'할 수 없어야 하는 테이블 (삭제 경로 점검).
+    //   배경: sql/07 의 레거시 "admin delete"(for delete to authenticated using(true)) 갓모드가
+    //   sql/21 정리 루프(roles@>authenticated bare-true 제거)로 빠졌는지 보조 점검.
+    //   ⚠️ 한계: anon 키는 'to authenticated' 갓모드를 직접 못 건드린다 → 이 점검은 anon 으로 도달 가능한
+    //      삭제 구멍(to anon/public delete using(true))만 잡는다. 교차센터 admin 삭제(adminB→mju 0건)는
+    //      STAGING_VERIFY §8 의 관리자 로그인 절차 + pglite 검증(docs/VERIFICATION.md)으로 별도 증명한다.
+    //   비파괴: 존재하지 않는 sentinel center_id 로만 필터 → 매칭 0행이라 실제 데이터는 절대 지워지지 않는다.
+    const DELETE_BLOCKED = ['notices', 'library', 'calendar_events', 'consultations', 'consultation_messages', 'notice_recipients'];
+    const SENTINEL_CENTER = '00000000-0000-0000-0000-000000000000';
 
     document.getElementById('run').addEventListener('click', async () => {
       if (!configReady()) { results.innerHTML = '<div class="mju-alert mju-alert--warning"><span class="mju-alert__icon"><i data-lucide="alert-triangle"></i></span><div class="mju-alert__body"><div class="mju-alert__text">config.js 의 Supabase 값을 먼저 채워주세요.</div></div></div>'; window.lucide?.createIcons(); return; }
@@ -73,6 +82,17 @@
           (error ? `<p class="ph-note" style="margin:2px 0 6px">정책/컬럼 확인: ${error.message}</p>`
                  : `<p class="ph-note" style="margin:2px 0 6px">발행/active/숨김 게이트는 SQL에서 확인</p>`);
       }
+      // 삭제 경로 점검(비파괴: sentinel center_id 라 0행 매칭 — 실제 데이터 안 지워짐)
+      html += '<div class="sec-check-row" style="margin-top:8px;opacity:.85"><i data-lucide="trash-2"></i><span class="tn"><b>삭제 경로</b> (anon)</span></div>';
+      for (const t of DELETE_BLOCKED) {
+        const { data, error } = await supabase.from(t).delete().eq('center_id', SENTINEL_CENTER).select();
+        const deletedRows = !error && Array.isArray(data) && data.length > 0;   // sentinel 이라 정상이면 절대 발생 안 함
+        html += `<div class="sec-check-row"><i data-lucide="${deletedRows ? 'unlock' : 'lock'}"></i><span class="tn">${t}</span><span style="margin-left:auto">` +
+          (deletedRows
+            ? `<span class="mju-badge mju-badge--coral">삭제됨 FAIL · ${data.length}줄</span>`
+            : `<span class="mju-badge mju-badge--success">삭제 차단/0행 PASS</span>`) + `</span></div>`;
+      }
+      html += '<p class="ph-note" style="margin:2px 0 6px">이 삭제 점검은 <b>anon 도달 가능한 삭제 구멍</b>만 잡습니다. 교차센터 <b>관리자</b> 삭제 격리(adminB→타센터 0건)는 STAGING_VERIFY §8 + pglite(docs/VERIFICATION.md)로 별도 검증.</p>';
       // 가입 INSERT 는 되어야 정상 (쓰기 테스트는 더미가 쌓이므로 생략, 가입 페이지에서 확인)
       results.innerHTML = html + '<p class="ph-note" style="margin-top:10px"><b>MUST_BE_BLOCKED</b> 가 모두 <b>차단됨 PASS</b> 여야 운영 가능합니다.</p>';
       window.lucide?.createIcons();
