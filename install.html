@@ -76,7 +76,7 @@
     if (window.lucide) window.lucide.createIcons();
     import { initializeApp, getApps } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
     import { getMessaging, getToken, isSupported } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js';
-    import { supabase, configReady, getPlatform, isInAppBrowser, isStandalone, getQueryParam, setStatus, getCenterId } from './app.js';
+    import { supabase, configReady, getPlatform, isInAppBrowser, isStandalone, getQueryParam, setStatus, getCenter } from './app.js';
 
     if (getQueryParam('joined') === '1') document.getElementById('joined').style.display = 'block';
     // 지원자에게는 안내 문구를 모집 중심으로
@@ -127,32 +127,20 @@
           setStatus(statusEl, '먼저 "홈으로" 가서 내 정보를 불러온 뒤 알림을 켜주세요. (학생·기업담당자=내 정보 불러오기, 지원자=새로 가입하기에서 지원자로 다시 등록 — 중복돼도 괜찮아요)', 'error');
           return;
         }
-        // 순수 INSERT (upsert의 on_conflict은 RLS와 충돌). 중복(23505)=이미 등록=정상.
         const row = {
           token,
           target_type: prof.target_type || null, job_key: prof.job_key || null,
           company: prof.company || null, type1: prof.type1 || null,
           manager: prof.manager || null, device_key: prof.token || null,
           interest_jobs: prof.interest_jobs || null,   // 지원자 관심직무 (01 SQL)
-          platform: p, updated_at: new Date().toISOString(),
-          center_id: (await getCenterId()) || null   // [5 푸시] 슬러그→center 서버해석(RPC). null이면 미적용=현재 동작(폴백)
+          platform: p, updated_at: new Date().toISOString()
         };
-        let { error } = await supabase.from('push_tokens').insert(row);
-        if (error && /device_key|manager|interest_jobs|column/i.test(error.message || '')) {   // 마이그레이션 미적용 폴백
-          const r2 = { ...row }; delete r2.device_key; delete r2.manager; delete r2.interest_jobs; delete r2.center_id;
-          ({ error } = await supabase.from('push_tokens').insert(r2));
+        const { data, error } = await supabase.rpc('register_push_token', { p_slug: getCenter(), p_code: prof.code || null, p_row: row });
+        if ((data && data.ok === false) || error) {
+          const reason = data && data.reason;
+          setStatus(statusEl, reason === 'center' ? '센터 정보를 확인할 수 없어요. 올바른 센터 링크로 다시 접속해주세요.' : '토큰 저장 오류: ' + ((error && error.message) || reason || '서버 RPC 확인 필요'), 'error');
+          return;
         }
-        if (error && error.code === '23505') {
-          // 이미 등록된 토큰 = 같은 기기 재등록(지원자→학생 전환 포함) → 메타를 최신 프로필로 갱신
-          try {
-            await supabase.rpc('refresh_push_token', {
-              p_token: token, p_target_type: prof.target_type || null, p_job_key: prof.job_key || null,
-              p_company: prof.company || null, p_type1: prof.type1 || null, p_manager: prof.manager || null,
-              p_device_key: prof.token || null, p_interest_jobs: prof.interest_jobs || null
-            });
-          } catch (_) {}   // RPC 미적용(01 SQL 전)이면 기존 동작 유지
-        }
-        if (error && error.code !== '23505') { setStatus(statusEl, '토큰 저장 오류: ' + error.message, 'error'); return; }
 
         setStatus(statusEl, '✅ 알림이 켜졌어요! 이제 공지를 푸시 알림으로 받습니다.', 'ok');
       } catch (e) {

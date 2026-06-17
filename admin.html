@@ -1065,8 +1065,7 @@
           : (/security|policy|denied|403|unauthor/i.test(m) ? '업로드 권한이 없어요 — sql/09_admin_extras.sql 실행 필요' : '업로드 오류: ' + m), 'error');
         return null;
       }
-      const { data } = supabase.storage.from('library').getPublicUrl(path);
-      return (data && data.publicUrl) || null;
+      return path;
     }
     $('l-add').addEventListener('click', async () => {
       const title = $('l-title').value.trim(), kind = $('l-kind').value;
@@ -1114,15 +1113,17 @@
       (data || []).forEach(r => {
         const e = document.createElement('div'); e.textContent = r.title;
         const row = document.createElement('div'); row.style.cssText = 'padding:9px 0;border-bottom:1px solid var(--gray-100);display:flex;justify-content:space-between;gap:8px;align-items:center';
-        const isFile = /\/storage\/v1\/object\/public\/library\//.test(r.url || '');
+        const isFile = !!(r.url || '') && (!/^https?:\/\//i.test(r.url || '') || /\/storage\/v1\/object\/(?:public\/|sign\/)?library\//.test(r.url || ''));
         const tgt = (r.job_key || '').indexOf('tokv:') === 0 ? '명단 지정' : (r.job_key || '전체');
         row.innerHTML = `<div style="min-width:0"><b>${e.innerHTML}</b><br/><span class="note">${r.kind}${isFile ? ' · 📎파일' : ''} · ${esc(tgt)} · ${new Date(r.created_at).toLocaleDateString('ko-KR')}</span></div>`;
         row.appendChild(mkDelBtn('삭제', async () => {
           const { data, error } = await supabase.from('library').delete().eq('id', r.id).select('id');
           if (error) throw error;
           if (!data || !data.length) throw new Error('row-level security');
-          const m = (r.url || '').match(/\/storage\/v1\/object\/public\/library\/(.+)$/);
-          if (m) { try { await supabase.storage.from('library').remove([decodeURIComponent(m[1])]); } catch (_) {} }
+          const raw = r.url || '';
+          const m = raw.match(/\/storage\/v1\/object\/(?:public\/|sign\/)?library\/(.+)$/);
+          const path = m ? decodeURIComponent(m[1].split('?')[0]) : (!/^https?:\/\//i.test(raw) ? raw : '');
+          if (path) { try { await supabase.storage.from('library').remove([path]); } catch (_) {} }
           logAction('자료삭제', r.title); lLoad();
         }));
         el.appendChild(row);

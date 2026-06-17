@@ -66,7 +66,7 @@
 
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   <script type="module">
-    import { supabase, configReady, setStatus, friendlyError, esc } from './app.js';
+    import { supabase, configReady, setStatus, friendlyError, esc, getCenter } from './app.js';
     if (window.lucide) window.lucide.createIcons();
     const $ = id => document.getElementById(id);
     let profile = {}; try { profile = JSON.parse(localStorage.getItem('ilhak_profile') || '{}'); } catch (_) {}
@@ -156,11 +156,14 @@
       if (!configReady()) { setStatus($('status'), 'Supabase 연결이 필요합니다.', 'error'); return; }
       const row = { survey_key: surveyKey, round, company, answers, comment: $('comment').value.trim().slice(0, 2000) || null, device_id: deviceId };
       $('submit').disabled = true; setStatus($('status'), '제출 중...', 'info');
-      const { error } = await supabase.from('company_survey_responses').insert(row);
+      const { data, error } = await supabase.rpc('submit_company_survey_response', { p_slug: getCenter(), p_code: profile.code || null, p_row: row });
       $('submit').disabled = false;
       // 23505 = 이 기기가 이 설문·회차에 이미 제출(서버측 유일 제약) → 정상 처리
-      if (error && error.code !== '23505') {
-        if (/relation|does not exist|schema cache/i.test(error.message || '')) {
+      if ((data && data.ok === false) || (error && error.code !== '23505')) {
+        if (data && data.reason === 'center') {
+          setStatus($('status'), '센터 정보를 확인할 수 없어요. 올바른 센터 링크로 다시 접속해주세요.', 'error'); return;
+        }
+        if (error && /relation|does not exist|schema cache/i.test(error.message || '')) {
           setStatus($('status'), '설문이 아직 준비 중이에요. 잠시 후 다시 시도해주세요. (관리자: sql/10_company_survey.sql 실행 필요)', 'error'); return;
         }
         setStatus($('status'), friendlyError(error), 'error'); return;

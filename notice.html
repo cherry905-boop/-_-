@@ -35,7 +35,7 @@
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   <script type="module">
     import { supabase, configReady, esc, getProfile, noticeMatches, skeletonList, clearSkeleton,
-             getReadSet, markNoticesRead, updateUnreadBadges, getCenterId } from './app.js';
+             getReadSet, markNoticesRead, updateUnreadBadges, requireCenterId, centerRequiredMessage } from './app.js';
     if (window.lucide) window.lucide.createIcons();
 
     // 이 기기의 프로필(가입 때 저장) — 공지 필터링용
@@ -98,9 +98,14 @@
     (async () => {
       if (!configReady()) { emptyEl.style.display = 'block'; emptyEl.textContent = 'Supabase 연결이 필요합니다(config.js).'; return; }
       skeletonList(listEl, 3);
-      const cid = await getCenterId();                          // [P3] 센터 스코프(가능할 때만)
-      let nq = supabase.from('notices').select('id,title,body,target_scope,target_value,created_at').eq('published', true);
-      if (cid) nq = nq.eq('center_id', cid);
+      const cid = await requireCenterId().catch(() => null);
+      if (!cid) {
+        clearSkeleton(listEl);
+        emptyEl.style.display = 'block';
+        emptyEl.textContent = centerRequiredMessage();
+        return;
+      }
+      const nq = supabase.from('notices').select('id,title,body,target_scope,target_value,created_at').eq('published', true).eq('center_id', cid);
       const { data, error } = await nq.order('created_at', { ascending: false });
       clearSkeleton(listEl);
       if (error) { emptyEl.style.display = 'block'; emptyEl.textContent = '일시적 오류로 불러오지 못했어요. 잠시 후 새로고침해주세요.'; console.error(error); return; }

@@ -72,10 +72,25 @@
 
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   <script type="module">
-    import { supabase, configReady, esc, matchSel, normCo, getCenterId } from './app.js';
+    import { supabase, configReady, esc, matchSel, normCo, requireCenterId } from './app.js';
     if (window.lucide) window.lucide.createIcons();
     const $ = id => document.getElementById(id);
     let profile = {}; try { profile = JSON.parse(localStorage.getItem('ilhak_profile') || '{}'); } catch (_) {}
+
+    const isLibraryObject = (u) => !!u && (!/^https?:\/\//i.test(u) || /\/storage\/v1\/object\/(?:public\/|sign\/)?library\//i.test(u));
+    async function signedHref(r) {
+      const base = (window.APP_CONFIG || {}).SUPABASE_URL;
+      if (!base || !r || r.id == null) return null;
+      try {
+        const res = await fetch(base.replace(/\/$/, '') + '/functions/v1/sign-library', {
+          method: 'POST', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ rowId: r.id, token: profile.token || null, code: profile.code || null }),
+        });
+        if (!res.ok) return null;
+        const j = await res.json();
+        return j && j.url ? j.url : null;
+      } catch (_) { return null; }
+    }
 
     if (!profile.company || !configReady()) {
       $('gate').style.display = 'block';
@@ -157,9 +172,8 @@
       const empty = '<p class="note">아직 등록된 자료가 없어요 — 내부평가 문제지·회사 자료가 등록되면 여기에 표시돼요.</p>';
       let data = null;
       try {
-        const cidL = await getCenterId();                       // [P3] 센터 스코프(가능할 때만)
-        let lq = supabase.from('library').select('id,title,kind,url,job_key,created_at').eq('published', true);
-        if (cidL) lq = lq.eq('center_id', cidL);
+        const cidL = await requireCenterId();
+        const lq = supabase.from('library').select('id,title,kind,url,job_key,created_at').eq('published', true).eq('center_id', cidL);
         const res = await lq.order('created_at', { ascending: false }).limit(100);
         if (res.error) { $('lib').innerHTML = empty; return; }
         data = res.data;
@@ -172,8 +186,24 @@
         } catch (_) { return false; }
       });
       if (!mine.length) { $('lib').innerHTML = empty; return; }
-      $('lib').innerHTML = mine.slice(0, 8).map(r =>
-        `<a class="nt-item" href="${esc(r.url || './library.html')}" target="_blank" rel="noopener"><b>${esc(r.title)}</b>${r.kind ? ` <span class="note">${esc(r.kind)}</span>` : ''}</a>`).join('');
+      $('lib').innerHTML = '';
+      mine.slice(0, 8).forEach(r => {
+        const a = document.createElement('a');
+        a.className = 'nt-item';
+        a.href = isLibraryObject(r.url) ? '#' : (r.url || './library.html');
+        a.target = '_blank';
+        a.rel = 'noopener';
+        a.innerHTML = `<b>${esc(r.title)}</b>${r.kind ? ` <span class="note">${esc(r.kind)}</span>` : ''}`;
+        if (isLibraryObject(r.url)) {
+          a.addEventListener('click', async (e) => {
+            e.preventDefault();
+            const url = await signedHref(r);
+            if (url) window.open(url, '_blank', 'noopener');
+            else alert('자료를 여는 권한을 확인하지 못했어요. 잠시 후 다시 시도하거나 담당자에게 문의해주세요.');
+          });
+        }
+        $('lib').appendChild(a);
+      });
     }
 
     // 5. 우리 회사 소식 — 기업 타게팅 공지만 (scope 'company' 일치 또는 custom.companies 포함)
@@ -188,9 +218,8 @@
     async function loadNews() {
       let data = null;
       try {
-        const cidN = await getCenterId();                       // [P3] 센터 스코프(가능할 때만)
-        let nq = supabase.from('notices').select('id,title,body,target_scope,target_value,created_at').eq('published', true);
-        if (cidN) nq = nq.eq('center_id', cidN);
+        const cidN = await requireCenterId();
+        const nq = supabase.from('notices').select('id,title,body,target_scope,target_value,created_at').eq('published', true).eq('center_id', cidN);
         const res = await nq.order('created_at', { ascending: false }).limit(100);
         if (res.error) { $('news').innerHTML = '<p class="note">소식을 불러오지 못했어요.</p>'; return; }
         data = res.data;

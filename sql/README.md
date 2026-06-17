@@ -23,6 +23,8 @@ Supabase 대시보드 → SQL Editor 에서 **번호 순서대로** 실행하세
 | 16_event_surveys.sql | 행사별 설문(surveys 문항 jsonb)+익명 응답(survey_answers) | 만족도 조사 페이지(설문 목록)·관리자 문항 빌더/집계 |
 | 17_polls.sql | 사안별 투표(polls/poll_votes)+poll_results 집계 RPC | 투표 페이지·관리자 투표 발행/집계 |
 | 18_company_info.sql | 기업별 학습 안내(company_info)+my_company_info RPC(이름만 반환) | 내 학습기업 페이지·관리자 기업 탭 '정보' 모달 |
+| 35_public_scope_and_anon_write_rpc.sql | 공개읽기 센터 헤더 헬퍼 + anon 쓰기 RPC + tasks 센터화 | 프론트 전환 전 먼저 적용 |
+| 36_tighten_public_and_anon_policies.sql | 공개읽기 센터 스코프 강제 + anon 직접 쓰기 정책 제거 | 프론트 전환 배포 후 적용 |
 
 주의사항
 - 02의 `verify_by_code`는 기존 `verify_student(name, phone)` RPC를 내부 호출합니다.

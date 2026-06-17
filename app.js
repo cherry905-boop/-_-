@@ -5,11 +5,14 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
 const cfg = window.APP_CONFIG || {};
+const CENTER_REQUIRED = 'CENTER_REQUIRED';
 
 // Supabase 클라이언트 (config.js 값이 비어 있으면 null)
 export const supabase =
   (cfg.SUPABASE_URL && cfg.SUPABASE_URL.startsWith('http'))
-    ? createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY)
+    ? createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY, {
+        global: { headers: { 'x-ilhak-center': (window.CENTER_SLUG || window.DEFAULT_CENTER || 'mju') } },
+      })
     : null;
 
 export function configReady() {
@@ -37,8 +40,7 @@ export function centerUrl(path) {
 }
 
 // [P3] 활성 센터의 uuid — `center_id_for_slug` RPC(sql/19)로 1회 해석 후 캐시.
-// 마이그레이션 전에는 RPC 가 없어 null → 공개읽기 스코프 미적용 = 파일럿 동일.
-// 적용 후에는 공개읽기를 자기 센터로 좁힌다(공개 콘텐츠라 클라 필터로 충분).
+// 공개 읽기는 requireCenterId()를 써서 fail-closed로 처리한다. getCenterId()는 복구/폴백 UI용.
 let _centerIdCache;   // undefined=미해석(재시도 가능), string=해석 성공(영구 캐시)
 export async function getCenterId() {
   if (_centerIdCache !== undefined) return _centerIdCache;
@@ -51,6 +53,19 @@ export async function getCenterId() {
     } catch (_) {}
   }
   return null;   // 미해석 → 캐시 안 함(_centerIdCache 는 undefined 유지) → 다음 호출에서 재시도
+}
+export async function requireCenterId() {
+  const cid = await getCenterId();
+  if (cid) return cid;
+  const err = new Error('center_required');
+  err.code = CENTER_REQUIRED;
+  throw err;
+}
+export function isCenterRequiredError(error) {
+  return !!error && (error.code === CENTER_REQUIRED || /center_required/i.test(error.message || ''));
+}
+export function centerRequiredMessage() {
+  return '센터 정보를 확인할 수 없어요. 올바른 센터 링크로 다시 접속해주세요.';
 }
 
 // [②b] 센터별 어휘(vocab) 적용 — 직무·담당·유형·단계·설문을 센터 DB값으로 override.
@@ -217,9 +232,8 @@ export async function unreadNoticeCount() {
   const profile = getProfile();
   if (!profile.name) return 0;
   try {
-    const cid = await getCenterId();                         // [P3] 센터 스코프(가능할 때만)
-    let q = supabase.from('notices').select('id,target_scope,target_value').eq('published', true);
-    if (cid) q = q.eq('center_id', cid);
+    const cid = await requireCenterId();                     // 센터 해석 실패 시 공개 쿼리 중단
+    const q = supabase.from('notices').select('id,target_scope,target_value').eq('published', true).eq('center_id', cid);
     const { data, error } = await q.order('created_at', { ascending: false }).limit(100);
     if (error || !data) return 0;
     const read = getReadSet();
@@ -263,6 +277,7 @@ export async function updateUnreadBadges() {
 export function friendlyError(error) {
   const m = (error && (error.message || error.msg)) || String(error || '');
   try { console.error(error); } catch (_) {}
+  if (isCenterRequiredError(error)) return centerRequiredMessage();
   if (/Failed to fetch|NetworkError|network|timeout|타임아웃/i.test(m)) return '인터넷 연결을 확인한 뒤 다시 시도해주세요.';
   if (/JWT|expired|로그인|session|invalid token/i.test(m)) return '로그인이 만료됐어요. 다시 로그인해주세요.';
   if (/row-level security|permission denied|42501/i.test(m)) return '일시적인 문제가 있어요. 잠시 후 다시 시도하거나 담당자에게 문의해주세요.';

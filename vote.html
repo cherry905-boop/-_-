@@ -37,7 +37,7 @@
 
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   <script type="module">
-    import { supabase, configReady, setStatus, friendlyError, esc, matchSel, getCenterId } from './app.js';
+    import { supabase, configReady, setStatus, friendlyError, esc, matchSel, requireCenterId, centerRequiredMessage } from './app.js';
     if (window.lucide) window.lucide.createIcons();
     const $ = id => document.getElementById(id);
     let profile = {}; try { profile = JSON.parse(localStorage.getItem('ilhak_profile') || '{}'); } catch (_) {}
@@ -58,9 +58,12 @@
         window.lucide?.createIcons(); return;
       }
       if (!configReady()) { listEl.innerHTML = '<div class="card"><p class="note">Supabase 연결이 필요합니다.</p></div>'; return; }
-      const cid = await getCenterId();                          // [P3] 센터 스코프(가능할 때만)
-      let pq = supabase.from('polls').select('id,question,description,options,target_scope,target_value,multi,results_public,open,close_at,created_at');
-      if (cid) pq = pq.eq('center_id', cid);
+      const cid = await requireCenterId().catch(() => null);
+      if (!cid) {
+        listEl.innerHTML = '<div class="card"><p class="note">' + esc(centerRequiredMessage()) + '</p></div>';
+        return;
+      }
+      const pq = supabase.from('polls').select('id,question,description,options,target_scope,target_value,multi,results_public,open,close_at,created_at').eq('center_id', cid);
       const { data, error } = await pq.order('created_at', { ascending: false }).limit(50);
       if (error) {
         listEl.innerHTML = '<div class="card"><p class="note">' + (/relation|does not exist|schema cache/i.test(error.message || '') ? '투표 기능이 아직 준비 중이에요. (관리자: sql/17 실행 필요)' : '투표를 불러오지 못했어요 — ' + esc(error.message)) + '</p></div>';
@@ -98,11 +101,12 @@
           const sel = [...card.querySelectorAll(`input[name="po-${p.id}"]:checked`)].map(i => i.value);
           if (!sel.length) { setStatus(st, '보기를 선택해주세요.', 'error'); return; }
           btn.disabled = true; setStatus(st, '제출 중...', 'info');
-          const { error } = await supabase.from('poll_votes').insert({ poll_id: p.id, choices: sel, device_id: deviceId });
+          const { data, error } = await supabase.rpc('submit_poll_vote', { p_poll: p.id, p_choices: sel, p_device_id: deviceId });
           btn.disabled = false;
           // 23505 = 이 기기는 이미 투표함(서버측 유일 제약) → 정상 처리
-          if (error && error.code !== '23505') {
-            if (error.code === '42501' || /row-level|policy/i.test(error.message || '')) { setStatus(st, '마감된 투표예요.', 'error'); return; }
+          if ((data && data.ok === false) || (error && error.code !== '23505')) {
+            if (data && data.reason === 'closed') { setStatus(st, '마감된 투표예요.', 'error'); return; }
+            if (error && (error.code === '42501' || /row-level|policy/i.test(error.message || ''))) { setStatus(st, '마감된 투표예요.', 'error'); return; }
             setStatus(st, friendlyError(error), 'error'); return;
           }
           try { localStorage.setItem(votedKey(p.id), '1'); } catch (_) {}

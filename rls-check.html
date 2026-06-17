@@ -23,7 +23,7 @@
         <span class="mju-alert__icon"><i data-lucide="shield"></i></span>
         <div class="mju-alert__body">
           <div class="mju-alert__title">관리자 전용 도구</div>
-          <div class="mju-alert__text">이 페이지는 <b>익명(anon) 키</b>로 각 테이블을 몰래 읽어보려고 시도합니다. <b>차단됨(PASS)</b> = 안전 / <b>읽힘(FAIL)</b> = 즉시 RLS를 고쳐야 함.</div>
+          <div class="mju-alert__text">이 페이지는 <b>익명(anon) 키</b>로 각 테이블을 몰래 읽어보려고 시도합니다. 민감 테이블 쓰기는 직접 anon 정책이 아니라 <b>SECURITY DEFINER RPC</b>만 허용해야 합니다.</div>
         </div>
       </div>
 
@@ -49,7 +49,7 @@
     // 익명이 절대 읽으면 안 되는 테이블들 (개인정보 포함)
     const MUST_BE_BLOCKED = ['students', 'registrations', 'push_logs', 'push_tokens', 'consultations', 'consultation_messages', 'survey_responses', 'deletion_log', 'sync_log', 'notice_recipients', 'company_contacts', 'survey_answers', 'poll_votes', 'company_info', 'admin_users', 'student_codes', 'company_codes', 'unverified_signups'];
     // 익명이 "공개분만" 읽어야 하는 테이블 (의도된 공개 — 읽히는 게 정상)
-    const PUBLIC_OK = ['notices', 'library', 'calendar_events', 'jobs', 'companies', 'surveys', 'polls', 'centers'];
+    const PUBLIC_OK = ['notices', 'library', 'calendar_events', 'jobs', 'companies', 'surveys', 'polls', 'tasks', 'centers'];
     // 익명이 콘텐츠를 '삭제'할 수 없어야 하는 테이블 (삭제 경로 점검).
     //   배경: sql/07 의 레거시 "admin delete"(for delete to authenticated using(true)) 갓모드가
     //   sql/21 정리 루프(roles@>authenticated bare-true 제거)로 빠졌는지 보조 점검.
