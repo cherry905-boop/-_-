@@ -39,6 +39,14 @@
       <!-- 대상별 '이달의 할 일' 카드 (renderTodo가 주입; 항목 없으면 비어있음) -->
       <div id="todo"></div>
 
+      <div class="mju-alert mju-alert--warning" id="center-invalid" style="display:none">
+        <span class="mju-alert__icon"><i data-lucide="alert-triangle"></i></span>
+        <div class="mju-alert__body">
+          <div class="mju-alert__title">센터 정보를 확인할 수 없어요</div>
+          <div class="mju-alert__text">올바른 공동훈련센터 링크로 다시 접속해주세요. 명지대학교 공동훈련센터는 <a href="./index.html?center=mju">이 링크</a>로 열 수 있습니다.</div>
+        </div>
+      </div>
+
       <!-- 이미 가입한 기기에 보이는 홈 메뉴 -->
       <div id="home" style="display:none">
         <div class="greet-row"><span class="greet" id="home-name"></span></div>
@@ -263,6 +271,22 @@
     }
     maybePickCenter();
 
+    let _centerBlocked = false;
+    if (configReady()) {
+      try {
+        await requireCenterId();
+      } catch (_) {
+        _centerBlocked = true;
+        document.getElementById('center-invalid').style.display = 'flex';
+        ['signupCard', 'restoreCard', 'home', 'home-applicant'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.style.display = 'none';
+        });
+        document.getElementById('todo').innerHTML = '';
+        window.lucide?.createIcons();
+      }
+    }
+
     // 이미 가입한 기기면 가입폼 대신 홈 메뉴를 보여줌
     // (?convert=1 = 지원자→학생 전환: 프로필이 있어도 가입폼을 띄움)
     let _prof = null; try { _prof = JSON.parse(localStorage.getItem('ilhak_profile') || 'null'); } catch (_) {}
@@ -271,7 +295,7 @@
       e.preventDefault();
       if (confirm('가입 정보를 지우고 다시 가입할까요?')) { localStorage.removeItem('ilhak_profile'); location.href = './index.html'; }
     };
-    if (_prof && _prof.name && !_convert) {
+    if (!_centerBlocked && _prof && _prof.name && !_convert) {
       document.getElementById('signupCard').style.display = 'none';
       if (_prof.target_type === 'applicant') {
         // 지원자 홈 — 모집 중심 메뉴
@@ -328,7 +352,7 @@
     // (홈 화면 추가 후 첫 실행은 '내 정보 불러오기' 복원이 우선이므로 제외)
     const OB_KEY = 'ilhak_onboard_v1';
     let _obSeen = true; try { _obSeen = !!localStorage.getItem(OB_KEY); } catch (_) {}
-    if (!(_prof && _prof.name) && !_obSeen && !isStandalone() && !_convert) {
+    if (!_centerBlocked && !(_prof && _prof.name) && !_obSeen && !isStandalone() && !_convert) {
       const slides = [
         { icon: 'megaphone',  t: '공지·자료·일정을 한곳에서',      s: '공동훈련센터의 공지사항, 학습안내서·서식, 외부평가·마감 일정을 이 앱 하나로 확인해요.' },
         { icon: 'user-check', t: '가입은 이름·휴대폰이면 끝',      s: '센터 명단과 자동으로 확인해 30초면 가입돼요. 직무·기업 정보는 명단에서 자동으로 채워집니다.' },
@@ -355,7 +379,7 @@
     // 표준앱(홈 화면 추가)으로 처음 열었는데 프로필이 없음 = iOS 저장소 분리로 정보 소실
     // → 가입폼 대신 '내 정보 불러오기'(이름·휴대폰 → verify_student 복원, 중복가입 없음) 게이트
     const _standaloneNoProfile = (() => { try { return isStandalone() && !(_prof && _prof.name); } catch (_) { return false; } })();
-    if (_standaloneNoProfile) {
+    if (!_centerBlocked && _standaloneNoProfile) {
       document.getElementById('signupCard').style.display = 'none';
       document.getElementById('restoreCard').style.display = 'block';
       const rName = document.getElementById('r-name'), rPhone = document.getElementById('r-phone');
