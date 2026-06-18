@@ -36,8 +36,8 @@
         <button type="button" class="mju-btn mju-btn--sm mju-btn--secondary" id="copyUrl" style="margin-top:10px">주소 복사 → Safari/크롬에 붙여넣기</button>
       </div>
 
-      <!-- 대상별 '이달의 할 일' 카드 (renderTodo가 주입; 항목 없으면 비어있음) -->
-      <div id="todo"></div>
+      <!-- 홈 일정: 미니 달력 + 다가오는 일정 (renderSchedule가 주입; 일정 없으면 달력만) -->
+      <div id="home-cal"></div>
 
       <div class="mju-alert mju-alert--warning" id="center-invalid" style="display:none">
         <span class="mju-alert__icon"><i data-lucide="alert-triangle"></i></span>
@@ -231,7 +231,7 @@
 
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   <script type="module">
-    import { supabase, configReady, getQueryParam, isInAppBrowser, isStandalone, setStatus, friendlyError, attachPhoneFormat, getCenter, requireCenterId } from './app.js';
+    import { supabase, configReady, getQueryParam, isInAppBrowser, isStandalone, setStatus, friendlyError, attachPhoneFormat, getCenter, requireCenterId, matchSel } from './app.js';
 
     if (window.lucide) window.lucide.createIcons();
 
@@ -282,7 +282,7 @@
           const el = document.getElementById(id);
           if (el) el.style.display = 'none';
         });
-        document.getElementById('todo').innerHTML = '';
+        document.getElementById('home-cal').innerHTML = '';
         window.lucide?.createIcons();
       }
     }
@@ -315,7 +315,7 @@
           const hn = document.getElementById('home-name'); if (hn) hn.textContent += ' (기업 담당자)';
           renderCompanyStage(_prof);
         }
-        renderTodo(_prof);
+        renderSchedule(_prof);
         document.getElementById('resignup').addEventListener('click', _resignup);
       }
     }
@@ -343,8 +343,8 @@
       const card = document.createElement('div');
       card.className = 'card accent';
       card.innerHTML = `<p class="ph-card-title"><i data-lucide="route"></i> 우리 회사 진행 현황</p><div class="stage-list">${rows}</div>`;
-      const todoEl = document.getElementById('todo');
-      todoEl.parentNode.insertBefore(card, todoEl.nextSibling);
+      const anchor = document.getElementById('home-cal');
+      anchor.parentNode.insertBefore(card, anchor.nextSibling);
       window.lucide?.createIcons();
     }
 
@@ -459,53 +459,116 @@
       });
     }
 
-    // 대상별 '이달의 할 일' — 노션 동기화 tasks 테이블(published=true만 RLS 허용)에서 조회.
-    // calendar.html의 todayStr 계산과 dday() 색 규칙을 그대로 사용. 실패/빈데이터면 조용히 미표시.
-    async function renderTodo(prof) {
+    // 홈 일정 — calendar_events(center 스코프)에서 이번 달 + 다가오는 일정.
+    // calendar.html 의 visible()·dday()·토큰 병합 규칙을 그대로 사용. 실패/미해석이면 조용히 미표시(홈 회귀 0).
+    async function renderSchedule(prof) {
       if (!configReady()) return;
-      const aud = prof.target_type === 'company' ? ['기업', '전체'] : ['매칭학생', '전체'];
-      let data;
+      const mount = document.getElementById('home-cal');
+      const pad = n => String(n).padStart(2, '0');
+      const now = new Date();
+      const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+      const calY = now.getFullYear(), calM = now.getMonth();
+      const monthStart = `${calY}-${pad(calM + 1)}-01`;
+      // 타게팅 가시성 — calendar.html visible() 과 동일(전체/단일직무/custom)
+      const visible = (r) => {
+        if (!r.job_key) return true;
+        if (r.job_key.indexOf('custom:') === 0) { try { return matchSel(JSON.parse(r.job_key.slice(7)), prof); } catch (_) { return false; } }
+        return r.job_key === prof.job_key;
+      };
+      let all = [], cid;
       try {
-        const cid = await requireCenterId();
-        const res = await supabase.from('tasks')
-          .select('title,kind,link,memo,due_date')
-          .in('audience', aud)
-          .eq('published', true)
-          .eq('center_id', cid)
-          .order('due_date', { ascending: true });
-        if (res.error) { document.getElementById('todo').innerHTML = '<div class="card"><p class="note" style="margin:0">이달의 할 일을 불러오지 못했어요. 잠시 후 새로고침해주세요.</p></div>'; return; }
-        data = res.data;
+        cid = await requireCenterId();
+        const { data, error } = await supabase.from('calendar_events')
+          .select('title,event_date,kind,job_key,memo')
+          .gte('event_date', monthStart).eq('center_id', cid)
+          .order('event_date', { ascending: true });
+        if (error) return;
+        all = (data || []).filter(visible);
       } catch (_) { return; }
-      if (!data || !data.length) return;
+      // 나에게만 지정된 일정(토큰) 병합 — calendar.html 과 동일(범위 RPC 우선, 미적용이면 기존 RPC)
+      if (prof.token) {
+        try {
+          let mine = null;
+          const r = await supabase.rpc('my_targeted_calendar_from', { p_token: prof.token, p_from: monthStart });
+          if (r.error && /function|does not exist|PGRST202|42883|schema cache/i.test(r.error.message || '')) {
+            const r2 = await supabase.rpc('my_targeted_calendar', { p_token: prof.token });
+            if (!r2.error) mine = r2.data;
+          } else if (!r.error) mine = r.data;
+          if (Array.isArray(mine) && mine.length) {
+            const seen = new Set(all.map(x => x.title + '|' + x.event_date));
+            mine.forEach(x => { if (!seen.has(x.title + '|' + x.event_date)) all.push(x); });
+          }
+        } catch (_) {}
+      }
+      // 기존 '할 일'(tasks) 합치기 — 마감일 있으면 일정으로(달력 점+목록), 마감 미정은 목록에 '미정'으로.
+      //   audience(기업/매칭학생/전체)로 가시성 결정. overdue(지난 마감)는 제외(기존 동작 보존).
+      let undated = [];
+      try {
+        const aud = prof.target_type === 'company' ? ['기업', '전체'] : ['매칭학생', '전체'];
+        const { data: tasks, error: terr } = await supabase.from('tasks')
+          .select('title,kind,link,memo,due_date')
+          .in('audience', aud).eq('published', true).eq('center_id', cid)
+          .order('due_date', { ascending: true });
+        if (!terr && Array.isArray(tasks)) {
+          const seen = new Set(all.map(x => x.title + '|' + x.event_date));
+          tasks.forEach(t => {
+            if (t.due_date) {
+              if (t.due_date >= todayStr && !seen.has(t.title + '|' + t.due_date)) {
+                all.push({ title: t.title, event_date: t.due_date, kind: t.kind || '할 일', memo: t.memo, link: t.link });
+                seen.add(t.title + '|' + t.due_date);
+              }
+            } else undated.push(t);
+          });
+        }
+      } catch (_) {}
+      all.sort((a, b) => (a.event_date < b.event_date ? -1 : a.event_date > b.event_date ? 1 : 0));
 
-      // calendar.html과 동일한 todayStr 계산 / dday() 함수 (로컬 자정 기준)
-      const todayStr = new Date().toISOString().slice(0, 10);
-      function dday(dateStr) {
-        const today = new Date(); today.setHours(0, 0, 0, 0);
-        const d = new Date(dateStr + 'T00:00:00');
-        const diff = Math.round((d - today) / 86400000);
+      const esc = (s) => { const e = document.createElement('div'); e.textContent = s || ''; return e.innerHTML; };
+      const dday = (dateStr) => {
+        const t = new Date(); t.setHours(0, 0, 0, 0);
+        const diff = Math.round((new Date(dateStr + 'T00:00:00') - t) / 86400000);
         if (diff === 0) return { label: 'D-DAY', cls: 'urgent' };
         if (diff > 0) return { label: 'D-' + diff, cls: diff <= 7 ? 'urgent' : '' };
         return { label: '종료', cls: 'muted' };
+      };
+      const fmtDate = (s) => { try { return new Date(s + 'T00:00:00').toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' }); } catch (_) { return s; } };
+
+      // 미니 달력 (이번 달, 일정 있는 날 점)
+      const byDate = {};
+      all.forEach(r => { (byDate[r.event_date] = byDate[r.event_date] || []).push(r); });
+      const first = new Date(calY, calM, 1), days = new Date(calY, calM + 1, 0).getDate();
+      const dow = ['일', '월', '화', '수', '목', '금', '토'].map(d => `<span class="cal-dow">${d}</span>`).join('');
+      let cells = '';
+      for (let i = 0; i < first.getDay(); i++) cells += '<span></span>';
+      for (let d = 1; d <= days; d++) {
+        const ds = `${calY}-${pad(calM + 1)}-${pad(d)}`;
+        const evts = byDate[ds] || [];
+        const cls = 'cal-cell' + (evts.length ? ' has' : '') + (ds < todayStr ? ' past' : '') + (ds === todayStr ? ' today' : '');
+        cells += `<span class="${cls}"><span>${d}</span><span class="cal-dots">${evts.slice(0, 3).map(() => '<span class="cal-dot"></span>').join('')}</span></span>`;
       }
-      const esc = (s) => { const e = document.createElement('div'); e.textContent = s || ''; return e.innerHTML; };
 
-      // 마감 미정(due_date 없음) 또는 오늘 이후(todayStr 이상) 항목만 표시
-      const shown = data.filter(r => !r.due_date || r.due_date >= todayStr);
-      if (!shown.length) return;
-
-      const rows = shown.map(r => {
-        const badge = r.due_date
-          ? (() => { const dd = dday(r.due_date); return `<span class="dday ${dd.cls}">${dd.label}</span>`; })()
-          : `<span class="dday muted">미정</span>`;
-        const memo = r.memo ? `<div class="td">${esc(r.memo)}</div>` : '';
+      // 다가오는 일정 — 일정+마감일 합본(오늘 이후) 최대 4건 + 마감 미정(최대 2건). 링크 있으면 '바로가기'.
+      const rowHtml = (r, badge) => {
         const safeLink = (r.link && /^https?:\/\//i.test(r.link)) ? r.link : null;
         const link = safeLink ? `<a class="tlink" href="${encodeURI(safeLink)}" target="_blank" rel="noopener">바로가기 ↗</a>` : '';
-        return `<div class="todo-item"><div style="flex:1"><div class="tt">${esc(r.title)}</div>${memo}${link}</div>${badge}</div>`;
-      }).join('');
+        const sub = r.event_date ? fmtDate(r.event_date) : '마감 미정';
+        return `<div class="todo-item"><div style="flex:1"><div class="tt">${esc(r.title)}</div><div class="td">${sub}${r.memo ? ' · ' + esc(r.memo) : ''}</div>${link}</div>${badge}</div>`;
+      };
+      const datedRows = all.filter(r => r.event_date >= todayStr).slice(0, 4)
+        .map(r => { const dd = dday(r.event_date); return rowHtml(r, `<span class="dday ${dd.cls}">${dd.label}</span>`); }).join('');
+      const undatedRows = undated.slice(0, 2).map(t => rowHtml(t, `<span class="dday muted">미정</span>`)).join('');
+      const listHtml = (datedRows + undatedRows) || `<p class="note" style="margin:10px 0 0">예정된 일정이 없어요.</p>`;
 
-      document.getElementById('todo').innerHTML =
-        `<div class="card accent"><p class="ph-card-title">이달의 할 일</p>${rows}</div>`;
+      mount.innerHTML =
+        `<div class="card accent">` +
+          `<p class="ph-card-title"><i data-lucide="calendar-days"></i> 일정</p>` +
+          `<div class="cal-head" style="justify-content:center;margin-bottom:8px"><b>${calY}년 ${calM + 1}월</b></div>` +
+          `<div class="cal-grid">${dow}</div>` +
+          `<div class="cal-grid" style="margin-bottom:4px">${cells}</div>` +
+          listHtml +
+          `<a href="./calendar.html" style="display:inline-flex;align-items:center;gap:4px;font-size:12.5px;font-weight:700;color:var(--link);margin-top:10px;text-decoration:none">전체 일정 보기 <i data-lucide="chevron-right" style="width:14px;height:14px"></i></a>` +
+        `</div>`;
+      window.lucide?.createIcons();
     }
 
     // 기업 드롭다운만 노션 동기화(companies)에서 채움 (직무는 매칭학생 확인 후 '본인 직무'만 동적 노출)
