@@ -1484,9 +1484,10 @@
       $('rg-table').innerHTML = '<thead><tr>' +
         (canSel ? `<th class="nosort"><input type="checkbox" id="rg-all" ${allOn ? 'checked' : ''}></th>` : '') +
         cols.map(c => `<th data-k="${c[0]}">${c[1]}${arrow(c[0])}</th>`).join('') +
+        (isStu ? '<th class="nosort">코드</th>' : '') +
         ((isStu || (regSeg === 'company' && ccReady) || regSeg === 'applicant') ? '<th class="nosort">관리</th>' : '') + '</tr></thead>';
       const tb = document.createElement('tbody');
-      if (!rows.length) tb.innerHTML = `<tr><td colspan="${cols.length + (isStu ? 2 : (regSeg === 'company' ? (ccReady ? 2 : 1) : (regSeg === 'applicant' ? 1 : 0)))}" style="color:var(--text-muted)">없음</td></tr>`;
+      if (!rows.length) tb.innerHTML = `<tr><td colspan="${cols.length + (isStu ? 3 : (regSeg === 'company' ? (ccReady ? 2 : 1) : (regSeg === 'applicant' ? 1 : 0)))}" style="color:var(--text-muted)">없음</td></tr>`;
       const fmtD = v => v ? new Date(v).toLocaleDateString('ko-KR') : '-';
       rows.forEach(r => {
         const tr = document.createElement('tr'); if (canSel && regSel.has(r.id)) tr.className = 'on';
@@ -1505,6 +1506,41 @@
               : [esc(r.name || ''), esc(r.company || '-'), esc(r.role || '-'), fmtD(r.created_at)];
         vals.forEach(v => { const td = document.createElement('td'); td.innerHTML = v; tr.appendChild(td); });
         // (전화 열 제거 — 개인정보 최소화)
+        // 참여학생 코드 열 — 초대코드 표시/복사, 없으면 발급(issueCode 재사용). codeMap = name|phone → {id, code}.
+        if (isStu) {
+          const tdCode = document.createElement('td'); tdCode.style.whiteSpace = 'nowrap';
+          const entry = codeMap[(r.name || '') + '|' + (r.phone || '')];
+          if (entry && entry.code) {
+            const cb = document.createElement('button'); cb.type = 'button'; cb.className = 'phone-btn';
+            cb.style.fontFamily = 'ui-monospace,monospace'; cb.title = '초대코드 복사';
+            const drawCode = () => { cb.innerHTML = `<i data-lucide="copy"></i> ${esc(entry.code)}`; if (window.lucide) window.lucide.createIcons(); };
+            cb.innerHTML = `<i data-lucide="copy"></i> ${esc(entry.code)}`;
+            cb.addEventListener('click', () => {
+              navigator.clipboard?.writeText(entry.code).then(() => {
+                cb.innerHTML = '<i data-lucide="check"></i> 복사됨'; if (window.lucide) window.lucide.createIcons();
+                setTimeout(drawCode, 1200);
+              });
+            });
+            tdCode.appendChild(cb);
+          } else {
+            const ib = document.createElement('button'); ib.type = 'button'; ib.className = 'phone-btn';
+            ib.title = '초대코드 발급'; ib.innerHTML = '<i data-lucide="ticket"></i> 발급';
+            ib.addEventListener('click', async () => {
+              ib.disabled = true; ib.innerHTML = '<i data-lucide="loader"></i> 발급 중…'; if (window.lucide) window.lucide.createIcons();
+              try {
+                await issueCode(r.name, r.phone || null);   // codeMap 갱신됨
+                logAction('코드발급', r.name || '');
+                setStatus($('rg-status'), `✅ ${r.name || ''} 초대코드 발급`, 'ok');
+                regRender();   // codeMap 반영 → 코드+복사 버튼으로 다시 그림
+              } catch (e) {
+                setStatus($('rg-status'), '코드 발급 실패: ' + (e.message || e), 'error');
+                ib.disabled = false; ib.innerHTML = '<i data-lucide="ticket"></i> 발급'; if (window.lucide) window.lucide.createIcons();
+              }
+            });
+            tdCode.appendChild(ib);
+          }
+          tr.appendChild(tdCode);
+        }
         // 기업담당자 코드 열 — 기업 초대코드 발급/복사 + HRD 이메일로 안내 메일 초안 (02 SQL 적용 후)
         if (!isStu && regSeg === 'company' && ccReady) {
           const tdc = document.createElement('td');
