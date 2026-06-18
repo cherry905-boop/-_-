@@ -71,15 +71,10 @@ window.APP_CONFIG = {
  *  ⚠️ 식별자는 `name`(예: '정보기술'). registrations.job_key·company 에 name 이 그대로 저장된다.
  */
 
-/* ── 6) 타게팅·편집 어휘 ─ [원장=centers.vocab] 아래는 폴백 전용 ──────────
- *  유일 원장 = Supabase `centers.vocab`(센터별, sql/39 로 mju 시드). app.js applyCenterVocab() 가
- *  이 값으로 window.* 를 override 한다. 아래 정적값은 vocab 미적용/미해석 시의 폴백일 뿐.
- *  (sql/39 라이브 적용·검증 후 이 4줄은 제거 예정 — docs/PLAN.md P3.)
+/* ── 6) 타게팅·편집 어휘 ─ [원장=centers.vocab] ───────────────────────
+ *  담당자·유형·운영형태·상태는 Supabase `centers.vocab`에서만 읽는다.
+ *  app.js applyCenterVocab()가 관리자 화면을 만들기 전에 window.*에 배급한다.
  */
-window.TYPES = ['1유형', '2유형', '3유형'];   // 학습근로자 프로그램 유형
-window.TYPE2 = ['산업형', '자율형'];          // (참고) 운영형태
-window.MANAGERS = ['권순천', '김성훈', '차민정', '노혜정', '길은경'];  // 담당자 (타게팅용)
-window.STATUSES = ['진행중', '휴학', '중도탈락', '수료'];              // 상태 (타게팅용)
 
 /* ── 8) 푸시(FCM) 설정 ─ Firebase 콘솔에서 발급. 공개값이라 노출돼도 됨 ──
  *  Firebase 콘솔 → 프로젝트 설정 → '내 앱'(웹 </>) 에서 SDK 설정값 복사,

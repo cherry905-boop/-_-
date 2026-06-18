@@ -2565,7 +2565,7 @@
         }
       } catch (_) { /* 폴백: 레거시 전체 콘솔 */ }
       applyRoleUI();
-      await applyCenterVocab();   // [원장] 담당/유형/상태 등 센터 어휘를 DB(centers.vocab)에서 먼저 적용 → 이후 모든 로더가 DB값 사용(config 는 폴백)
+      await applyCenterVocab();   // [원장] 담당/유형/상태 등을 DB(centers.vocab)에서 먼저 배급 → 이후 모든 로더가 DB값 사용
       dashLoad(); initPickers().then(fillRecruitPickers); nLoad(); plLoad(); lLoad(); cLoad(); clLoad(); regLoad(); uvLoad(); rcLoad(); stLoad(); svEvLoadList(); poLoad(); populateAddStudentPickers();
     }
     $('loginBtn').addEventListener('click', async () => {

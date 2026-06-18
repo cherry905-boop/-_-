@@ -70,7 +70,7 @@ export function centerRequiredMessage() {
 
 // [②b] 센터별 어휘(vocab) 적용 — 담당·유형·단계·설문을 센터 DB값으로 override.
 //   (직무·학습기업은 vocab 이 아니라 jobs/companies 마스터 테이블이 원장 — 각 탭이 직접 조회.)
-//   vocab 컬럼이 없거나(미적용) 값이 null(mju 등)이면 조용히 스킵 = config.js 정적값(현재 동작·회귀 0).
+//   vocab 컬럼이 없거나 값이 비어 있으면 조용히 스킵하며, 호출부는 빈 선택지로 닫힌다.
 //   ⚠️ 드롭다운(가입폼·관리자 타게팅)을 만들기 '전에' await 로 호출해야 적용된다. 호출부: index.html·admin.html·privacy.html.
 let _vocabPromise;
 export function applyCenterVocab() {
@@ -92,8 +92,7 @@ export function applyCenterVocab() {
 }
 
 // [P3/P4] 활성 센터의 설정을 DB(centers)에서 로드 → APP_CONFIG 키 형태로 반환.
-// centers 테이블/행이 없거나(=마이그레이션 전) 오류면 null → 호출부는 config.js 정적값으로 폴백.
-// 이렇게 하면 라이브 적용 전엔 기존 동작 그대로, 적용 후 자동으로 센터별 값이 반영된다.
+// centers 테이블/행이 없거나 오류면 null. 호출부는 센터 설정을 표시하지 않는다.
 export async function loadCenterConfig() {
   if (!supabase) return null;
   await applyCenterVocab();   // vocab override(직무·유형 등) — privacy.html 외 페이지는 직접 applyCenterVocab() 호출
