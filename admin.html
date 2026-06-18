@@ -627,7 +627,10 @@
     let jobs = null;
     async function loadJobs() {
       if (jobs) return jobs;
-      const { data } = await supabase.from('jobs').select('name').eq('active', true).order('name');
+      // [센터격리] center_admin 은 자기 센터 직무만(jobs 는 anon 읽기가 열려 있어 RLS 로 못 좁히므로 클라에서 필터).
+      let jq = supabase.from('jobs').select('name').eq('active', true);
+      if (window.ADMIN_ROLE === 'center_admin' && window.ADMIN_CENTER_ID) jq = jq.eq('center_id', window.ADMIN_CENTER_ID);
+      const { data } = await jq.order('name');
       jobs = (data || []).map(r => r.name);
       return jobs;
     }
@@ -647,7 +650,6 @@
       if (window.ADMIN_ROLE === 'center_admin' && window.ADMIN_CENTER_ID) cq = cq.eq('center_id', window.ADMIN_CENTER_ID);
       const { data } = await cq.order('name');
       companies = (data || []).map(r => r.name);
-      if (!companies.length) companies = (window.COMPANIES || []).slice();
       return companies;
     }
     const normCo = (s) => (s || '').replace(/㈜|\(주\)|주식회사|\s/g, '');
@@ -2445,11 +2447,11 @@
     let _addStuPickersDone = false;
     async function populateAddStudentPickers() {
       if (_addStuPickersDone) return; _addStuPickersDone = true;
-      await applyCenterVocab();   // [vocab] as-job 직무 목록을 센터값으로
       const jobSel = $('as-job');
-      if (jobSel) (window.JOBS || []).forEach(j => { const o = document.createElement('option'); o.value = j.key; o.textContent = j.label; jobSel.appendChild(o); });
+      const jobNames = await loadJobs();   // [원장] jobs 테이블(center 스코프) — value=name 으로 저장돼 job_key 와 일치
+      if (jobSel) jobNames.forEach(n => { const o = document.createElement('option'); o.value = n; o.textContent = n; jobSel.appendChild(o); });
       const coSel = $('as-company');
-      const names = await loadCompanies();   // 센터 스코프 + vocab 폴백 + 캐시(중복 쿼리 제거)
+      const names = await loadCompanies();   // 센터 스코프 + 캐시(중복 쿼리 제거)
       if (coSel) names.forEach(n => { const o = document.createElement('option'); o.value = n; o.textContent = n; coSel.appendChild(o); });
     }
     $('as-add')?.addEventListener('click', async () => {
@@ -2527,6 +2529,7 @@
         }
       } catch (_) { /* 폴백: 레거시 전체 콘솔 */ }
       applyRoleUI();
+      await applyCenterVocab();   // [원장] 담당/유형/상태 등 센터 어휘를 DB(centers.vocab)에서 먼저 적용 → 이후 모든 로더가 DB값 사용(config 는 폴백)
       dashLoad(); initPickers().then(fillRecruitPickers); nLoad(); plLoad(); lLoad(); cLoad(); clLoad(); regLoad(); uvLoad(); rcLoad(); stLoad(); svEvLoadList(); poLoad(); populateAddStudentPickers();
     }
     $('loginBtn').addEventListener('click', async () => {

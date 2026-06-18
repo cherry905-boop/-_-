@@ -68,7 +68,8 @@ export function centerRequiredMessage() {
   return '센터 정보를 확인할 수 없어요. 올바른 센터 링크로 다시 접속해주세요.';
 }
 
-// [②b] 센터별 어휘(vocab) 적용 — 직무·담당·유형·단계·설문을 센터 DB값으로 override.
+// [②b] 센터별 어휘(vocab) 적용 — 담당·유형·단계·설문을 센터 DB값으로 override.
+//   (직무·학습기업은 vocab 이 아니라 jobs/companies 마스터 테이블이 원장 — 각 탭이 직접 조회.)
 //   vocab 컬럼이 없거나(미적용) 값이 null(mju 등)이면 조용히 스킵 = config.js 정적값(현재 동작·회귀 0).
 //   ⚠️ 드롭다운(가입폼·관리자 타게팅)을 만들기 '전에' await 로 호출해야 적용된다. 호출부: index.html·admin.html·privacy.html.
 let _vocabPromise;
@@ -80,7 +81,7 @@ export function applyCenterVocab() {
     try {
       const { data: v } = await supabase.from('centers').select('vocab').eq('slug', getCenter()).maybeSingle();
       if (v && v.vocab) {
-        ['JOBS', 'COMPANIES', 'TYPES', 'TYPE2', 'MANAGERS', 'STATUSES', 'COMPANY_STAGES', 'COMPANY_SURVEYS'].forEach(k => {
+        ['TYPES', 'TYPE2', 'MANAGERS', 'STATUSES', 'COMPANY_STAGES', 'COMPANY_SURVEYS'].forEach(k => {
           const val = v.vocab[k.toLowerCase()];
           if (val != null) window[k] = val;
         });
@@ -232,11 +233,19 @@ export async function unreadNoticeCount() {
   const profile = getProfile();
   if (!profile.name) return 0;
   try {
+    const read = getReadSet();
+    // [P3.5] read-model 우선: public_notices 가 타게팅을 끝낸 목록을 돌려준다(클라 필터 불필요).
+    const profSel = { job_key: profile.job_key, company: profile.company, type1: profile.type1,
+                      target_type: profile.target_type, interest_jobs: profile.interest_jobs, manager: profile.manager };
+    try {
+      const { data: rows, error } = await supabase.rpc('public_notices', { p_profile: profSel });
+      if (!error && Array.isArray(rows)) return rows.slice(0, 100).filter(n => !read.has(n.id)).length;
+    } catch (_) { /* RPC 부재 → 폴백 */ }
+    // 폴백: 직조회 + 클라 타게팅 (sql/37 적용 전 동작 보존)
     const cid = await requireCenterId();                     // 센터 해석 실패 시 공개 쿼리 중단
     const q = supabase.from('notices').select('id,target_scope,target_value').eq('published', true).eq('center_id', cid);
     const { data, error } = await q.order('created_at', { ascending: false }).limit(100);
     if (error || !data) return 0;
-    const read = getReadSet();
     return data.filter(n => noticeMatches(n, profile) && !read.has(n.id)).length;
   } catch (_) { return 0; }
 }

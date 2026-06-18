@@ -231,7 +231,7 @@
 
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   <script type="module">
-    import { supabase, configReady, getQueryParam, isInAppBrowser, isStandalone, setStatus, friendlyError, attachPhoneFormat, getCenter, requireCenterId, applyCenterVocab } from './app.js';
+    import { supabase, configReady, getQueryParam, isInAppBrowser, isStandalone, setStatus, friendlyError, attachPhoneFormat, getCenter, requireCenterId } from './app.js';
 
     if (window.lucide) window.lucide.createIcons();
 
@@ -544,24 +544,19 @@
     const compSel = document.getElementById('company');
     const otherOpt = compSel.querySelector('option[value="__other__"]');
     const rCompSel = document.getElementById('r-company');
-    const canUseDefaultCatalog = () => getCenter() === (window.DEFAULT_CENTER || 'mju') || !configReady();
     const addCompany = (name) => {
       const o = document.createElement('option'); o.value = name; o.textContent = name; compSel.insertBefore(o, otherOpt);
       if (rCompSel) { const o2 = document.createElement('option'); o2.value = name; o2.textContent = name; rCompSel.appendChild(o2); }
     };
     (async () => {
-      await applyCenterVocab();                  // [vocab] window.COMPANIES 폴백을 센터값으로
-      let compsLoaded = false;
-      let centerBlocked = false;
       if (configReady()) {
         try {
           const cid = await requireCenterId();
           const cq = supabase.from('companies').select('name').eq('active', true).eq('center_id', cid);
-          const { data } = await cq.order('name');
-          if (data && data.length) { data.forEach(r => addCompany(r.name)); compsLoaded = true; }
-        } catch (_) { centerBlocked = true; }
+          const { data } = await cq.order('name');     // [원장] companies 테이블만 — config.js 정적값 폐기
+          (data || []).forEach(r => addCompany(r.name));
+        } catch (_) { /* 센터 미해석/차단 → 빈 목록('직접 입력'으로 입력 가능) */ }
       }
-      if (!compsLoaded && !centerBlocked && canUseDefaultCatalog()) (window.COMPANIES || []).forEach(addCompany);
     })();
 
     // 대상 라디오
@@ -604,20 +599,17 @@
     }
     targets.addEventListener('change', (e) => { if (e.target.name === 'target') applyTarget(e.target.value); });
 
-    // 관심직무 칩(지원자) — jobs 테이블(없으면 config JOBS 라벨)
+    // 관심직무 칩(지원자) — jobs 테이블(원장). 미해석/없음이면 빈 칩(관심직무는 선택사항).
     const interestSel = new Set();
     (async () => {
-      await applyCenterVocab();                  // [vocab] window.JOBS 폴백을 센터값으로
       let names = [];
-      let centerBlocked = false;
       if (configReady()) {
         try {
           const cid = await requireCenterId();
           const { data } = await supabase.from('jobs').select('name').eq('active', true).eq('center_id', cid).order('name');
-          if (data && data.length) names = data.map(r => r.name);
-        } catch (_) { centerBlocked = true; }
+          names = (data || []).map(r => r.name);     // [원장] jobs 테이블만 — config.js 정적값 폐기
+        } catch (_) { /* 센터 미해석/차단 → 빈 칩 */ }
       }
-      if (!names.length && !centerBlocked && canUseDefaultCatalog()) names = (window.JOBS || []).map(j => j.label);
       const box = document.getElementById('interest-chips');
       names.forEach(n => {
         const b = document.createElement('button');

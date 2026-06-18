@@ -82,6 +82,19 @@
           (error ? `<p class="ph-note" style="margin:2px 0 6px">정책/컬럼 확인: ${error.message}</p>`
                  : `<p class="ph-note" style="margin:2px 0 6px">발행/active/숨김 게이트는 SQL에서 확인</p>`);
       }
+      // [P3.5 데이터 원장→분배] 타게팅 노출 점검 — anon 직접 SELECT 로 target_scope≠'all' 공지가 보이면 FAIL.
+      //   배경/조치: docs/READ_MODEL.md §5 Tier1. sql/38 적용 전에는 노출(FAIL)이 정상이고, 적용 후 PASS 가 된다.
+      //   (타게팅 공지는 public_notices RPC 로만 배급. null=all 동치라 neq 'all' 은 순수 타게팅 행만 잡는다.)
+      html += '<div class="sec-check-row" style="margin-top:8px;opacity:.85"><i data-lucide="eye-off"></i><span class="tn"><b>타게팅 노출</b> (anon, target_scope≠all)</span></div>';
+      {
+        const { data, error } = await supabase.from('notices').select('id,target_scope').neq('target_scope', 'all').limit(5);
+        const exposed = !error && Array.isArray(data) && data.length > 0;
+        html += `<div class="sec-check-row"><i data-lucide="${exposed ? 'unlock' : 'lock'}"></i><span class="tn">notices</span><span style="margin-left:auto">` +
+          (exposed
+            ? `<span class="mju-badge mju-badge--coral">노출 FAIL · ${data.length}줄 (sql/38 미적용)</span>`
+            : `<span class="mju-badge mju-badge--success">차단됨 PASS</span>`) + `</span></div>`;
+        html += '<p class="ph-note" style="margin:2px 0 6px">FAIL 이면 sql/37 배포·검증 후 <b>sql/38</b> 을 적용해 anon 직접 SELECT 를 target_scope=\'all\' 로 조이세요.</p>';
+      }
       // 삭제 경로 점검(비파괴: sentinel center_id 라 0행 매칭 — 실제 데이터 안 지워짐)
       html += '<div class="sec-check-row" style="margin-top:8px;opacity:.85"><i data-lucide="trash-2"></i><span class="tn"><b>삭제 경로</b> (anon)</span></div>';
       for (const t of DELETE_BLOCKED) {

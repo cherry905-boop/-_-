@@ -105,12 +105,23 @@
         emptyEl.textContent = centerRequiredMessage();
         return;
       }
-      const nq = supabase.from('notices').select('id,title,body,target_scope,target_value,created_at').eq('published', true).eq('center_id', cid);
-      const { data, error } = await nq.order('created_at', { ascending: false });
+      // [P3.5 데이터 원장→분배] 공개 공지 = read-model RPC(public_notices)로 배급받는다.
+      //   타게팅(대상자 매칭)·컬럼선별을 서버가 끝낸다 → 클라 noticeMatches 불필요.
+      //   sql/37 적용 전이면 RPC 부재 → 기존 직조회+noticeMatches 로 폴백(파일럿 회귀 0).
+      const profSel = { job_key: profile.job_key, company: profile.company, type1: profile.type1,
+                        target_type: profile.target_type, interest_jobs: profile.interest_jobs, manager: profile.manager };
+      let shown = null;
+      try {
+        const { data: rows, error: rpcErr } = await supabase.rpc('public_notices', { p_profile: profSel });
+        if (!rpcErr && Array.isArray(rows)) shown = rows;
+      } catch (_) { /* RPC 부재 → 폴백 */ }
+      if (shown === null) {
+        const nq = supabase.from('notices').select('id,title,body,target_scope,target_value,created_at').eq('published', true).eq('center_id', cid);
+        const { data, error } = await nq.order('created_at', { ascending: false });
+        if (error) { clearSkeleton(listEl); emptyEl.style.display = 'block'; emptyEl.textContent = '일시적 오류로 불러오지 못했어요. 잠시 후 새로고침해주세요.'; console.error(error); return; }
+        shown = (data || []).filter(n => noticeMatches(n, profile));
+      }
       clearSkeleton(listEl);
-      if (error) { emptyEl.style.display = 'block'; emptyEl.textContent = '일시적 오류로 불러오지 못했어요. 잠시 후 새로고침해주세요.'; console.error(error); return; }
-
-      const shown = (data || []).filter(n => noticeMatches(n, profile));
       // 개인 지정 공지(비공개) — 서명토큰으로 '내 것'만 서버에서 받아 병합(본문은 anon 공개목록엔 없음)
       if (profile.token) {
         try {

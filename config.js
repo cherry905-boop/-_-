@@ -64,41 +64,18 @@ window.APP_CONFIG = {
   PUSH_KICK_URL: 'https://script.google.com/macros/s/AKfycbxMet7mrgG84A33lg3Kwc5j_Z2-MX7BR3EkdqIkEiPe1bMc-nLvFqGtqYmYOWgFeQvo2A/exec',
 };
 
-/* ── 4) 훈련 직무 (1차 분류축) ─ 노션 "2026 직무" 미러 ─────────────────
- *  출석부 양식 폴더(14직무)와 1:1. key=고정 식별자, label=학생에게 보이는 이름, dept=소속 학과(보조).
- *  ※ 스마트물류운영관리_L4 는 IPP포털 수강명단으로 운영여부 확인 후 추가.
- *  ※ '2,3유형'은 직무가 아니라 아래 TYPES(유형) 축으로 분류.
+/* ── 4)·5) 훈련 직무 / 학습기업 ─ [원장 추종] config.js 정적값 폐기 ─────────
+ *  직무(상세직무)·학습기업은 더 이상 여기서 하드코딩하지 않는다.
+ *  유일 원장 = Supabase 마스터 테이블 `jobs`·`companies`(센터 스코프, 노션 동기화).
+ *  모든 탭(가입폼·관리자 타게팅·수기등록)이 이 테이블을 직접 조회한다 → 센터별로 자동 반영.
+ *  ⚠️ 식별자는 `name`(예: '정보기술'). registrations.job_key·company 에 name 이 그대로 저장된다.
  */
-window.JOBS = [
-  { key: 'struct_l4',      label: '구조해석설계 (L4)',                 dept: '기계공학과' },
-  { key: 'semieq_mech_l5', label: '반도체장비개발 · 기구설계 (L5)',     dept: '기계공학과' },
-  { key: 'semidesign_l4',  label: '반도체설계 · 디지털설계 (L4)',       dept: '전자공학과' },
-  { key: 'semieq_elec_l5', label: '반도체장비개발 · 전장설계 (L5)',     dept: '전자공학과' },
-  { key: 'semieq_semi',    label: '반도체장비개발 · 전장설계',           dept: '반도체공학과' },
-  { key: 'semimat_l4',     label: '반도체재료개발 (L4)',               dept: '신소재·화학공학과' },
-  { key: 'chemanal_l5',    label: '화학물질분석 (L5)',                 dept: '화학나노학과' },
-  { key: 'elec_design',    label: '전기설계',                         dept: '전기공학과' },
-  { key: 'quality_l5',     label: '품질경영 (L5)',                     dept: '산업경영공학과' },
-  { key: 'appdesign_l4',   label: '스마트앱디자인설계 · 게임 (L4)',     dept: '디지털콘텐츠디자인학과' },
-  { key: 'sw_ict_l5',      label: 'SW개발 (L5) · 정보통신',            dept: '정보통신공학과' },
-  { key: 'sw_cse_l5',      label: 'SW개발 (L5) · 컴퓨터',              dept: '컴퓨터공학과' },
-  { key: 'biz_mkt',        label: '기획사무 · 마케팅',                 dept: '경영학과' },
-  { key: 'biz_fin',        label: '재무회계',                         dept: '경영학과' },
-];
 
-/* ── 5) 학습기업 ─ 노션 "2026 기업 정보" 미러(초기 시드) ─────────────────
- *  ⚠️ 아래는 노션에서 가져온 일부 시드(25개)입니다. R2(노션 자동동기화)에서 전체 기업으로 자동 갱신됩니다.
- *  목록에 없으면 가입폼에서 '직접 입력'할 수 있습니다. 값(기업명)은 노션 기업명과 동일하게 유지하세요.
+/* ── 6) 타게팅·편집 어휘 ─ [원장=centers.vocab] 아래는 폴백 전용 ──────────
+ *  유일 원장 = Supabase `centers.vocab`(센터별, sql/39 로 mju 시드). app.js applyCenterVocab() 가
+ *  이 값으로 window.* 를 override 한다. 아래 정적값은 vocab 미적용/미해석 시의 폴백일 뿐.
+ *  (sql/39 라이브 적용·검증 후 이 4줄은 제거 예정 — docs/PLAN.md P3.)
  */
-window.COMPANIES = [
-  '㈜덱스컨설팅','㈜나노엑스','프리시스','FTC코리아','㈜TPC로보틱스','대신환경기술',
-  '아이디어스투실리콘','티엑스알로보틱스 마곡','피닉슨컨트롤스','(주)제이더블유시스템',
-  '앰코테크놀로지코리아','한맥기술','엑시콘 천안','(주)프람트테크놀로지','더뷰티팩토리',
-  '하이비젼시스템','주식회사 넥서스원','(주)시지바이오','아롬정보기술㈜(컴공)','엘케이셀텍',
-  '아롬정보기술㈜(정보)','하나마이크론','주식회사 시지메드텍','멜콘','HDC랩스',
-];
-
-/* ── 6) 유형 ─ 노션 select 미러 ── */
 window.TYPES = ['1유형', '2유형', '3유형'];   // 학습근로자 프로그램 유형
 window.TYPE2 = ['산업형', '자율형'];          // (참고) 운영형태
 window.MANAGERS = ['권순천', '김성훈', '차민정', '노혜정', '길은경'];  // 담당자 (타게팅용)
