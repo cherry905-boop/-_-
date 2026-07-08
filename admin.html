@@ -649,12 +649,14 @@
       calendar: () => cLoad(),
       consult: () => clLoad(),
       survey: () => svEvLoadList(),
-      members: () => { regLoad(); uvLoad(); },
+      // 인라인 편집기(.le-save)가 열려 있으면 표 재조회를 건너뜀 — 탭 전환만으로 입력이 날아가지 않게
+      members: () => { if (!document.querySelector('#rg-table .le-save')) regLoad(); uvLoad(); },
       recruit: () => rcLoad(),
       stages: () => stLoad(),
     };
     function showTab(tab, opts) {
       if (!TAB_KEYS.includes(tab)) tab = 'dash';
+      if (tab === 'centers' && window.ADMIN_ROLE !== 'super_admin') tab = 'dash';   // 해시 직접 입력·뒤로가기로도 역할 게이트 우회 불가
       document.querySelectorAll('.tabs button').forEach(x => {
         const on = x.dataset.tab === tab;
         x.classList.toggle('act', on);
@@ -671,12 +673,20 @@
     window.addEventListener('hashchange', () => showTab(location.hash.slice(1)));
 
     // 작성 중 이탈 가드 — 폼에 내용이 남아 있으면 새로고침·창 닫기 전에 확인(통째 유실 방지)
+    // 페이지 폼은 값만, 모달 폼은 '모달이 열려 있는 동안'만 검사 — 제출·취소 후 잔존 값이 상시 오탐하지 않게
     const DRAFT_IDS = ['n-title', 'n-body', 'po-q', 'po-desc', 'po-opts', 'l-title', 'l-url', 'c-title', 'c-memo',
       'ev-title', 'ev-desc', 'jp-company', 'jp-title', 'jp-region', 'jp-intro', 'jp-perks', 'sc-title', 'sc-company', 'sc-body',
-      'qa-cat', 'qa-q', 'qa-a', 'qv-q', 'qv-a', 'pv-title', 'pv-body', 'cn-ntitle', 'cn-body', 'cl-reply',
-      'as-name', 'ac-name', 'gr-to', 'cc-slug', 'cc-name', 'ga-email'];
+      'qa-cat', 'qa-q', 'qa-a', 'cl-reply', 'as-name', 'ac-name', 'gr-to', 'cc-slug', 'cc-name', 'ga-email'];
+    const MODAL_DRAFTS = {
+      'qv-veil': ['qv-q', 'qv-a', 'qv-cat'],
+      'pv-veil': ['pv-title', 'pv-body'],
+      'cn-veil': ['cn-ntitle', 'cn-body'],
+      'ci-veil': ['ci-schedule', 'ci-beacon', 'ci-commute', 'ci-extra'],
+    };
     window.addEventListener('beforeunload', e => {
-      const dirty = DRAFT_IDS.some(id => { const el = $(id); return el && (el.value || '').trim(); })
+      const has = id => { const el = $(id); return el && (el.value || '').trim(); };
+      const dirty = DRAFT_IDS.some(has)
+        || Object.entries(MODAL_DRAFTS).some(([veil, ids]) => $(veil).style.display === 'flex' && ids.some(has))
         || (typeof evQs !== 'undefined' && evQs.some(q => (q.label || '').trim()));
       if (dirty) { e.preventDefault(); e.returnValue = ''; }
     });
@@ -695,13 +705,18 @@
       _mvLast = null;
     }
     document.addEventListener('keydown', e => {
+      if (e.isComposing) return;   // 한글 IME 조합 취소 ESC가 모달을 닫지 않게
       if (e.key !== 'Escape' && e.key !== 'Tab') return;
       const v = [...document.querySelectorAll('.modal-veil')].find(x => x.style.display === 'flex');
       if (!v) return;
-      if (e.key === 'Escape') { closeModal(v.id); return; }
+      if (e.key === 'Escape') {
+        if (v.id === 'pub-veil') { $('pub-cancel').click(); return; }   // 발행 중 잠금·_pubGo 정리를 취소 버튼 경로로 일원화
+        closeModal(v.id); return;
+      }
       const f = [...v.querySelectorAll('input,select,textarea,button')].filter(x => !x.disabled && x.offsetParent !== null);
       if (!f.length) return;
       const first = f[0], last = f[f.length - 1];
+      if (!v.contains(document.activeElement)) { first.focus(); e.preventDefault(); return; }   // 포커스가 모달 밖이면 안으로 끌어옴
       if (e.shiftKey && document.activeElement === first) { last.focus(); e.preventDefault(); }
       else if (!e.shiftKey && document.activeElement === last) { first.focus(); e.preventDefault(); }
     });
@@ -718,21 +733,24 @@
     }
 
     // 발행 확인 공통(투표·설문) — 발행 후 수정 불가라 응답자 화면 형태로 미리보고 확인 후 실행
-    let _pubGo = null;
+    // 반환값 = 세대 번호: 호출부의 비동기 count 표시가 다른(다음) 모달을 덮어쓰지 않게 가드
+    let _pubGo = null, _pubBusy = false, _pubGen = 0;
     function pubConfirm(previewHtml, warn, onGo) {
       $('pub-preview').innerHTML = previewHtml;
       $('pub-warn').textContent = warn;
       $('pub-count').textContent = '예상 인원 계산 중…';
       _pubGo = onGo;
       openModal('pub-veil');
+      return ++_pubGen;
     }
-    $('pub-cancel').addEventListener('click', () => { _pubGo = null; closeModal('pub-veil'); });
-    $('pub-veil').addEventListener('click', e => { if (e.target === $('pub-veil')) { _pubGo = null; closeModal('pub-veil'); } });
+    $('pub-cancel').addEventListener('click', () => { if (_pubBusy) return; _pubGo = null; closeModal('pub-veil'); });
+    $('pub-veil').addEventListener('click', e => { if (_pubBusy) return; if (e.target === $('pub-veil')) { _pubGo = null; closeModal('pub-veil'); } });
     $('pub-confirm').addEventListener('click', async () => {
       const go = _pubGo; _pubGo = null;
       if (!go) { closeModal('pub-veil'); return; }
-      $('pub-confirm').disabled = true;
-      try { await go(); } finally { $('pub-confirm').disabled = false; closeModal('pub-veil'); }
+      // 발행이 시작되면 취소·ESC·백드롭을 잠금 — '취소했는데 발행됨' 방지
+      _pubBusy = true; $('pub-confirm').disabled = true; $('pub-cancel').disabled = true;
+      try { await go(); } finally { _pubBusy = false; $('pub-confirm').disabled = false; $('pub-cancel').disabled = false; closeModal('pub-veil'); }
     });
 
     // 토글류(내리기·마감·결과공개) 공통 — RLS가 0행 처리해도 성공으로 위장하지 않게 반영 행을 확인
@@ -1186,7 +1204,7 @@
         (desc ? `<p class="note" style="margin:4px 0 0">${esc(desc)}</p>` : '') +
         '<ul style="margin:8px 0 0;padding-left:18px">' + options.map(o => `<li>${esc(o)}</li>`).join('') + '</ul>' +
         `<p class="note" style="margin:8px 0 0">${$('po-multi').checked ? '중복 선택 허용' : '하나만 선택'} · 결과 ${$('po-public').checked ? '참여자에게 공개' : '비공개'}${closeAt ? ' · 마감 ' + new Date(closeAt).toLocaleString('ko-KR') : ''} · 대상 ${esc(poPicker.label())}</p>`;
-      pubConfirm(prev, '발행하면 바로 참여가 시작되고 질문·보기를 수정할 수 없어요(마감·삭제만 가능).' + ($('po-push').checked ? ' 발행 즉시 푸시가 나갑니다.' : ''), async () => {
+      const pubGen = pubConfirm(prev, '발행하면 바로 참여가 시작되고 질문·보기를 수정할 수 없어요(마감·삭제만 가능).' + ($('po-push').checked ? ' 발행 즉시 푸시가 나갑니다.' : ''), async () => {
         setStatus($('po-status'), '발행 중...', 'info');
         const { error } = await supabase.from('polls').insert({ question, description: desc || null, options, target_scope: scope, target_value: value, multi: $('po-multi').checked, results_public: $('po-public').checked, open: true, close_at: closeAt });
         if (error) { setStatus($('po-status'), tblMissing(error.message) ? '투표 기능이 아직 준비되지 않았어요 — 시스템 담당자에게 서버 설정(17 polls) 적용을 요청해주세요.' : '오류: ' + (error.message || error), 'error'); return; }
@@ -1196,7 +1214,7 @@
         setStatus($('po-status'), pushFail ? '✅ 투표는 발행됐어요.' + PUSH_FAIL_MSG : '✅ 발행했습니다.', pushFail ? 'error' : 'ok');
         $('po-q').value = ''; $('po-desc').value = ''; $('po-opts').value = ''; $('po-close').value = ''; $('po-multi').checked = false; $('po-public').checked = false; poPicker.reset(); poLoad();
       });
-      poPicker.count().then(n => { $('pub-count').textContent = `예상 대상 ${n}명`; }).catch(() => { $('pub-count').textContent = ''; });
+      poPicker.count().then(n => { if (pubGen === _pubGen) $('pub-count').textContent = `예상 대상 ${n}명`; }).catch(() => { if (pubGen === _pubGen) $('pub-count').textContent = ''; });
     });
 
     // ===== 자료실 =====
@@ -1370,7 +1388,7 @@
       // 열림(미답변)은 전량 조회 — 최근순 50건 컷에 오래된 미답변이 조용히 사라지지 않게. 나머지는 최근 50건.
       const [opens, rest] = await Promise.all([
         supabase.from('consultations').select('id,name,job_key,status,last_at').eq('status', '열림').order('last_at', { ascending: false }),
-        supabase.from('consultations').select('id,name,job_key,status,last_at').neq('status', '열림').order('last_at', { ascending: false }).limit(50),
+        supabase.from('consultations').select('id,name,job_key,status,last_at').or('status.neq.열림,status.is.null').order('last_at', { ascending: false }).limit(50),   // NULL status(레거시 행)도 누락 없이
       ]);
       if (opens.error || rest.error) { loadFail(el, '상담 목록을 불러오지 못했어요.', clLoad); return; }
       const clRank = s => s === '열림' ? 0 : s === '종료' ? 2 : 1;
@@ -1983,7 +2001,7 @@
     async function uvLoad() {
       const { data, error } = await supabase.from('unverified_signups').select('id,name,phone,target_type,reason,created_at').order('created_at', { ascending: false }).limit(100);
       const el = $('uv-list');
-      if (error) { el.innerHTML = '<p class="note">조회 권한이 아직 없어요 — 시스템 담당자에게 서버 설정(R14) 적용을 요청해주세요.</p>'; return; }
+      if (error) { setTabCnt('members', 0); el.innerHTML = '<p class="note">조회 권한이 아직 없어요 — 시스템 담당자에게 서버 설정(R14) 적용을 요청해주세요.</p>'; return; }
       setTabCnt('members', (data || []).length);   // 가입 못 하고 있는 학생 신호 — 탭에서 바로 보이게
       el.innerHTML = (data && data.length) ? '' : '<p class="note">처리할 요청이 없어요.</p>';
       const rmap = { phone: '번호 불일치', name: '이름 불일치', none: '명단에 없음' };
@@ -2243,7 +2261,7 @@
           '<ul style="margin:0;padding-left:18px">' + qd.options.map(o => `<li>${esc(o)}</li>`).join('') + (qd.etc ? '<li>기타 (직접입력)</li>' : '') + '</ul>'
         ).join('') +
         `<p class="note" style="margin:10px 0 0">대상 ${esc(evPicker.label())}</p>`;
-      pubConfirm(prev, '발행하면 문항을 수정할 수 없어요(마감·삭제만 가능).' + ($('ev-push').checked ? ' 발행 즉시 푸시가 나갑니다.' : ''), async () => {
+      const pubGen = pubConfirm(prev, '발행하면 문항을 수정할 수 없어요(마감·삭제만 가능).' + ($('ev-push').checked ? ' 발행 즉시 푸시가 나갑니다.' : ''), async () => {
         setStatus($('ev-status'), '발행 중...', 'info');
         const { error } = await supabase.from('surveys').insert({ title, description: desc || null, target_scope: scope, target_value: value, questions, open: true });
         if (error) { setStatus($('ev-status'), tblMissing(error.message) ? '행사 설문 기능이 아직 준비되지 않았어요 — 시스템 담당자에게 서버 설정(16 event_surveys) 적용을 요청해주세요.' : '오류: ' + (error.message || error), 'error'); return; }
@@ -2253,7 +2271,7 @@
         setStatus($('ev-status'), (pushFail ? '✅ 설문은 발행됐어요.' + PUSH_FAIL_MSG : '✅ 발행했습니다.') + ' 발행 후에는 문항 수정이 안 돼요(마감·삭제만 가능).', pushFail ? 'error' : 'ok');
         $('ev-title').value = ''; $('ev-desc').value = ''; evQs = []; evPicker.reset(); svEvLoadList();
       });
-      evPicker.count().then(n => { $('pub-count').textContent = `예상 대상 ${n}명`; }).catch(() => { $('pub-count').textContent = ''; });
+      evPicker.count().then(n => { if (pubGen === _pubGen) $('pub-count').textContent = `예상 대상 ${n}명`; }).catch(() => { if (pubGen === _pubGen) $('pub-count').textContent = ''; });
     });
     async function svEventLoad() {
       const rep = $('sv-report'), raw = $('sv-raw');
@@ -2676,7 +2694,7 @@
             if (col === 'job_keys') o[col] = v.split(/[;|]/).map(s => s.trim()).filter(Boolean);
             else o[col] = v;
           });
-          if (!o.name) skipped.push(ri + 2);   // CSV 원본 기준 행 번호(머리글=1행)
+          if (!o.name) skipped.push(o);   // 빈 줄 필터링으로 원본 행 번호가 어긋날 수 있어 개수만 안내
           return o;
         }).filter(o => o.name);
         bulkRows = built; bulkType = type;     // 파싱에 쓴 타입을 행과 함께 고정 → 업로드가 그 타입의 RPC 를 호출
@@ -2688,7 +2706,7 @@
         const body = built.slice(0, 5).map(o => '<tr>' + cols.map(c => `<td style="padding:4px 8px;border:1px solid var(--gray-200);font-size:12px">${esc(Array.isArray(o[c]) ? o[c].join('·') : (o[c] || ''))}</td>`).join('') + '</tr>').join('');
         $('bulk-preview').innerHTML =
           '인식된 행 <b>' + bulkRows.length + '</b>개' +
-          (skipped.length ? ` · <span style="color:var(--coral-600)">이름이 없어 제외 ${skipped.length}행(${skipped.slice(0, 5).join(', ')}${skipped.length > 5 ? ' 외' : ''}행)</span>` : '') +
+          (skipped.length ? ` · <span style="color:var(--coral-600)">이름 값이 없어 ${skipped.length}행 제외됨 — 파일에서 이름 열을 확인하세요</span>` : '') +
           (unmapped.length ? ' · 무시된 열: ' + esc(unmapped.join(', ')) : '') +
           (built.length ? `<div style="overflow-x:auto;margin-top:6px"><table style="border-collapse:collapse">${'<tr>' + head + '</tr>'}${body}</table>${built.length > 5 ? '<p class="note" style="margin:4px 0 0">…외 ' + (built.length - 5) + '행</p>' : ''}</div>` : '');
         $('bulk-upload').disabled = bulkRows.length === 0;
@@ -2798,7 +2816,8 @@
         if (me && /relation|does not exist|PGRST205|42P01|schema cache/i.test(me.message || '')) {
           // 미적용 DB → 레거시 전체 콘솔(ADMIN_ROLE=null). 회귀 없음.
         } else if (!me && !m) {
-          // 로그인됐지만 어떤 센터의 관리자도 아님 → 권한 없음(패널 숨김).
+          // 로그인됐지만 어떤 센터의 관리자도 아님 → 권한 없음(패널 숨김). 해시 경유 탭 로더도 못 돌게 이메일 되돌림.
+          adminEmail = '';
           $('panel').style.display = 'none';
           if (_np) _np.style.display = 'block';
           if (_u) _u.style.display = 'none';
@@ -2837,6 +2856,7 @@
       $('cc-create').disabled = false;
       if (error) { setStatus($('cc-status'), '오류: ' + (error.message || error), 'error'); return; }
       setStatus($('cc-status'), '✅ 센터 개설됨 — 이제 관리자를 발급하세요.', 'ok');
+      $('cc-slug').value = ''; $('cc-name').value = ''; $('cc-region').value = '';
     });
     $('ga-grant')?.addEventListener('click', async () => {
       const email = $('ga-email').value.trim(), slug = $('ga-slug').value.trim(), role = $('ga-role').value;
@@ -2846,6 +2866,7 @@
       $('ga-grant').disabled = false;
       if (error) { setStatus($('ga-status'), '오류: ' + (error.message || error), 'error'); return; }
       setStatus($('ga-status'), '✅ 관리자 발급됨 (' + email + ' → ' + slug + ' / ' + role + ')', 'ok');
+      $('ga-email').value = ''; $('ga-slug').value = '';
     });
     refresh();
   </script>
