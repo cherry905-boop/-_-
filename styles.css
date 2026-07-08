@@ -681,6 +681,5 @@ body.has-tabbar .ph-body{padding-bottom:84px}
 #sec-onboard{counter-reset:onb}
 #sec-onboard .card{max-width:780px}
 #sec-onboard .card .ph-card-title::before{counter-increment:onb;content:counter(onb)" · ";color:var(--accent-orange);font-weight:800}
-#sec-onboard .btn{width:auto;display:inline-flex;margin-top:0;padding:12px 18px}
 #sec-onboard input[type=file]{font-size:13px;padding:9px 10px;border:1px dashed var(--border-default);border-radius:8px;background:var(--surface-sunken);color:var(--text-secondary);cursor:pointer;flex:1;min-width:200px}
 #sec-onboard input[type=file]::file-selector-button{font:inherit;font-weight:700;margin-right:10px;padding:7px 12px;border:0;border-radius:6px;background:var(--tint-bg);color:var(--tint-fg);cursor:pointer}
