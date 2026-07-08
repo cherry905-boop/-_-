@@ -14,8 +14,11 @@
     table.rep{width:100%;border-collapse:collapse;margin-top:10px}
     table.rep th,table.rep td{border:1px solid var(--gray-200);padding:7px 9px;font-size:14px;text-align:center}
     table.rep th{background:var(--surface-sunken);color:var(--blue-600)}
-    .adm-nav .adm-nav-item.on{background:var(--blue-600);color:#fff}
     .adm-2col{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start}
+    button.stat-cell{font:inherit;text-align:left;cursor:pointer}
+    button.stat-cell:hover{border-color:var(--accent)}
+    button.stat-cell:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
+    #sv-report{overflow-x:auto}
     @media(max-width:820px){.adm-2col{grid-template-columns:1fr}}
     @media print{ body *{visibility:hidden} #sv-report,#sv-report *{visibility:visible} #sv-report{position:absolute;left:0;top:0;width:100%} .adm-header,.adm-nav,.btn,.mju-btn{display:none!important} }
   </style>
@@ -43,17 +46,17 @@
     <div class="card" id="login">
       <p class="ph-card-title">관리자 로그인</p>
       <p class="ph-note" style="margin-bottom:4px">Supabase에 등록한 관리자 계정으로 로그인하세요.</p>
-      <label>이메일</label>
+      <label for="email">이메일</label>
       <input type="email" id="email" autocomplete="username" placeholder="admin@mju.ac.kr" />
-      <label>비밀번호</label>
+      <label for="pw">비밀번호</label>
       <input type="password" id="pw" autocomplete="current-password" />
-      <button class="btn" id="loginBtn">로그인</button>
+      <button class="mju-btn mju-btn--full" id="loginBtn" style="margin-top:12px">로그인</button>
       <div class="status" id="loginStatus"></div>
     </div>
     <div class="card" id="noperm" style="display:none">
       <p class="ph-card-title">권한 없음</p>
       <p class="ph-note">로그인된 계정에 센터 관리자 권한이 없습니다. 슈퍼관리자에게 관리자 발급을 요청하세요.</p>
-      <button class="btn" id="noperm-logout">로그아웃</button>
+      <button class="mju-btn mju-btn--full" id="noperm-logout" style="margin-top:12px">로그아웃</button>
     </div>
   </div>
 
@@ -61,7 +64,7 @@
   <div id="panel" style="display:none">
     <div class="adm-shell">
       <nav class="adm-nav tabs">
-        <button class="adm-nav-item on" data-tab="dash"><i data-lucide="layout-dashboard"></i>요약</button>
+        <button class="adm-nav-item act" data-tab="dash" aria-current="page"><i data-lucide="layout-dashboard"></i>요약</button>
         <div class="adm-nav-sep"></div>
         <button class="adm-nav-item" data-tab="notice"><i data-lucide="megaphone"></i>공지</button>
         <button class="adm-nav-item" data-tab="vote"><i data-lucide="vote"></i>투표</button>
@@ -69,11 +72,11 @@
         <div class="adm-nav-sep"></div>
         <button class="adm-nav-item" data-tab="library"><i data-lucide="folder"></i>자료</button>
         <button class="adm-nav-item" data-tab="calendar"><i data-lucide="calendar-days"></i>일정</button>
-        <button class="adm-nav-item" data-tab="recruit"><i data-lucide="briefcase"></i>모집</button>
+        <button class="adm-nav-item" data-tab="recruit"><i data-lucide="briefcase"></i>모집·FAQ</button>
         <div class="adm-nav-sep"></div>
         <button class="adm-nav-item" data-tab="members"><i data-lucide="users"></i>가입자</button>
         <button class="adm-nav-item" data-tab="onboard"><i data-lucide="user-plus"></i>명단 등록</button>
-        <button class="adm-nav-item" data-tab="stages"><i data-lucide="route"></i>기업</button>
+        <button class="adm-nav-item" data-tab="stages"><i data-lucide="building-2"></i>기업 관리</button>
         <button class="adm-nav-item" data-tab="survey"><i data-lucide="clipboard-list"></i>만족도</button>
         <button class="adm-nav-item" data-tab="centers" style="display:none"><i data-lucide="building-2"></i>센터</button>
       </nav>
@@ -83,10 +86,10 @@
       <div class="tabsec" id="sec-dash">
         <h2 class="adm-h2">운영 요약 <span class="hint" id="d-health"></span></h2>
         <div class="stat-row">
-          <div class="stat-cell"><div class="sk">학생 매칭</div><div class="sv" id="d-matched">–</div></div>
-          <div class="stat-cell"><div class="sk">미답변 상담</div><div class="sv" id="d-consult">–</div></div>
-          <div class="stat-cell warn"><div class="sk">마감 임박 (D-3 이내)</div><div class="sv" id="d-due3">–</div></div>
-          <div class="stat-cell"><div class="sk">오늘 발송</div><div class="sv" id="d-sent">–</div></div>
+          <button type="button" class="stat-cell" data-go="members" title="가입자 탭으로"><div class="sk">학생 매칭</div><div class="sv" id="d-matched">–</div></button>
+          <button type="button" class="stat-cell" data-go="consult" title="상담 탭으로"><div class="sk">미답변 상담</div><div class="sv" id="d-consult">–</div></button>
+          <button type="button" class="stat-cell warn" data-go="calendar" title="일정 탭으로"><div class="sk">마감 임박 (D-3 이내)</div><div class="sv" id="d-due3">–</div></button>
+          <button type="button" class="stat-cell" data-go="notice" title="공지 탭 발송 기록으로"><div class="sk">오늘 발송</div><div class="sv" id="d-sent">–</div></button>
         </div>
         <div class="card">
           <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px">
@@ -105,13 +108,13 @@
         <div class="adm-2col">
           <div class="card">
             <p class="ph-card-title">공지 작성</p>
-            <label>제목 <span class="req">*</span></label>
+            <label for="n-title">제목 <span class="req">*</span></label>
             <input type="text" id="n-title" placeholder="공지 제목" />
-            <label>내용 <span class="req">*</span></label>
+            <label for="n-body">내용 <span class="req">*</span></label>
             <textarea id="n-body" class="ph-ta" rows="4"></textarea>
             <label>받는 대상 <span class="req">*</span></label>
             <div id="n-tgt"></div>
-            <button class="btn" id="n-publish">발행하기</button>
+            <button class="mju-btn mju-btn--full" id="n-publish" style="margin-top:12px">발행하기</button>
             <div class="status" id="n-status"></div>
             <p class="note">※ 발행하면 자동으로 푸시가 발송됩니다.</p>
           </div>
@@ -120,7 +123,7 @@
             <div class="card">
               <div style="display:flex;align-items:center;gap:8px">
                 <p class="ph-card-title" style="margin:0;flex:1">발송 기록</p>
-                <button class="mju-btn mju-btn--secondary mju-btn--sm" id="pl-clear"><i data-lucide="trash-2"></i> 기록 모두 지우기</button>
+                <button class="mju-btn mju-btn--coral-outline mju-btn--sm" id="pl-clear"><i data-lucide="trash-2"></i> 기록 모두 지우기</button>
               </div>
               <p class="note">실제 푸시 발송 결과(대상·성공 인원).</p><div id="pl-list"></div>
             </div>
@@ -134,17 +137,17 @@
         <div class="adm-2col">
           <div class="card">
             <p class="ph-card-title">투표 만들기</p>
-            <label>질문 <span class="req">*</span></label>
+            <label for="po-q">질문 <span class="req">*</span></label>
             <input type="text" id="po-q" placeholder="예: 하계 워크숍 날짜를 골라주세요" />
-            <label>설명 (선택)</label>
+            <label for="po-desc">설명 (선택)</label>
             <input type="text" id="po-desc" placeholder="투표 카드에 함께 표시됩니다" />
-            <label>보기 <span class="req">*</span> <span class="hint">한 줄에 하나씩</span></label>
+            <label for="po-opts">보기 <span class="req">*</span> <span class="hint">한 줄에 하나씩</span></label>
             <textarea id="po-opts" class="ph-ta" rows="4" placeholder="보기 1&#10;보기 2"></textarea>
             <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:8px;font-size:13px">
               <label class="chk" style="margin:0"><input type="checkbox" id="po-multi" /> 중복 선택 허용</label>
               <label class="chk" style="margin:0"><input type="checkbox" id="po-public" /> 결과를 참여자에게 공개</label>
             </div>
-            <label>마감일시 (선택)</label>
+            <label for="po-close">마감일시 (선택)</label>
             <input type="datetime-local" id="po-close" />
             <label>받는 대상 <span class="req">*</span></label>
             <div id="po-tgt"></div>
@@ -162,21 +165,21 @@
         <div class="adm-2col">
           <div class="card">
             <p class="ph-card-title">자료 등록</p>
-            <label>제목 <span class="req">*</span></label>
+            <label for="l-title">제목 <span class="req">*</span></label>
             <input type="text" id="l-title" placeholder="예: SW개발 학습안내서" />
-            <label>종류</label>
+            <label for="l-kind">종류</label>
             <select id="l-kind" class="ph-select"><option>학습안내서</option><option>OFF-JT공지</option><option>일정표</option><option>서식</option><option selected>기타</option></select>
-            <label>링크(URL)</label>
+            <label for="l-url">링크(URL)</label>
             <input type="text" id="l-url" placeholder="구글드라이브 공유 링크 등 https://..." />
             <p class="note">※ 링크 방식: 구글드라이브 등에 올린 뒤 '링크가 있는 모든 사용자' 공유 링크를 붙여넣으세요.</p>
-            <label>또는 파일 직접 업로드</label>
+            <label for="l-file">또는 파일 직접 업로드</label>
             <input type="file" id="l-file" accept=".pdf,.hwp,.hwpx,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.png,.jpg,.jpeg" />
             <p class="note">※ 20MB 이하, 링크와 파일 중 하나만. <b>공개 저장소</b>이므로 개인정보·강사 연락처·정답 포함 파일은 올리지 마세요.</p>
             <label>대상</label>
             <div id="l-tgt"></div>
             <label style="display:flex;align-items:center;gap:8px;font-weight:500;margin-top:14px"><input type="checkbox" id="l-shared" style="width:18px;height:18px"> 구글드라이브 공유를 '링크 있는 모든 사용자'로 설정했습니다</label>
             <label style="display:flex;align-items:center;gap:8px;font-weight:500;margin-top:10px"><input type="checkbox" id="l-push" style="width:18px;height:18px"> 이 자료를 <b>공지로도 알림</b> (위 대상에게 푸시 발송)</label>
-            <button class="btn" id="l-add">등록</button>
+            <button class="mju-btn mju-btn--full" id="l-add" style="margin-top:12px">등록</button>
             <div class="status" id="l-status"></div>
           </div>
           <div class="card"><p class="ph-card-title">등록된 자료</p><div id="l-list"></div></div>
@@ -189,24 +192,24 @@
         <div class="adm-2col">
           <div class="card">
             <p class="ph-card-title">일정 등록</p>
-            <label>제목 <span class="req">*</span></label>
+            <label for="c-title">제목 <span class="req">*</span></label>
             <input type="text" id="c-title" placeholder="예: 2회차 외부평가" />
-            <label>날짜 <span class="req">*</span></label>
+            <label for="c-date">날짜 <span class="req">*</span></label>
             <input type="date" id="c-date" />
-            <label>종류</label>
+            <label for="c-kind">종류</label>
             <select id="c-kind" class="ph-select"><option>외부평가</option><option>마감</option><option>OT</option><option>특강</option><option>행사</option><option selected>기타</option></select>
             <label>대상</label>
             <div id="c-tgt"></div>
-            <label>메모 (선택)</label>
+            <label for="c-memo">메모 (선택)</label>
             <input type="text" id="c-memo" placeholder="예: 접수기한 6/30" />
             <label style="display:flex;align-items:center;gap:8px;font-weight:500;margin-top:10px"><input type="checkbox" id="c-push" style="width:18px;height:18px"> 이 일정을 <b>공지로도 알림</b> (위 대상에게 푸시 발송)</label>
-            <button class="btn" id="c-add">등록</button>
+            <button class="mju-btn mju-btn--full" id="c-add" style="margin-top:12px">등록</button>
             <div class="status" id="c-status"></div>
           </div>
           <div class="card">
             <div style="display:flex;align-items:center;gap:8px">
               <p class="ph-card-title" style="margin:0;flex:1">등록된 일정</p>
-              <button class="mju-btn mju-btn--secondary mju-btn--sm" id="c-clean"><i data-lucide="trash-2"></i> 지난 일정 정리</button>
+              <button class="mju-btn mju-btn--coral-outline mju-btn--sm" id="c-clean"><i data-lucide="trash-2"></i> 지난 일정 정리</button>
             </div>
             <div id="c-list"></div>
           </div>
@@ -220,11 +223,11 @@
         <div class="card" id="cl-thread" style="display:none">
           <p class="ph-card-title" id="cl-title">상담</p>
           <div id="cl-msgs" style="display:flex;flex-direction:column"></div>
-          <textarea id="cl-reply" class="ph-ta" rows="2" style="min-height:64px"></textarea>
-          <button class="btn" id="cl-send">답변 보내기</button>
+          <textarea id="cl-reply" class="ph-ta" rows="2" style="min-height:64px" aria-label="답변 내용"></textarea>
+          <button class="mju-btn mju-btn--full" id="cl-send" style="margin-top:12px">답변 보내기</button>
           <button class="mju-btn mju-btn--secondary mju-btn--full" id="cl-toqna" style="margin-top:8px"><i data-lucide="share-2"></i> 이 상담을 FAQ 사례로 공개 (익명화)</button>
           <button class="mju-btn mju-btn--secondary mju-btn--full" id="cl-close" style="margin-top:8px"><i data-lucide="check-circle"></i> 상담 종료 (해결됨으로 표시)</button>
-          <button class="mju-btn mju-btn--secondary mju-btn--full" id="cl-del" style="margin-top:8px;color:var(--coral-600);border-color:var(--coral-500)"><i data-lucide="trash-2"></i> 이 상담 삭제 (완료된 상담 정리)</button>
+          <button class="mju-btn mju-btn--coral-outline mju-btn--full" id="cl-del" style="margin-top:8px"><i data-lucide="trash-2"></i> 이 상담 삭제 (완료된 상담 정리)</button>
           <div class="status" id="cl-status"></div>
         </div>
       </div>
@@ -232,10 +235,10 @@
 
       <!-- 만족도 -->
       <div class="tabsec" id="sec-survey" style="display:none">
-        <h2 class="adm-h2">만족도·설문 <span class="hint">행사 설문은 문항을 직접 만들어 발행 — 발행 후 문항 수정은 불가(닫기·삭제만)</span></h2>
+        <h2 class="adm-h2">만족도·설문 <span class="hint">행사 설문 제작·발행과 세그먼트별 집계</span></h2>
         <div class="card">
           <div class="filter-chips" id="sv-seg" role="group" aria-label="설문 구분" style="margin-bottom:10px"></div>
-          <label id="sv-sem-label">학기</label>
+          <label id="sv-sem-label" for="sv-sem">학기</label>
           <select id="sv-sem" class="ph-select"></select>
           <div style="display:flex;gap:8px;margin-top:14px">
             <button class="mju-btn mju-btn--full" id="sv-refresh">집계 보기</button>
@@ -245,15 +248,16 @@
         <!-- 행사 설문 만들기 (행사 설문 세그먼트에서만 표시) -->
         <div class="card" id="sv-ev-build" style="display:none">
           <p class="ph-card-title">행사 설문 만들기</p>
-          <label>설문 제목 <span class="req">*</span></label>
+          <label for="ev-title">설문 제목 <span class="req">*</span></label>
           <input type="text" id="ev-title" placeholder="예: 2026 하계 기업탐방 만족도" />
-          <label>안내문 (선택)</label>
+          <label for="ev-desc">안내문 (선택)</label>
           <input type="text" id="ev-desc" placeholder="설문 목록에 함께 표시됩니다" />
           <div id="ev-qs" style="margin-top:6px"></div>
           <button type="button" class="mju-btn mju-btn--secondary mju-btn--sm" id="ev-addq" style="margin-top:10px"><i data-lucide="plus"></i> 문항 추가</button>
           <label style="margin-top:14px">받는 대상</label>
           <div id="ev-tgt"></div>
           <label class="chk" style="margin-top:10px"><input type="checkbox" id="ev-push" checked /> 공지로도 알림(푸시)</label>
+          <p class="note" style="margin:10px 0 0">※ 발행하면 문항을 수정할 수 없어요 — 마감·삭제만 가능합니다.</p>
           <button class="mju-btn mju-btn--full" id="ev-pub" style="margin-top:12px">설문 발행</button>
           <div class="status" id="ev-status"></div>
         </div>
@@ -268,13 +272,13 @@
         <div class="card">
           <div class="filter-chips" id="rg-seg" role="group" aria-label="가입자 구분" style="margin-bottom:10px"></div>
           <div class="mtbl-bar">
-            <input type="text" id="rg-search" placeholder="이름·기업·직무·담당직원 검색" style="flex:1;min-width:150px" />
-            <select id="rg-fmanager"><option value="">담당직원 전체</option></select>
-            <select id="rg-fjob"><option value="">직무 전체</option></select>
-            <select id="rg-ftype"><option value="">유형 전체</option></select>
-            <select id="rg-fstatus"><option value="">기업 상태 전체</option></select>
-            <select id="rg-fsigned"><option value="">가입 전체</option></select>
-            <select id="rg-fcohort"><option value="">기수 전체</option></select>
+            <input type="text" id="rg-search" placeholder="이름·기업·직무·담당직원 검색" aria-label="가입자 검색" style="flex:1;min-width:150px" />
+            <select id="rg-fmanager" aria-label="담당직원 필터"><option value="">담당직원 전체</option></select>
+            <select id="rg-fjob" aria-label="직무 필터"><option value="">직무 전체</option></select>
+            <select id="rg-ftype" aria-label="유형 필터"><option value="">유형 전체</option></select>
+            <select id="rg-fstatus" aria-label="기업 상태 필터"><option value="">기업 상태 전체</option></select>
+            <select id="rg-fsigned" aria-label="가입 여부 필터"><option value="">가입 전체</option></select>
+            <select id="rg-fcohort" aria-label="기수 필터"><option value="">기수 전체</option></select>
             <button class="mju-btn mju-btn--secondary mju-btn--sm" id="rg-refresh"><i data-lucide="refresh-cw"></i> 새로고침</button>
           </div>
           <div class="selbar" id="rg-selbar" style="display:none">
@@ -303,13 +307,13 @@
           <p class="ph-card-title">명단 일괄등록 (CSV)</p>
           <p class="ph-note" style="margin-bottom:6px">학생/기업 명단을 CSV로 올려요. 첫 줄=머리글(예: 이름,학번,휴대폰…). center_id 는 서버가 자동으로 채워요.</p>
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:6px">
-            <select id="bulk-type">
+            <select id="bulk-type" aria-label="명단 종류">
               <option value="student">학생 명단</option>
               <option value="company">기업 명단</option>
             </select>
             <button class="mju-btn mju-btn--secondary mju-btn--sm" id="bulk-template" type="button">템플릿 받기</button>
-            <input type="file" id="bulk-file" accept=".csv,text/csv" />
-            <button class="btn" id="bulk-upload" type="button" disabled>업로드</button>
+            <input type="file" id="bulk-file" aria-label="CSV 파일 선택" accept=".csv,text/csv" />
+            <button class="mju-btn" id="bulk-upload" type="button" disabled>업로드</button>
           </div>
           <div id="bulk-preview" class="note" style="margin:4px 0"></div>
           <div class="status" id="bulk-status"></div>
@@ -318,15 +322,15 @@
           <p class="ph-card-title">학생 1명 추가 (단발 합격)</p>
           <p class="ph-note" style="margin-bottom:6px">합격자가 나올 때마다 한 명씩 명단에 추가하고 초대코드를 바로 발급해요.</p>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <input id="as-name" placeholder="이름" style="flex:1;min-width:110px" />
-            <input id="as-no" placeholder="학번(선택)" style="flex:1;min-width:110px" />
-            <input id="as-phone" placeholder="휴대폰(선택)" inputmode="numeric" style="flex:1;min-width:130px" />
-            <input id="as-cohort" placeholder="기수(예 2026)" style="flex:1;min-width:110px" />
+            <input id="as-name" placeholder="이름" aria-label="이름" style="flex:1;min-width:110px" />
+            <input id="as-no" placeholder="학번(선택)" aria-label="학번(선택)" style="flex:1;min-width:110px" />
+            <input id="as-phone" placeholder="휴대폰(선택)" aria-label="휴대폰(선택)" inputmode="numeric" style="flex:1;min-width:130px" />
+            <input id="as-cohort" placeholder="기수(예 2026)" aria-label="기수" style="flex:1;min-width:110px" />
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;align-items:center">
-            <select id="as-job" style="flex:1;min-width:140px"><option value="">직무(선택)</option></select>
-            <select id="as-company" style="flex:1;min-width:140px"><option value="">소속기업(선택)</option></select>
-            <button class="btn" id="as-add" type="button" style="margin-top:0;width:auto;flex:0 0 auto;padding:11px 16px">추가 + 코드발급</button>
+            <select id="as-job" aria-label="직무 선택" style="flex:1;min-width:140px"><option value="">직무(선택)</option></select>
+            <select id="as-company" aria-label="소속기업 선택" style="flex:1;min-width:140px"><option value="">소속기업(선택)</option></select>
+            <button class="mju-btn" id="as-add" type="button" style="flex:0 0 auto">추가 + 코드발급</button>
           </div>
           <div class="status" id="as-status"></div>
         </div>
@@ -334,13 +338,13 @@
           <p class="ph-card-title">기업 1개 추가 (단발 지정)</p>
           <p class="ph-note" style="margin-bottom:6px">학습기업이 새로 지정될 때 한 곳씩 추가하고 기업 초대코드를 바로 발급해요(HRD담당자 정보는 선택).</p>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <input id="ac-name" placeholder="기업명" style="flex:2;min-width:150px" />
-            <input id="ac-mgr" placeholder="담당자명(선택)" style="flex:1;min-width:120px" />
-            <input id="ac-phone" placeholder="담당자 연락처(선택)" inputmode="numeric" style="flex:1;min-width:140px" />
-            <input id="ac-email" placeholder="담당자 이메일(선택)" style="flex:1;min-width:150px" />
+            <input id="ac-name" placeholder="기업명" aria-label="기업명" style="flex:2;min-width:150px" />
+            <input id="ac-mgr" placeholder="담당자명(선택)" aria-label="담당자명(선택)" style="flex:1;min-width:120px" />
+            <input id="ac-phone" placeholder="담당자 연락처(선택)" aria-label="담당자 연락처(선택)" inputmode="numeric" style="flex:1;min-width:140px" />
+            <input id="ac-email" placeholder="담당자 이메일(선택)" aria-label="담당자 이메일(선택)" style="flex:1;min-width:150px" />
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;align-items:center">
-            <button class="btn" id="ac-add" type="button" style="margin-top:0;width:auto;flex:0 0 auto;padding:11px 16px">추가 + 코드발급</button>
+            <button class="mju-btn" id="ac-add" type="button" style="flex:0 0 auto">추가 + 코드발급</button>
           </div>
           <div class="status" id="ac-status"></div>
         </div>
@@ -348,11 +352,11 @@
           <p class="ph-card-title">기수 일괄 이동 (졸업)</p>
           <p class="ph-note" style="margin-bottom:6px">한 기수를 다른 라벨로 한 번에 옮겨요(데이터는 보존·이력 유지). 졸업이면 상태를 '수료'로 함께 표시할 수 있어요.</p>
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-            <select id="gr-from"><option value="">옮길 기수 선택</option></select>
+            <select id="gr-from" aria-label="옮길 기수 선택"><option value="">옮길 기수 선택</option></select>
             <span class="note">→</span>
-            <input id="gr-to" placeholder="새 기수(예: 졸업·2025)" style="min-width:140px" />
+            <input id="gr-to" placeholder="새 기수(예: 졸업·2025)" aria-label="새 기수" style="min-width:140px" />
             <label class="note" style="display:flex;align-items:center;gap:4px"><input type="checkbox" id="gr-done" /> 상태를 '수료'로 표시</label>
-            <button class="btn" id="gr-go" type="button" style="margin-top:0;width:auto;flex:0 0 auto;padding:11px 16px">기수 일괄 이동</button>
+            <button class="mju-btn" id="gr-go" type="button" style="flex:0 0 auto">기수 일괄 이동</button>
           </div>
           <div class="status" id="gr-status"></div>
         </div>
@@ -365,36 +369,36 @@
           <div style="display:flex;flex-direction:column;gap:18px">
             <div class="card">
               <p class="ph-card-title">채용공고 등록</p>
-              <label>기업명 <span class="req">*</span></label>
+              <label for="jp-company">기업명 <span class="req">*</span></label>
               <input type="text" id="jp-company" list="co-datalist" placeholder="기업명 (목록에서 선택 또는 직접 입력)" />
               <datalist id="co-datalist"></datalist>
-              <label>직무</label>
+              <label for="jp-job">직무</label>
               <select id="jp-job" class="ph-select"><option value="">— 선택 —</option></select>
-              <label>공고 제목 <span class="req">*</span></label>
+              <label for="jp-title">공고 제목 <span class="req">*</span></label>
               <input type="text" id="jp-title" placeholder="예: 2026 SW개발 학습근로자 모집" />
-              <label>지역</label>
+              <label for="jp-region">지역</label>
               <input type="text" id="jp-region" placeholder="예: 용인" />
-              <label>한 줄 소개</label>
+              <label for="jp-intro">한 줄 소개</label>
               <input type="text" id="jp-intro" placeholder="기업·포지션 소개" />
-              <label>근무조건·우대 (선택)</label>
+              <label for="jp-perks">근무조건·우대 (선택)</label>
               <input type="text" id="jp-perks" placeholder="예: 기숙사 제공, 자차 출퇴근 가능" />
-              <label>마감일 (비우면 상시)</label>
+              <label for="jp-deadline">마감일 (비우면 상시)</label>
               <input type="date" id="jp-deadline" />
               <label style="display:flex;align-items:center;gap:8px;font-weight:500;margin-top:10px"><input type="checkbox" id="jp-push" style="width:18px;height:18px" checked> 지원자 전체에게 <b>공지로도 알림</b> (푸시 발송)</label>
-              <button class="btn" id="jp-add">공고 발행</button>
+              <button class="mju-btn mju-btn--full" id="jp-add" style="margin-top:12px">공고 발행</button>
               <div class="status" id="jp-status"></div>
             </div>
             <div class="card">
               <p class="ph-card-title">선배 사례 등록</p>
-              <label>제목 <span class="req">*</span></label>
+              <label for="sc-title">제목 <span class="req">*</span></label>
               <input type="text" id="sc-title" placeholder="예: 반도체장비 기구설계로 입사까지" />
-              <label>직무</label>
+              <label for="sc-job">직무</label>
               <select id="sc-job" class="ph-select"><option value="">— 선택 —</option></select>
-              <label>기업 표기 (익명 가능)</label>
+              <label for="sc-company">기업 표기 (익명 가능)</label>
               <input type="text" id="sc-company" placeholder='예: 반도체 장비社 (실명 동의 시 실명)' />
-              <label>본문 <span class="req">*</span></label>
+              <label for="sc-body">본문 <span class="req">*</span></label>
               <textarea id="sc-body" class="ph-ta" rows="5" placeholder="수료 선배의 이야기 (개인 식별 정보 제외)"></textarea>
-              <button class="btn" id="sc-add">사례 등록</button>
+              <button class="mju-btn mju-btn--full" id="sc-add" style="margin-top:12px">사례 등록</button>
               <div class="status" id="sc-status"></div>
             </div>
           </div>
@@ -402,56 +406,56 @@
             <div class="card">
               <p class="ph-card-title">FAQ 등록 (직접 작성)</p>
               <p class="note">상담 탭에서 '사례로 공개'를 눌러도 여기로 들어옵니다. 식별 정보는 꼭 지워주세요.</p>
-              <label>대상</label>
+              <label for="qa-aud">대상</label>
               <select id="qa-aud" class="ph-select"><option value="all">전체</option><option value="applicant">지원자</option><option value="student">학생</option><option value="company">기업담당자</option></select>
-              <label>카테고리</label>
+              <label for="qa-cat">카테고리</label>
               <input type="text" id="qa-cat" placeholder="예: 지원·면접 / 가입·알림 / 서류·마감 / 수당" />
-              <label>질문 <span class="req">*</span></label>
+              <label for="qa-q">질문 <span class="req">*</span></label>
               <textarea id="qa-q" class="ph-ta" rows="2"></textarea>
-              <label>답변 <span class="req">*</span></label>
+              <label for="qa-a">답변 <span class="req">*</span></label>
               <textarea id="qa-a" class="ph-ta" rows="4"></textarea>
-              <button class="btn" id="qa-add">FAQ 공개</button>
+              <button class="mju-btn mju-btn--full" id="qa-add" style="margin-top:12px">FAQ 공개</button>
               <div class="status" id="qa-status"></div>
             </div>
-            <div class="card"><p class="ph-card-title">등록된 콘텐츠</p><div id="rc-list"></div></div>
+            <div class="card"><p class="ph-card-title">등록된 콘텐츠</p><div class="status" id="rc-status"></div><div id="rc-list"></div></div>
           </div>
         </div>
       </div>
 
       <!-- 학습기업 진행단계 + 기업 코드 -->
       <div class="tabsec" id="sec-stages" style="display:none">
-        <h2 class="adm-h2">학습기업 진행단계 <span class="hint">단계를 바꾸면 해당 기업담당자 홈에 바로 반영 · 알림 체크 시 푸시 발송</span></h2>
+        <h2 class="adm-h2">기업 관리 <span class="hint">진행단계·초대코드·기업 정보·기업 공지 — 단계를 바꾸면 기업담당자 홈에 바로 반영</span></h2>
         <div class="card">
           <div class="status" id="st-status"></div>
-          <div class="mtbl-bar"><input type="text" id="st-search" placeholder="기업·담당자·진행단계 검색" style="flex:1;min-width:200px" /></div>
+          <div class="mtbl-bar"><input type="text" id="st-search" placeholder="기업·담당자·진행단계 검색" aria-label="기업 검색" style="flex:1;min-width:200px" /></div>
           <div id="st-list"><p class="note">로그인 후 표시됩니다.</p></div>
         </div>
       </div>
       <div class="tabsec" id="sec-centers" style="display:none">
         <div class="card">
           <p class="ph-card-title">새 센터 개설 (슈퍼관리자)</p>
-          <label>슬러그 (소문자·숫자·하이픈, 예: demo)</label>
+          <label for="cc-slug">슬러그 (소문자·숫자·하이픈, 예: demo)</label>
           <input id="cc-slug" placeholder="demo" />
-          <label>센터명</label>
+          <label for="cc-name">센터명</label>
           <input id="cc-name" placeholder="○○대학교 공동훈련센터" />
-          <label>지역 (선택)</label>
+          <label for="cc-region">지역 (선택)</label>
           <input id="cc-region" placeholder="서울" />
-          <button class="btn" id="cc-create">센터 개설</button>
+          <button class="mju-btn mju-btn--full" id="cc-create" style="margin-top:12px">센터 개설</button>
           <div class="status" id="cc-status"></div>
         </div>
         <div class="card">
           <p class="ph-card-title">관리자 발급</p>
           <p class="ph-note" style="margin-bottom:4px">대상 이메일로 먼저 Supabase Auth 계정(초대)이 있어야 합니다. 직접 INSERT 없이 RPC로만 발급됩니다.</p>
-          <label>이메일</label>
+          <label for="ga-email">이메일</label>
           <input id="ga-email" type="email" placeholder="admin@example.ac.kr" />
-          <label>센터 슬러그</label>
+          <label for="ga-slug">센터 슬러그</label>
           <input id="ga-slug" placeholder="demo" />
-          <label>역할</label>
+          <label for="ga-role">역할</label>
           <select id="ga-role">
             <option value="center_admin">center_admin (자기 센터만)</option>
             <option value="super_admin">super_admin (전체)</option>
           </select>
-          <button class="btn" id="ga-grant">관리자 발급</button>
+          <button class="mju-btn mju-btn--full" id="ga-grant" style="margin-top:12px">관리자 발급</button>
           <div class="status" id="ga-status"></div>
         </div>
       </div>
@@ -459,9 +463,9 @@
     </div>
 
     <!-- 공지 발행 확인 모달 -->
-    <div class="modal-veil" id="nv-veil" style="display:none">
+    <div class="modal-veil" id="nv-veil" style="display:none" role="dialog" aria-modal="true" aria-labelledby="nv-h">
       <div class="modal" style="width:460px">
-        <h3>이렇게 발행할까요?</h3>
+        <h3 id="nv-h">이렇게 발행할까요?</h3>
         <p style="margin:0 0 12px">학생 화면에 아래처럼 보입니다.</p>
         <div style="background:var(--surface-sunken);border-radius:14px;padding:16px 18px;margin-bottom:16px">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
@@ -481,17 +485,17 @@
     </div>
 
     <!-- 상담 → QnA 사례 공개 모달 -->
-    <div class="modal-veil" id="qv-veil" style="display:none">
+    <div class="modal-veil" id="qv-veil" style="display:none" role="dialog" aria-modal="true" aria-labelledby="qv-h">
       <div class="modal" style="width:520px">
-        <h3>FAQ 사례로 공개</h3>
+        <h3 id="qv-h">FAQ 사례로 공개</h3>
         <p style="margin:0 0 10px">이름·기업명 등 <b>식별 정보를 지우고(익명화)</b> 공개하세요. 공개 후에도 모집 탭에서 내릴 수 있어요.</p>
-        <label style="font-size:13px;font-weight:700">대상</label>
+        <label style="font-size:13px;font-weight:700" for="qv-aud">대상</label>
         <select id="qv-aud" class="ph-select" style="margin:4px 0 10px"><option value="all">전체</option><option value="applicant">지원자</option><option value="student">학생</option><option value="company">기업담당자</option></select>
-        <label style="font-size:13px;font-weight:700">카테고리</label>
+        <label style="font-size:13px;font-weight:700" for="qv-cat">카테고리</label>
         <input type="text" id="qv-cat" placeholder="예: 지원·면접 / 수당 / 서류·마감" style="width:100%;margin:4px 0 10px;padding:10px 12px;border:1px solid var(--line);border-radius:9px" />
-        <label style="font-size:13px;font-weight:700">질문 (익명화)</label>
+        <label style="font-size:13px;font-weight:700" for="qv-q">질문 (익명화)</label>
         <textarea id="qv-q" class="ph-ta" rows="2" style="width:100%;margin:4px 0 10px"></textarea>
-        <label style="font-size:13px;font-weight:700">답변</label>
+        <label style="font-size:13px;font-weight:700" for="qv-a">답변</label>
         <textarea id="qv-a" class="ph-ta" rows="4" style="width:100%"></textarea>
         <div class="status" id="qv-status"></div>
         <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px">
@@ -503,17 +507,17 @@
 
     <!-- 개인 지정 공지 작성 모달 (가입자 표에서 선택한 사람들에게 비공개 발송) -->
     <!-- 기업 정보 입력 모달 (company_info — mycompany.html '회사·학습 안내'에 표시) -->
-    <div class="modal-veil" id="ci-veil" style="display:none">
+    <div class="modal-veil" id="ci-veil" style="display:none" role="dialog" aria-modal="true" aria-labelledby="ci-title">
       <div class="modal" style="width:520px">
         <h3 id="ci-title">기업 정보</h3>
         <p style="margin:0 0 12px" class="note">입력한 내용은 그 기업 학생·담당자의 '내 학습기업' 화면에 표시돼요. <b>안내 정보만</b> — 앱은 출결을 기록하지 않습니다.</p>
-        <label style="font-size:13px;font-weight:700">훈련시간표</label>
+        <label style="font-size:13px;font-weight:700" for="ci-schedule">훈련시간표</label>
         <textarea id="ci-schedule" class="ph-ta" rows="3" style="width:100%;margin:4px 0 10px" placeholder="예: OJT 매주 화·목 09:00~18:00"></textarea>
-        <label style="font-size:13px;font-weight:700">비콘 시간표 안내</label>
+        <label style="font-size:13px;font-weight:700" for="ci-beacon">비콘 시간표 안내</label>
         <textarea id="ci-beacon" class="ph-ta" rows="2" style="width:100%;margin:4px 0 10px" placeholder="예: 비콘 태그 가능 시간 08:30~18:30 (현장 게이트)"></textarea>
-        <label style="font-size:13px;font-weight:700">출퇴근 안내</label>
+        <label style="font-size:13px;font-weight:700" for="ci-commute">출퇴근 안내</label>
         <textarea id="ci-commute" class="ph-ta" rows="2" style="width:100%;margin:4px 0 10px" placeholder="예: HRD-Net 출퇴근 입력 방법·셔틀 안내 등"></textarea>
-        <label style="font-size:13px;font-weight:700">기타 안내</label>
+        <label style="font-size:13px;font-weight:700" for="ci-extra">기타 안내</label>
         <textarea id="ci-extra" class="ph-ta" rows="2" style="width:100%;margin:4px 0 0" placeholder="복장·주차·식사 등"></textarea>
         <div class="status" id="ci-status"></div>
         <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px">
@@ -523,13 +527,13 @@
       </div>
     </div>
     <!-- 기업별 공지(공지방 글쓰기) 모달 -->
-    <div class="modal-veil" id="cn-veil" style="display:none">
+    <div class="modal-veil" id="cn-veil" style="display:none" role="dialog" aria-modal="true" aria-labelledby="cn-title">
       <div class="modal" style="width:480px">
         <h3 id="cn-title">기업 공지</h3>
         <p style="margin:0 0 12px" class="note">이 기업의 학생·담당자에게만 보이는 공지예요('내 학습기업 > 우리 회사 소식'과 공지 페이지에 표시 + 푸시 발송).</p>
-        <label style="font-size:13px;font-weight:700">제목</label>
+        <label style="font-size:13px;font-weight:700" for="cn-ntitle">제목</label>
         <input type="text" id="cn-ntitle" placeholder="공지 제목" style="width:100%;margin:4px 0 12px;padding:10px 12px;border:1px solid var(--line);border-radius:9px" />
-        <label style="font-size:13px;font-weight:700">내용</label>
+        <label style="font-size:13px;font-weight:700" for="cn-body">내용</label>
         <textarea id="cn-body" class="ph-ta" rows="4" style="width:100%"></textarea>
         <div class="status" id="cn-status"></div>
         <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px">
@@ -538,9 +542,9 @@
         </div>
       </div>
     </div>
-    <div class="modal-veil" id="bst-veil" style="display:none">
+    <div class="modal-veil" id="bst-veil" style="display:none" role="dialog" aria-modal="true" aria-labelledby="bst-h">
       <div class="modal">
-        <h3>상태 일괄 변경</h3>
+        <h3 id="bst-h">상태 일괄 변경</h3>
         <p class="note" id="bst-n"></p>
         <select id="bst-sel" style="width:100%;margin:6px 0 14px;height:42px"></select>
         <div style="display:flex;gap:10px;justify-content:flex-end">
@@ -549,19 +553,33 @@
         </div>
       </div>
     </div>
-    <div class="modal-veil" id="pv-veil" style="display:none">
+    <div class="modal-veil" id="pv-veil" style="display:none" role="dialog" aria-modal="true" aria-labelledby="pv-h">
       <div class="modal" style="width:480px">
-        <h3>선택한 <span id="pv-n">0</span>명에게 개인 공지</h3>
+        <h3 id="pv-h">선택한 <span id="pv-n">0</span>명에게 개인 공지</h3>
         <p style="margin:0 0 12px">이 사람들에게만 <b>비공개</b>로 전달됩니다. 다른 학생·익명에겐 보이지 않아요.</p>
-        <label style="font-size:13px;font-weight:700">제목</label>
+        <label style="font-size:13px;font-weight:700" for="pv-title">제목</label>
         <input type="text" id="pv-title" placeholder="개인 공지 제목" style="width:100%;margin:4px 0 12px;padding:10px 12px;border:1px solid var(--line);border-radius:9px" />
-        <label style="font-size:13px;font-weight:700">내용</label>
+        <label style="font-size:13px;font-weight:700" for="pv-body">내용</label>
         <textarea id="pv-body" class="ph-ta" rows="4" style="width:100%"></textarea>
         <p class="note" style="margin:8px 0 0">※ 푸시 알림엔 본문 대신 '개인 안내 도착'만 떠요(동료 잠금화면 노출 방지). 본문은 앱에서 본인만 열람.</p>
         <div class="status" id="pv-status"></div>
         <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px">
           <button class="mju-btn mju-btn--secondary" id="pv-cancel">취소</button>
           <button class="mju-btn mju-btn--gold" id="pv-send">발송</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 투표·설문 발행 확인 모달 — 발행 후 수정 불가라 공지처럼 미리보기 + 확인 단계를 거침 -->
+    <div class="modal-veil" id="pub-veil" style="display:none" role="dialog" aria-modal="true" aria-labelledby="pub-title">
+      <div class="modal" style="width:480px">
+        <h3 id="pub-title">이대로 발행할까요?</h3>
+        <div id="pub-preview" style="background:var(--surface-sunken);border-radius:14px;padding:14px 16px;margin-bottom:12px;max-height:300px;overflow:auto;font-size:13.5px;line-height:1.65"></div>
+        <p id="pub-count" style="margin:0 0 4px;font-size:13.5px;color:var(--text-secondary)"></p>
+        <p id="pub-warn" style="margin:0 0 16px;font-size:13.5px;font-weight:700;color:var(--coral-600)"></p>
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+          <button class="mju-btn mju-btn--secondary" id="pub-cancel">취소</button>
+          <button class="mju-btn mju-btn--gold" id="pub-confirm">발행하기</button>
         </div>
       </div>
     </div>
@@ -574,17 +592,21 @@
     const esc = s => { const e = document.createElement('div'); e.textContent = s || ''; return e.innerHTML; };
     const maskPhone = p => (p && p.length >= 7) ? (p.slice(0, 3) + '-****-' + p.slice(-4)) : (p || '');
     // 삭제 버튼 공통 (다 쓴 콘텐츠 정리용 — 복구 불가 확인 후 실행)
-    const DEL_CSS = 'padding:5px 12px;font-size:13px;border:1px solid var(--coral-500);color:var(--coral-600);border-radius:8px;background:var(--surface-card);cursor:pointer;white-space:nowrap';
     const delErr = e => {
       const m = (e && e.message) || String(e || '');
-      if (/permission|policy|denied|42501|row-level/i.test(m)) return '삭제 권한이 없어요 — sql/07_admin_tools.sql 실행 필요';
-      if (/foreign key|23503/i.test(m)) return '연결된 데이터가 있어 삭제하지 못했어요 — sql/07_admin_tools.sql(및 R15) 실행 여부를 확인하세요.';
+      if (/permission|policy|denied|42501|row-level/i.test(m)) return '삭제 권한이 아직 없어요 — 시스템 담당자에게 서버 설정(07 admin_tools) 적용을 요청해주세요.';
+      if (/foreign key|23503/i.test(m)) return '연결된 데이터가 있어 삭제하지 못했어요 — 시스템 담당자에게 서버 설정(07 admin_tools·R15) 확인을 요청해주세요.';
       return '오류: ' + m;
     };
-    function mkDelBtn(label, onDel) {
-      const b = document.createElement('button'); b.textContent = label || '삭제'; b.style.cssText = DEL_CSS;
+    // what: 확인 문구에 넣을 대상 이름(무엇을 지우는지 보이게)
+    function mkDelBtn(label, onDel, what) {
+      const b = document.createElement('button'); b.type = 'button';
+      b.textContent = label || '삭제';
+      b.className = 'mju-btn mju-btn--coral-outline mju-btn--sm';
+      b.style.whiteSpace = 'nowrap';
       b.addEventListener('click', async () => {
-        if (!confirm('정말 삭제할까요? 복구할 수 없습니다.')) return;
+        const name = (what || '').trim();
+        if (!confirm(name ? `'${name.length > 40 ? name.slice(0, 40) + '…' : name}'을(를) 삭제할까요? 복구할 수 없습니다.` : '정말 삭제할까요? 복구할 수 없습니다.')) return;
         b.disabled = true;
         try { await onDel(); } catch (e) { alert(delErr(e)); }
         b.disabled = false;
@@ -616,11 +638,139 @@
       try { await supabase.from('admin_logs').insert({ actor: adminEmail || null, action, detail: detail || null }); } catch (_) {}
     }
 
-    // 탭 전환
+    // 탭 전환 — location.hash 기록·복원(새로고침·뒤로가기·링크 공유에도 탭 유지) + 활성화 시 해당 탭 재조회
+    const TAB_KEYS = ['dash', 'notice', 'vote', 'library', 'calendar', 'consult', 'survey', 'members', 'onboard', 'recruit', 'stages', 'centers'];
+    // 탭별 로더 — 아침에 켜둔 콘솔이 로그인 시점 스냅샷에 고정되지 않게, 탭을 열 때마다 새로 조회
+    const TAB_LOAD = {
+      dash: () => dashLoad(),
+      notice: () => { nLoad(); plLoad(); },
+      vote: () => poLoad(),
+      library: () => lLoad(),
+      calendar: () => cLoad(),
+      consult: () => clLoad(),
+      survey: () => svEvLoadList(),
+      // 인라인 편집기(.le-save)가 열려 있으면 표 재조회를 건너뜀 — 탭 전환만으로 입력이 날아가지 않게
+      members: () => { if (!document.querySelector('#rg-table .le-save')) regLoad(); uvLoad(); },
+      recruit: () => rcLoad(),
+      stages: () => stLoad(),
+    };
+    function showTab(tab, opts) {
+      if (!TAB_KEYS.includes(tab)) tab = 'dash';
+      if (tab === 'centers' && window.ADMIN_ROLE !== 'super_admin') tab = 'dash';   // 해시 직접 입력·뒤로가기로도 역할 게이트 우회 불가
+      document.querySelectorAll('.tabs button').forEach(x => {
+        const on = x.dataset.tab === tab;
+        x.classList.toggle('act', on);
+        if (on) x.setAttribute('aria-current', 'page'); else x.removeAttribute('aria-current');
+        if (on && x.scrollIntoView) x.scrollIntoView({ block: 'nearest', inline: 'nearest' });   // 모바일 가로 탭바에서 활성 탭 보이게
+      });
+      TAB_KEYS.forEach(t => { const el = $('sec-' + t); if (el) el.style.display = (t === tab ? 'block' : 'none'); });
+      if (adminEmail && !(opts && opts.noLoad) && TAB_LOAD[tab]) TAB_LOAD[tab]();   // 로그인 전에는 조회 안 함
+    }
     document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => {
-      document.querySelectorAll('.tabs button').forEach(x => x.classList.toggle('on', x === b));
-      ['dash', 'notice', 'vote', 'library', 'calendar', 'consult', 'survey', 'members', 'onboard', 'recruit', 'stages', 'centers'].forEach(t => { const el = $('sec-' + t); if (el) el.style.display = (t === b.dataset.tab ? 'block' : 'none'); });
+      if (location.hash !== '#' + b.dataset.tab) location.hash = b.dataset.tab;   // hashchange 가 showTab 호출
+      else showTab(b.dataset.tab);
     }));
+    window.addEventListener('hashchange', () => showTab(location.hash.slice(1)));
+
+    // 작성 중 이탈 가드 — 폼에 내용이 남아 있으면 새로고침·창 닫기 전에 확인(통째 유실 방지)
+    // 페이지 폼은 값만, 모달 폼은 '모달이 열려 있는 동안'만 검사 — 제출·취소 후 잔존 값이 상시 오탐하지 않게
+    const DRAFT_IDS = ['n-title', 'n-body', 'po-q', 'po-desc', 'po-opts', 'l-title', 'l-url', 'c-title', 'c-memo',
+      'ev-title', 'ev-desc', 'jp-company', 'jp-title', 'jp-region', 'jp-intro', 'jp-perks', 'sc-title', 'sc-company', 'sc-body',
+      'qa-cat', 'qa-q', 'qa-a', 'cl-reply', 'as-name', 'ac-name', 'gr-to', 'cc-slug', 'cc-name', 'ga-email'];
+    const MODAL_DRAFTS = {
+      'qv-veil': ['qv-q', 'qv-a', 'qv-cat'],
+      'pv-veil': ['pv-title', 'pv-body'],
+      'cn-veil': ['cn-ntitle', 'cn-body'],
+      'ci-veil': ['ci-schedule', 'ci-beacon', 'ci-commute', 'ci-extra'],
+    };
+    window.addEventListener('beforeunload', e => {
+      const has = id => { const el = $(id); return el && (el.value || '').trim(); };
+      const dirty = DRAFT_IDS.some(has)
+        || Object.entries(MODAL_DRAFTS).some(([veil, ids]) => $(veil).style.display === 'flex' && ids.some(has))
+        || (typeof evQs !== 'undefined' && evQs.some(q => (q.label || '').trim()));
+      if (dirty) { e.preventDefault(); e.returnValue = ''; }
+    });
+
+    // 모달 공통 — 열릴 때 첫 컨트롤로 포커스, ESC 닫기, Tab 포커스 트랩, 닫으면 원래 자리로 복귀
+    let _mvLast = null;
+    function openModal(id) {
+      _mvLast = document.activeElement;
+      const v = $(id); v.style.display = 'flex';
+      const first = v.querySelector('input,select,textarea,button');
+      if (first) first.focus();
+    }
+    function closeModal(id) {
+      $(id).style.display = 'none';
+      if (_mvLast && _mvLast.focus) { try { _mvLast.focus(); } catch (_) {} }
+      _mvLast = null;
+    }
+    document.addEventListener('keydown', e => {
+      if (e.isComposing) return;   // 한글 IME 조합 취소 ESC가 모달을 닫지 않게
+      if (e.key !== 'Escape' && e.key !== 'Tab') return;
+      const v = [...document.querySelectorAll('.modal-veil')].find(x => x.style.display === 'flex');
+      if (!v) return;
+      if (e.key === 'Escape') {
+        if (v.id === 'pub-veil') { $('pub-cancel').click(); return; }   // 발행 중 잠금·_pubGo 정리를 취소 버튼 경로로 일원화
+        closeModal(v.id); return;
+      }
+      const f = [...v.querySelectorAll('input,select,textarea,button')].filter(x => !x.disabled && x.offsetParent !== null);
+      if (!f.length) return;
+      const first = f[0], last = f[f.length - 1];
+      if (!v.contains(document.activeElement)) { first.focus(); e.preventDefault(); return; }   // 포커스가 모달 밖이면 안으로 끌어옴
+      if (e.shiftKey && document.activeElement === first) { last.focus(); e.preventDefault(); }
+      else if (!e.shiftKey && document.activeElement === last) { first.focus(); e.preventDefault(); }
+    });
+
+    // 조회 실패를 '없음'(빈 상태)으로 위장하지 않기 — 에러는 재시도 버튼과 함께 표시
+    function loadFail(el, msg, retry) {
+      el.innerHTML = '';
+      const p = document.createElement('p'); p.className = 'note';
+      p.textContent = (msg || '목록을 불러오지 못했어요.') + ' ';
+      const b = document.createElement('button'); b.type = 'button';
+      b.className = 'mju-btn mju-btn--secondary mju-btn--sm'; b.textContent = '다시 시도';
+      b.addEventListener('click', retry);
+      p.appendChild(b); el.appendChild(p);
+    }
+
+    // 발행 확인 공통(투표·설문) — 발행 후 수정 불가라 응답자 화면 형태로 미리보고 확인 후 실행
+    // 반환값 = 세대 번호: 호출부의 비동기 count 표시가 다른(다음) 모달을 덮어쓰지 않게 가드
+    let _pubGo = null, _pubBusy = false, _pubGen = 0;
+    function pubConfirm(previewHtml, warn, onGo) {
+      $('pub-preview').innerHTML = previewHtml;
+      $('pub-warn').textContent = warn;
+      $('pub-count').textContent = '예상 인원 계산 중…';
+      _pubGo = onGo;
+      openModal('pub-veil');
+      return ++_pubGen;
+    }
+    $('pub-cancel').addEventListener('click', () => { if (_pubBusy) return; _pubGo = null; closeModal('pub-veil'); });
+    $('pub-veil').addEventListener('click', e => { if (_pubBusy) return; if (e.target === $('pub-veil')) { _pubGo = null; closeModal('pub-veil'); } });
+    $('pub-confirm').addEventListener('click', async () => {
+      const go = _pubGo; _pubGo = null;
+      if (!go) { closeModal('pub-veil'); return; }
+      // 발행이 시작되면 취소·ESC·백드롭을 잠금 — '취소했는데 발행됨' 방지
+      _pubBusy = true; $('pub-confirm').disabled = true; $('pub-cancel').disabled = true;
+      try { await go(); } finally { _pubBusy = false; $('pub-confirm').disabled = false; $('pub-cancel').disabled = false; closeModal('pub-veil'); }
+    });
+
+    // 토글류(내리기·마감·결과공개) 공통 — RLS가 0행 처리해도 성공으로 위장하지 않게 반영 행을 확인
+    async function updRow(table, patch, id, statusEl) {
+      const { data, error } = await supabase.from(table).update(patch).eq('id', id).select('id');
+      if (error || !data || !data.length) {
+        setStatus(statusEl, '변경하지 못했어요 — 권한을 확인하세요.' + (error ? ' (' + error.message + ')' : ''), 'error');
+        return false;
+      }
+      return true;
+    }
+
+    // 탭 배지 — 처리 대기 건수(.cnt 스타일은 styles.css). 0이면 제거.
+    function setTabCnt(tab, n) {
+      const b = document.querySelector(`.adm-nav-item[data-tab="${tab}"]`); if (!b) return;
+      let c = b.querySelector('.cnt');
+      if (!n) { if (c) c.remove(); return; }
+      if (!c) { c = document.createElement('span'); c.className = 'cnt'; b.appendChild(c); }
+      c.textContent = n;
+    }
 
     // ===== 받는 대상 상세 지정 (전체 / 상세 칩 조합 + 예상 대상 N명) =====
     // 마이그레이션 없이: notices=target_scope 'custom'+target_value JSON / library·calendar=job_key 'custom:'+JSON
@@ -679,7 +829,7 @@
         `</div>` +
         `<div class="pk-chips" style="display:none;margin-top:8px;background:var(--surface-sunken);border-radius:12px;padding:12px 14px"></div>` +
         `<div class="pk-ppl" style="display:none;margin-top:8px;background:var(--surface-sunken);border-radius:12px;padding:12px 14px">` +
-        `<input type="text" class="pk-ppl-q" placeholder="이름·기업·직무·담당 검색" style="width:100%;padding:8px 10px;font-size:13px;border-radius:9px" />` +
+        `<input type="text" class="pk-ppl-q" placeholder="이름·기업·직무·담당 검색" aria-label="명단 검색" style="width:100%;padding:8px 10px;font-size:13px;border-radius:9px" />` +
         `<div class="pk-ppl-list" style="max-height:220px;overflow:auto;margin-top:8px"></div>` +
         `<p class="note" style="margin:6px 0 0">선택한 사람에게만 전달돼요. 공지는 비공개 개인 안내로, 자료·일정은 그 사람 화면에만 표시됩니다.</p>` +
         `</div>` +
@@ -828,7 +978,7 @@
       let r;
       try { r = await supabase.rpc('admin_recipient_hashes', { p_people: people }); } catch (e) { r = { error: e }; }
       if (r.error) {
-        setStatus(statusEl2, /function|does not exist|schema cache/i.test(r.error.message || '') ? '명단 지정 발송은 sql/07_admin_tools.sql 실행 후 사용할 수 있어요.' : '오류: ' + r.error.message, 'error');
+        setStatus(statusEl2, /function|does not exist|schema cache/i.test(r.error.message || '') ? '명단 지정 발송은 아직 준비되지 않았어요 — 시스템 담당자에게 서버 설정(07 admin_tools) 적용을 요청해주세요.' : '오류: ' + r.error.message, 'error');
         return null;
       }
       const d = r.data || {};
@@ -871,7 +1021,7 @@
       $('nv-pbody').textContent = body;
       $('nv-target').textContent = nPicker.label();
       $('nv-count').textContent = '예상 인원 계산 중…';
-      $('nv-veil').style.display = 'flex';
+      openModal('nv-veil');
       if (nPicker.mode === 'people') {
         $('nv-count').innerHTML = `명단 지정 <b>${nPicker.sel.people.length}명</b>에게 <b>비공개 개인 안내</b>로 전송됩니다 (다른 사람에겐 안 보여요).`;
         return;
@@ -881,11 +1031,11 @@
         $('nv-count').innerHTML = `앱 가입 <b>${n}명</b> 중 <b>알림 켠 ${m}명</b>에게 지금 푸시됩니다.`;
       } catch (_) { $('nv-count').textContent = '인원 계산 실패 — 그래도 발행할 수 있어요.'; }
     });
-    $('nv-cancel').addEventListener('click', () => { $('nv-veil').style.display = 'none'; });
-    $('nv-veil').addEventListener('click', (e) => { if (e.target === $('nv-veil')) $('nv-veil').style.display = 'none'; });
+    $('nv-cancel').addEventListener('click', () => { closeModal('nv-veil'); });
+    $('nv-veil').addEventListener('click', (e) => { if (e.target === $('nv-veil')) closeModal('nv-veil'); });
     $('nv-confirm').addEventListener('click', async () => {
       const title = $('n-title').value.trim(), body = $('n-body').value.trim();
-      if (!title || !body || !nPicker || !nPicker.valid()) { $('nv-veil').style.display = 'none'; return; }
+      if (!title || !body || !nPicker || !nPicker.valid()) { closeModal('nv-veil'); return; }
       // 명단 지정 → 비공개 개인 안내 경로 (가입자표 개인공지와 동일 파이프라인)
       if (nPicker.mode === 'people') {
         const people = nPicker.sel.people.map(p => ({ name: p.name, phone: p.phone }));
@@ -896,9 +1046,9 @@
           setStatus($('n-status'), `✅ ${people.length}명에게 개인 안내로 발행했어요 (${PUSH_ETA} 푸시).`, 'ok');
           $('n-title').value = ''; $('n-body').value = ''; nPicker.reset(); nLoad();
         } catch (err) {
-          setStatus($('n-status'), '오류: ' + (err.message || err) + ' — R15 SQL 실행 여부를 확인하세요.', 'error');
+          setStatus($('n-status'), '오류: ' + (err.message || err) + ' — 계속되면 시스템 담당자에게 서버 설정(R15) 확인을 요청해주세요.', 'error');
         }
-        $('nv-confirm').disabled = false; $('nv-veil').style.display = 'none';
+        $('nv-confirm').disabled = false; closeModal('nv-veil');
         return;
       }
       const scope = nPicker.mode === 'all' ? 'all' : 'custom';
@@ -907,15 +1057,18 @@
       $('nv-confirm').disabled = true; setStatus($('n-status'), '발행 중...', 'info');
       // created_by(이메일)는 공개 읽기 테이블에 노출되므로 저장하지 않음 — admin_logs(관리자 전용)가 기록
       const { error } = await supabase.from('notices').insert({ title, body, target_scope: scope, target_value: value, published: true, created_by: null });
-      $('nv-confirm').disabled = false; $('nv-veil').style.display = 'none';
+      $('nv-confirm').disabled = false; closeModal('nv-veil');
       if (error) { setStatus($('n-status'), '오류: ' + error.message, 'error'); return; }
       kickPush();
       setStatus($('n-status'), `✅ 발행되었습니다 (${PUSH_ETA} 푸시).`, 'ok'); logAction('공지발행', lbl + ' · ' + title);
       $('n-title').value = ''; $('n-body').value = ''; nPicker.reset(); nLoad();
     });
     async function nLoad() {
-      const { data } = await supabase.from('notices').select('id,title,target_scope,target_value,created_at,published,pushed').order('created_at', { ascending: false }).limit(20);
-      const el = $('n-list'); el.innerHTML = (data && data.length) ? '' : '<p class="note">없음</p>';
+      const { data, error } = await supabase.from('notices').select('id,title,target_scope,target_value,created_at,published,pushed').order('created_at', { ascending: false }).limit(20);
+      const el = $('n-list');
+      if (error) { loadFail(el, '공지 목록을 불러오지 못했어요.', nLoad); return; }
+      el.innerHTML = (data && data.length) ? '' : '<p class="note">아직 발송한 공지가 없어요.</p>';
+      if (data && data.length >= 20) el.innerHTML = '<p class="note">최근 20건만 표시 중</p>';
       (data || []).forEach(n => {
         const t = fmtTarget(n.target_scope, n.target_value);
         const e = document.createElement('div'); e.textContent = n.title;
@@ -926,7 +1079,11 @@
         const info = document.createElement('div'); info.innerHTML = `<b>${e.innerHTML}</b> ${st}<br/><span class="note">${t} · ${new Date(n.created_at).toLocaleString('ko-KR')}</span>`;
         const tg = document.createElement('button'); tg.textContent = n.published ? '내리기' : '올리기';
         tg.style.cssText = 'padding:5px 12px;font-size:13px;border:1px solid var(--line);border-radius:8px;background:#fff;cursor:pointer;white-space:nowrap';
-        tg.addEventListener('click', async () => { await supabase.from('notices').update({ published: !n.published }).eq('id', n.id); logAction(n.published ? '공지내림' : '공지올림', n.title); nLoad(); });
+        tg.addEventListener('click', async () => {
+          tg.disabled = true;
+          if (await updRow('notices', { published: !n.published }, n.id, $('n-status'))) logAction(n.published ? '공지내림' : '공지올림', n.title);
+          nLoad();
+        });
         const del = mkDelBtn('삭제', async () => {
           // 개인 지정 수신자 행 먼저 정리 (FK 제약 대비) — 오류는 표면화
           const rcp = await supabase.from('notice_recipients').delete().eq('notice_id', n.id);
@@ -935,7 +1092,7 @@
           if (error) throw error;
           if (!data || !data.length) throw new Error('row-level security');
           logAction('공지삭제', n.title); nLoad();
-        });
+        }, n.title);
         const btns = document.createElement('div'); btns.style.cssText = 'display:flex;gap:6px;flex-shrink:0';
         btns.appendChild(tg); btns.appendChild(del);
         row.appendChild(info); row.appendChild(btns); el.appendChild(row);
@@ -946,7 +1103,7 @@
     async function plLoad() {
       const { data, error } = await supabase.from('push_logs').select('id,title,scope,target,recipient_count,success_count,sent_at').order('sent_at', { ascending: false }).limit(15);
       const el = $('pl-list');
-      if (error) { el.innerHTML = '<p class="note">발송기록 권한이 없습니다 — supabase_migration_R8_qw.sql 을 실행하세요.</p>'; return; }
+      if (error) { el.innerHTML = '<p class="note">발송 기록을 볼 권한이 아직 없어요 — 시스템 담당자에게 서버 설정(R8) 적용을 요청해주세요.</p>'; return; }
       el.innerHTML = (data && data.length) ? '' : '<p class="note">아직 발송 기록이 없습니다.</p>';
       (data || []).forEach(p => {
         const e = document.createElement('div'); e.textContent = p.title;
@@ -955,9 +1112,9 @@
         row.innerHTML = `<div style="min-width:0"><b>${e.innerHTML}</b><br/><span class="note">${tgt} · 대상 ${p.recipient_count ?? '?'} / 성공 ${p.success_count ?? '?'} · ${new Date(p.sent_at).toLocaleString('ko-KR')}</span></div>`;
         row.appendChild(mkDelBtn('삭제', async () => {
           const { data: del, error: derr } = await supabase.from('push_logs').delete().eq('id', p.id).select('id');
-          if (derr || !del || !del.length) throw new Error('발송기록 삭제 권한이 없어요 — sql/09_admin_extras.sql 실행 필요' + (derr ? ' (' + derr.message + ')' : ''));
+          if (derr || !del || !del.length) throw new Error('발송 기록 삭제 권한이 아직 없어요 — 시스템 담당자에게 서버 설정(09 admin_extras) 적용을 요청해주세요.' + (derr ? ' (' + derr.message + ')' : ''));
           logAction('발송기록삭제', p.title); plLoad();
-        }));
+        }, '발송 기록: ' + (p.title || '')));
         el.appendChild(row);
       });
     }
@@ -967,17 +1124,21 @@
       const { data, error } = await supabase.from('push_logs').delete().gte('sent_at', '1970-01-01').select('id');
       $('pl-clear').disabled = false;
       if (error) { alert('오류: ' + error.message); return; }
-      if (!data || !data.length) { alert('지울 기록이 없거나 삭제 권한이 없어요 — sql/09_admin_extras.sql 실행 필요'); plLoad(); return; }
+      if (!data || !data.length) { alert('지울 기록이 없거나 삭제 권한이 없어요 — 권한 문제라면 시스템 담당자에게 서버 설정(09 admin_extras)을 요청해주세요.'); plLoad(); return; }
       logAction('발송기록비움', data.length + '건'); plLoad();
     });
 
     // 자료/일정을 같은 대상으로 '공지로도' 발행 → 기존 푸시 파이프라인이 발송(푸시만 보는 사용자 도달)
+    // insert 실패는 throw — 호출부가 '알림만 실패'를 구분 표시(성공 위장 금지)
     async function pushAsNotice(picker, title, body) {
       const scope = picker.mode === 'all' ? 'all' : 'custom';
       const value = picker.mode === 'all' ? null : picker.serial();
-      await supabase.from('notices').insert({ title, body, target_scope: scope, target_value: value, published: true, created_by: null });
+      const { error } = await supabase.from('notices').insert({ title, body, target_scope: scope, target_value: value, published: true, created_by: null });
+      if (error) throw error;
       kickPush();
     }
+    // 본 작업은 성공, 알림 발행만 실패했을 때의 공통 안내
+    const PUSH_FAIL_MSG = ' ⚠️ 알림 발행은 실패했어요 — 공지 탭에서 직접 발행해주세요.';
 
     // ===== 사안별 투표 (sql/17) =====
     let poPicker = null;
@@ -985,7 +1146,7 @@
       if (!poPicker) poPicker = buildPicker('po-tgt', '전체 공개', '가입자 모두', { noPeople: true });
       const el = $('po-list');
       const { data, error } = await supabase.from('polls').select('id,question,options,multi,results_public,open,close_at,created_at').order('created_at', { ascending: false });
-      if (error) { el.innerHTML = '<p class="note">' + (tblMissing(error.message) ? '투표 테이블이 없어요 — sql/17_polls.sql 실행 필요' : '오류: ' + esc(error.message)) + '</p>'; return; }
+      if (error) { el.innerHTML = '<p class="note">' + (tblMissing(error.message) ? '투표 기능이 아직 준비되지 않았어요 — 시스템 담당자에게 서버 설정(17 polls) 적용을 요청해주세요.' : '오류: ' + esc(error.message)) + '</p>'; return; }
       const rows = data || [];
       el.innerHTML = rows.length ? '' : '<p class="note">아직 투표가 없어요.</p>';
       for (const p of rows) {
@@ -1004,24 +1165,32 @@
         const btns = document.createElement('div'); btns.style.cssText = 'display:flex;gap:6px;margin-top:6px';
         const tg = document.createElement('button'); tg.type = 'button'; tg.textContent = p.open ? '마감' : '다시 열기';
         tg.style.cssText = 'padding:4px 10px;font-size:12.5px;border:1px solid var(--line);border-radius:8px;background:var(--surface-card);cursor:pointer';
-        tg.addEventListener('click', async () => { await supabase.from('polls').update({ open: !p.open }).eq('id', p.id); logAction(p.open ? '투표마감' : '투표재개', p.question); poLoad(); });
+        tg.addEventListener('click', async () => {
+          tg.disabled = true;
+          if (await updRow('polls', { open: !p.open }, p.id, $('po-status'))) logAction(p.open ? '투표마감' : '투표재개', p.question);
+          poLoad();
+        });
         btns.appendChild(tg);
         // [정합성] 결과 공개 여부 토글 — 생성 후에도 바꿀 수 있게. poll_results RPC(sql/17)가 results_public 기준으로 노출.
         const rp = document.createElement('button'); rp.type = 'button'; rp.textContent = p.results_public ? '결과 비공개로' : '결과 공개로';
         rp.style.cssText = 'padding:4px 10px;font-size:12.5px;border:1px solid var(--line);border-radius:8px;background:var(--surface-card);cursor:pointer';
-        rp.addEventListener('click', async () => { await supabase.from('polls').update({ results_public: !p.results_public }).eq('id', p.id); logAction(p.results_public ? '결과비공개' : '결과공개', p.question); poLoad(); });
+        rp.addEventListener('click', async () => {
+          rp.disabled = true;
+          if (await updRow('polls', { results_public: !p.results_public }, p.id, $('po-status'))) logAction(p.results_public ? '결과비공개' : '결과공개', p.question);
+          poLoad();
+        });
         btns.appendChild(rp);
         btns.appendChild(mkDelBtn('삭제', async () => {
           const { data: del, error: derr } = await supabase.from('polls').delete().eq('id', p.id).select('id');
           if (derr) throw derr;
           if (!del || !del.length) throw new Error('row-level security');
           logAction('투표삭제', p.question); poLoad();
-        }));
+        }, '투표: ' + (p.question || '')));
         box.appendChild(btns);
         el.appendChild(box);
       }
     }
-    $('po-pub').addEventListener('click', async () => {
+    $('po-pub').addEventListener('click', () => {
       const question = $('po-q').value.trim(), desc = $('po-desc').value.trim();
       const options = $('po-opts').value.split('\n').map(s => s.trim()).filter(Boolean);
       if (!question) { setStatus($('po-status'), '질문을 입력하세요.', 'error'); return; }
@@ -1030,14 +1199,22 @@
       const closeAt = $('po-close').value ? new Date($('po-close').value).toISOString() : null;
       const scope = poPicker.mode === 'all' ? 'all' : 'custom';
       const value = poPicker.mode === 'all' ? null : poPicker.serial();
-      $('po-pub').disabled = true; setStatus($('po-status'), '발행 중...', 'info');
-      const { error } = await supabase.from('polls').insert({ question, description: desc || null, options, target_scope: scope, target_value: value, multi: $('po-multi').checked, results_public: $('po-public').checked, open: true, close_at: closeAt });
-      $('po-pub').disabled = false;
-      if (error) { setStatus($('po-status'), tblMissing(error.message) ? 'sql/17_polls.sql 실행이 필요해요.' : '오류: ' + (error.message || error), 'error'); return; }
-      if ($('po-push').checked) { try { await pushAsNotice(poPicker, '[투표] ' + question, '새 투표가 열렸어요.' + (closeAt ? ' 마감 ' + new Date(closeAt).toLocaleString('ko-KR') + '.' : '') + ' 앱 투표에서 참여해주세요.'); } catch (_) {} }
-      logAction('투표발행', question);
-      setStatus($('po-status'), '✅ 발행했습니다.', 'ok');
-      $('po-q').value = ''; $('po-desc').value = ''; $('po-opts').value = ''; $('po-close').value = ''; $('po-multi').checked = false; $('po-public').checked = false; poPicker.reset(); poLoad();
+      // 발행 확인 — 참여자 화면 형태로 미리보기(오타·보기 누락을 발행 전에 잡기)
+      const prev = `<b>${esc(question)}</b>` +
+        (desc ? `<p class="note" style="margin:4px 0 0">${esc(desc)}</p>` : '') +
+        '<ul style="margin:8px 0 0;padding-left:18px">' + options.map(o => `<li>${esc(o)}</li>`).join('') + '</ul>' +
+        `<p class="note" style="margin:8px 0 0">${$('po-multi').checked ? '중복 선택 허용' : '하나만 선택'} · 결과 ${$('po-public').checked ? '참여자에게 공개' : '비공개'}${closeAt ? ' · 마감 ' + new Date(closeAt).toLocaleString('ko-KR') : ''} · 대상 ${esc(poPicker.label())}</p>`;
+      const pubGen = pubConfirm(prev, '발행하면 바로 참여가 시작되고 질문·보기를 수정할 수 없어요(마감·삭제만 가능).' + ($('po-push').checked ? ' 발행 즉시 푸시가 나갑니다.' : ''), async () => {
+        setStatus($('po-status'), '발행 중...', 'info');
+        const { error } = await supabase.from('polls').insert({ question, description: desc || null, options, target_scope: scope, target_value: value, multi: $('po-multi').checked, results_public: $('po-public').checked, open: true, close_at: closeAt });
+        if (error) { setStatus($('po-status'), tblMissing(error.message) ? '투표 기능이 아직 준비되지 않았어요 — 시스템 담당자에게 서버 설정(17 polls) 적용을 요청해주세요.' : '오류: ' + (error.message || error), 'error'); return; }
+        let pushFail = false;
+        if ($('po-push').checked) { try { await pushAsNotice(poPicker, '[투표] ' + question, '새 투표가 열렸어요.' + (closeAt ? ' 마감 ' + new Date(closeAt).toLocaleString('ko-KR') + '.' : '') + ' 앱 투표에서 참여해주세요.'); } catch (_) { pushFail = true; } }
+        logAction('투표발행', question);
+        setStatus($('po-status'), pushFail ? '✅ 투표는 발행됐어요.' + PUSH_FAIL_MSG : '✅ 발행했습니다.', pushFail ? 'error' : 'ok');
+        $('po-q').value = ''; $('po-desc').value = ''; $('po-opts').value = ''; $('po-close').value = ''; $('po-multi').checked = false; $('po-public').checked = false; poPicker.reset(); poLoad();
+      });
+      poPicker.count().then(n => { if (pubGen === _pubGen) $('pub-count').textContent = `예상 대상 ${n}명`; }).catch(() => { if (pubGen === _pubGen) $('pub-count').textContent = ''; });
     });
 
     // ===== 자료실 =====
@@ -1063,8 +1240,8 @@
       if (r.error && /exists|duplicate/i.test(r.error.message || '')) { path = mkPath(); r = await supabase.storage.from('library').upload(path, file, { upsert: false }); }
       if (r.error) {
         const m = r.error.message || '';
-        setStatus(statusEl, /bucket|not found|404/i.test(m) ? '저장소가 아직 없어요 — sql/09_admin_extras.sql 실행 필요'
-          : (/security|policy|denied|403|unauthor/i.test(m) ? '업로드 권한이 없어요 — sql/09_admin_extras.sql 실행 필요' : '업로드 오류: ' + m), 'error');
+        setStatus(statusEl, /bucket|not found|404/i.test(m) ? '파일 저장소가 아직 준비되지 않았어요 — 시스템 담당자에게 서버 설정(09 admin_extras)을 요청해주세요.'
+          : (/security|policy|denied|403|unauthor/i.test(m) ? '업로드 권한이 아직 없어요 — 시스템 담당자에게 서버 설정(09 admin_extras)을 요청해주세요.' : '업로드 오류: ' + m), 'error');
         return null;
       }
       return path;
@@ -1094,8 +1271,9 @@
         const { error } = await supabase.from('library').insert({ title, url, kind, job_key: 'tokv:' + JSON.stringify({ tok: hashes }), published: true });
         $('l-add').disabled = false;
         if (error) { setStatus($('l-status'), '오류: ' + error.message, 'error'); return; }
-        if ($('l-push').checked) { try { await notifyPeople(people, '[새 자료] ' + title, '자료실에 「' + title + '」 자료가 등록됐어요. 앱 자료실에서 확인하세요.'); } catch (_) {} }
-        setStatus($('l-status'), `✅ ${hashes.length}명에게만 보이는 자료로 등록${$('l-push').checked ? ' + 개인 안내 발행' : ''}.`, 'ok');
+        let pushFail = false;
+        if ($('l-push').checked) { try { await notifyPeople(people, '[새 자료] ' + title, '자료실에 「' + title + '」 자료가 등록됐어요. 앱 자료실에서 확인하세요.'); } catch (_) { pushFail = true; } }
+        setStatus($('l-status'), `✅ ${hashes.length}명에게만 보이는 자료로 등록${$('l-push').checked && !pushFail ? ' + 개인 안내 발행' : ''}.` + (pushFail ? PUSH_FAIL_MSG : ''), pushFail ? 'error' : 'ok');
         logAction('자료등록(명단)', title + ' · ' + hashes.length + '명');
         $('l-title').value = ''; $('l-url').value = ''; $('l-file').value = ''; $('l-shared').parentElement.style.display = ''; $('l-push').checked = false; lPicker.reset(); lLoad();
         return;
@@ -1105,13 +1283,17 @@
       const { error } = await supabase.from('library').insert({ title, url, kind, job_key: job, published: true });
       $('l-add').disabled = false;
       if (error) { setStatus($('l-status'), '오류: ' + error.message, 'error'); return; }
-      if ($('l-push').checked) { try { await pushAsNotice(lPicker, '[새 자료] ' + title, '자료실에 「' + title + '」 자료가 등록됐어요. 앱 자료실에서 확인하세요.'); } catch (_) {} }
-      setStatus($('l-status'), $('l-push').checked ? `✅ 등록 + 공지 발행 (${PUSH_ETA} 푸시).` : '✅ 등록되었습니다.', 'ok');
+      let pushFail = false;
+      if ($('l-push').checked) { try { await pushAsNotice(lPicker, '[새 자료] ' + title, '자료실에 「' + title + '」 자료가 등록됐어요. 앱 자료실에서 확인하세요.'); } catch (_) { pushFail = true; } }
+      setStatus($('l-status'), pushFail ? '✅ 자료는 등록됐어요.' + PUSH_FAIL_MSG : ($('l-push').checked ? `✅ 등록 + 공지 발행 (${PUSH_ETA} 푸시).` : '✅ 등록되었습니다.'), pushFail ? 'error' : 'ok');
       logAction(file ? '자료등록(파일)' : '자료등록', title + ' · ' + lPicker.label() + ($('l-push').checked ? ' (+공지)' : '')); $('l-title').value = ''; $('l-url').value = ''; $('l-file').value = ''; $('l-shared').parentElement.style.display = ''; $('l-push').checked = false; lPicker.reset(); lLoad();
     });
     async function lLoad() {
-      const { data } = await supabase.from('library').select('id,title,kind,job_key,url,created_at').order('created_at', { ascending: false }).limit(30);
-      const el = $('l-list'); el.innerHTML = (data && data.length) ? '' : '<p class="note">없음</p>';
+      const { data, error } = await supabase.from('library').select('id,title,kind,job_key,url,created_at').order('created_at', { ascending: false }).limit(30);
+      const el = $('l-list');
+      if (error) { loadFail(el, '자료 목록을 불러오지 못했어요.', lLoad); return; }
+      el.innerHTML = (data && data.length) ? '' : '<p class="note">아직 등록한 자료가 없어요.</p>';
+      if (data && data.length >= 30) el.innerHTML = '<p class="note">최근 30건만 표시 중</p>';
       (data || []).forEach(r => {
         const e = document.createElement('div'); e.textContent = r.title;
         const row = document.createElement('div'); row.style.cssText = 'padding:9px 0;border-bottom:1px solid var(--gray-100);display:flex;justify-content:space-between;gap:8px;align-items:center';
@@ -1127,7 +1309,7 @@
           const path = m ? decodeURIComponent(m[1].split('?')[0]) : (!/^https?:\/\//i.test(raw) ? raw : '');
           if (path) { try { await supabase.storage.from('library').remove([path]); } catch (_) {} }
           logAction('자료삭제', r.title); lLoad();
-        }));
+        }, '자료: ' + (r.title || '')));
         el.appendChild(row);
       });
     }
@@ -1146,8 +1328,9 @@
         const { error } = await supabase.from('calendar_events').insert({ title, event_date: date, kind, job_key: 'tokv:' + JSON.stringify({ tok: hashes }), memo });
         $('c-add').disabled = false;
         if (error) { setStatus($('c-status'), '오류: ' + error.message, 'error'); return; }
-        if ($('c-push').checked) { try { await notifyPeople(people, '[일정] ' + title, title + ' — ' + date + (memo ? ' · ' + memo : '') + '. 앱 일정에서 확인하세요.'); } catch (_) {} }
-        setStatus($('c-status'), `✅ ${hashes.length}명에게만 보이는 일정으로 등록${$('c-push').checked ? ' + 개인 안내 발행' : ''}.`, 'ok');
+        let pushFail = false;
+        if ($('c-push').checked) { try { await notifyPeople(people, '[일정] ' + title, title + ' — ' + date + (memo ? ' · ' + memo : '') + '. 앱 일정에서 확인하세요.'); } catch (_) { pushFail = true; } }
+        setStatus($('c-status'), `✅ ${hashes.length}명에게만 보이는 일정으로 등록${$('c-push').checked && !pushFail ? ' + 개인 안내 발행' : ''}.` + (pushFail ? PUSH_FAIL_MSG : ''), pushFail ? 'error' : 'ok');
         logAction('일정등록(명단)', title + ' · ' + hashes.length + '명');
         $('c-title').value = ''; $('c-memo').value = ''; $('c-push').checked = false; cPicker.reset(); cLoad();
         return;
@@ -1157,13 +1340,17 @@
       const { error } = await supabase.from('calendar_events').insert({ title, event_date: date, kind, job_key: job, memo });
       $('c-add').disabled = false;
       if (error) { setStatus($('c-status'), '오류: ' + error.message, 'error'); return; }
-      if ($('c-push').checked) { try { await pushAsNotice(cPicker, '[일정] ' + title, title + ' — ' + date + (memo ? ' · ' + memo : '') + '. 앱 일정에서 확인하세요.'); } catch (_) {} }
-      setStatus($('c-status'), $('c-push').checked ? `✅ 등록 + 공지 발행 (${PUSH_ETA} 푸시).` : '✅ 등록되었습니다.', 'ok');
+      let pushFail = false;
+      if ($('c-push').checked) { try { await pushAsNotice(cPicker, '[일정] ' + title, title + ' — ' + date + (memo ? ' · ' + memo : '') + '. 앱 일정에서 확인하세요.'); } catch (_) { pushFail = true; } }
+      setStatus($('c-status'), pushFail ? '✅ 일정은 등록됐어요.' + PUSH_FAIL_MSG : ($('c-push').checked ? `✅ 등록 + 공지 발행 (${PUSH_ETA} 푸시).` : '✅ 등록되었습니다.'), pushFail ? 'error' : 'ok');
       logAction('일정등록', title + ' · ' + cPicker.label() + ($('c-push').checked ? ' (+공지)' : '')); $('c-title').value = ''; $('c-memo').value = ''; $('c-push').checked = false; cPicker.reset(); cLoad();
     });
     async function cLoad() {
-      const { data } = await supabase.from('calendar_events').select('id,title,event_date,kind,job_key').order('event_date', { ascending: true }).limit(50);
-      const el = $('c-list'); el.innerHTML = (data && data.length) ? '' : '<p class="note">없음</p>';
+      const { data, error } = await supabase.from('calendar_events').select('id,title,event_date,kind,job_key').order('event_date', { ascending: true }).limit(50);
+      const el = $('c-list');
+      if (error) { loadFail(el, '일정 목록을 불러오지 못했어요.', cLoad); return; }
+      el.innerHTML = (data && data.length) ? '' : '<p class="note">아직 등록한 일정이 없어요.</p>';
+      if (data && data.length >= 50) el.innerHTML = '<p class="note">50건만 표시 중</p>';
       const todayStr = new Date().toISOString().slice(0, 10);
       (data || []).forEach(r => {
         const e = document.createElement('div'); e.textContent = r.title;
@@ -1176,7 +1363,7 @@
           if (error) throw error;
           if (!data || !data.length) throw new Error('row-level security');
           logAction('일정삭제', r.title); cLoad();
-        }));
+        }, '일정: ' + (r.title || '')));
         el.appendChild(row);
       });
     }
@@ -1189,7 +1376,7 @@
       const { data, error } = await supabase.from('calendar_events').delete().lt('event_date', todayStr).select('id');
       if (error) { setStatus($('c-status'), delErr(error), 'error'); return; }
       const n = (data || []).length;
-      if (!n) { setStatus($('c-status'), '삭제 권한이 없어요 — sql/07_admin_tools.sql 실행 필요', 'error'); return; }
+      if (!n) { setStatus($('c-status'), '삭제 권한이 아직 없어요 — 시스템 담당자에게 서버 설정(07 admin_tools)을 요청해주세요.', 'error'); return; }
       logAction('지난일정정리', n + '건');
       setStatus($('c-status'), `✅ 지난 일정 ${n}건을 정리했어요.`, 'ok'); cLoad();
     });
@@ -1197,16 +1384,23 @@
     // ===== 상담 (관리자) =====
     let curConsult = null, curLabel = '';
     async function clLoad() {
-      const { data } = await supabase.from('consultations').select('id,name,job_key,status,last_at').order('last_at', { ascending: false }).limit(50);
-      const clRank = s => s === '열림' ? 0 : s === '종료' ? 2 : 1;
-      const rows = (data || []).slice().sort((a, b) => clRank(a.status) - clRank(b.status)); // 미답변(열림) 먼저, 종료는 맨 아래
-      const open = rows.filter(c => c.status === '열림').length;
       const el = $('cl-list');
-      el.innerHTML = rows.length ? `<p class="note" style="margin:0 0 10px">미답변 <b style="color:var(--err)">${open}건</b> · 전체 ${rows.length}건 (미답변이 위에)</p>` : '<p class="note">상담 없음</p>';
+      // 열림(미답변)은 전량 조회 — 최근순 50건 컷에 오래된 미답변이 조용히 사라지지 않게. 나머지는 최근 50건.
+      const [opens, rest] = await Promise.all([
+        supabase.from('consultations').select('id,name,job_key,status,last_at').eq('status', '열림').order('last_at', { ascending: false }),
+        supabase.from('consultations').select('id,name,job_key,status,last_at').or('status.neq.열림,status.is.null').order('last_at', { ascending: false }).limit(50),   // NULL status(레거시 행)도 누락 없이
+      ]);
+      if (opens.error || rest.error) { loadFail(el, '상담 목록을 불러오지 못했어요.', clLoad); return; }
+      const clRank = s => s === '열림' ? 0 : s === '종료' ? 2 : 1;
+      const rows = [...(opens.data || []), ...(rest.data || [])].sort((a, b) => clRank(a.status) - clRank(b.status)); // 미답변(열림) 먼저, 종료는 맨 아래
+      const open = (opens.data || []).length;
+      setTabCnt('consult', open);   // 탭 배지 — 다른 탭에서도 미답변이 보이게
+      el.innerHTML = rows.length ? `<p class="note" style="margin:0 0 10px">미답변 <b style="color:var(--err)">${open}건</b> · 표시 ${rows.length}건 (미답변이 위에${(rest.data || []).length >= 50 ? ' · 종료는 최근 50건만' : ''})</p>` : '<p class="note">아직 들어온 상담이 없어요.</p>';
       rows.forEach(c => {
         const nm = document.createElement('span'); nm.textContent = (c.name || '익명') + (c.job_key ? ' · ' + c.job_key : '');
         const isOpen = c.status === '열림';
-        const row = document.createElement('div'); row.style.cssText = 'padding:10px 0;border-bottom:1px solid var(--gray-100);cursor:pointer' + (isOpen ? ';background:var(--warning-50)' : '');
+        const row = document.createElement('button'); row.type = 'button';   // 키보드로도 열 수 있게 실제 버튼으로
+        row.style.cssText = 'display:block;width:100%;text-align:left;border:0;font:inherit;color:inherit;padding:10px 8px;border-bottom:1px solid var(--gray-100);cursor:pointer;border-radius:8px;background:' + (isOpen ? 'var(--warning-50)' : 'transparent');
         row.innerHTML = `<b>${nm.innerHTML}</b> <span style="font-size:12px;font-weight:700;color:${isOpen ? 'var(--err)' : 'var(--muted)'}">[${c.status}]</span><br/><span class="note">${new Date(c.last_at).toLocaleString('ko-KR')}</span>`;
         row.addEventListener('click', () => openConsult(c.id, c.name || '익명'));
         el.appendChild(row);
@@ -1231,10 +1425,10 @@
       $('qv-a').value = lastA ? lastA.text : '';
       $('qv-cat').value = ''; $('qv-aud').value = 'all';
       setStatus($('qv-status'), '', 'info');
-      $('qv-veil').style.display = 'flex';
+      openModal('qv-veil');
     });
-    $('qv-cancel').addEventListener('click', () => { $('qv-veil').style.display = 'none'; });
-    $('qv-veil').addEventListener('click', e => { if (e.target === $('qv-veil')) $('qv-veil').style.display = 'none'; });
+    $('qv-cancel').addEventListener('click', () => { closeModal('qv-veil'); });
+    $('qv-veil').addEventListener('click', e => { if (e.target === $('qv-veil')) closeModal('qv-veil'); });
     $('qv-save').addEventListener('click', async () => {
       const q = $('qv-q').value.trim(), a = $('qv-a').value.trim();
       if (!q || !a) { setStatus($('qv-status'), '질문·답변을 입력하세요.', 'error'); return; }
@@ -1244,11 +1438,11 @@
         question: q, answer: a, source: 'consult', published: true
       });
       $('qv-save').disabled = false;
-      if (error) { setStatus($('qv-status'), /relation|does not exist|schema cache/i.test(error.message || '') ? 'qna_posts 테이블이 없어요 — sql/05_qna.sql 실행 필요' : '오류: ' + error.message, 'error'); return; }
+      if (error) { setStatus($('qv-status'), /relation|does not exist|schema cache/i.test(error.message || '') ? 'FAQ 기능이 아직 준비되지 않았어요 — 시스템 담당자에게 서버 설정(05 qna) 적용을 요청해주세요.' : '오류: ' + error.message, 'error'); return; }
       logAction('FAQ공개', q.slice(0, 30));
       setStatus($('qv-status'), '✅ 자주 묻는 질문에 공개됐어요.', 'ok');
       rcLoad();
-      setTimeout(() => { $('qv-veil').style.display = 'none'; }, 1000);
+      setTimeout(() => { closeModal('qv-veil'); }, 1000);
     });
     // 완료된 상담 삭제 (메시지 → 스레드 순, FK 대비)
     $('cl-del').addEventListener('click', async () => {
@@ -1335,7 +1529,7 @@
         // 폴백(R15 admin_students 미적용): 앱 가입자(registrations)
         let { data, error } = await supabase.from('registrations').select('id,name,phone,target_type,job_key,company,type1,manager,role,interest_jobs,created_at,cohort,status').order('created_at', { ascending: false }).limit(1000);
         if (error && /column|schema cache/i.test(error.message || '')) ({ data, error } = await supabase.from('registrations').select('id,name,phone,target_type,job_key,company,type1,created_at').order('created_at', { ascending: false }).limit(1000));
-        if (error) { $('rg-table').innerHTML = '<tbody><tr><td style="padding:10px;color:var(--text-muted)">명단 조회 권한이 없습니다 — R12/R15 SQL 실행 필요</td></tr></tbody>'; return; }
+        if (error) { $('rg-table').innerHTML = '<tbody><tr><td style="padding:10px;color:var(--text-muted)">명단 조회 권한이 아직 없어요 — 시스템 담당자에게 서버 설정(R12·R15) 적용을 요청해주세요.</td></tr></tbody>'; return; }
         rows = (data || []).map(r => ({ ...r, signed: true, interest: regInterest(r) }));
       }
       // 기업담당자: 노션 HRD담당자 명단(company_contacts) 기준으로 가입/미가입 표시 (sql/12 + 동기화 적용 시)
@@ -1468,7 +1662,7 @@
         if (ccReady) {
           const joined = regCache.filter(r => r.target_type === 'company' && r.signed).length;
           cntTxt += ' · 가입 ' + joined + ' · 미가입 ' + (segTotal - joined) + ' (노션 HRD담당자 명단 기준)';
-        } else cntTxt += ' — 앱 가입자만 표시 (노션 명단 연동: sql/12 실행 + 동기화 코드 갱신)';
+        } else cntTxt += ' — 앱 가입자만 표시 (HRD담당자 명단 연동은 시스템 담당자에게 설정 12·동기화 적용을 요청)';
       }
       $('rg-count').textContent = cntTxt + (rows.length !== segTotal ? ' · 필터 ' + rows.length + '명' : '');
       const cols = isStu
@@ -1482,7 +1676,7 @@
       const canSel = isStu || regSeg === 'company';
       const allOn = canSel && rows.length && rows.every(r => regSel.has(r.id));
       $('rg-table').innerHTML = '<thead><tr>' +
-        (canSel ? `<th class="nosort"><input type="checkbox" id="rg-all" ${allOn ? 'checked' : ''}></th>` : '') +
+        (canSel ? `<th class="nosort"><input type="checkbox" id="rg-all" aria-label="전체 선택" ${allOn ? 'checked' : ''}></th>` : '') +
         cols.map(c => `<th data-k="${c[0]}">${c[1]}${arrow(c[0])}</th>`).join('') +
         (isStu ? '<th class="nosort">코드</th>' : '') +
         ((isStu || (regSeg === 'company' && ccReady) || regSeg === 'applicant') ? '<th class="nosort">관리</th>' : '') + '</tr></thead>';
@@ -1492,7 +1686,7 @@
       rows.forEach(r => {
         const tr = document.createElement('tr'); if (canSel && regSel.has(r.id)) tr.className = 'on';
         if (canSel) {
-          const cb = document.createElement('td'); cb.innerHTML = `<input type="checkbox" ${regSel.has(r.id) ? 'checked' : ''}>`;
+          const cb = document.createElement('td'); cb.innerHTML = `<input type="checkbox" aria-label="${esc(r.name || '')} 선택" ${regSel.has(r.id) ? 'checked' : ''}>`;
           cb.querySelector('input').addEventListener('change', e => { e.target.checked ? regSel.add(r.id) : regSel.delete(r.id); tr.className = e.target.checked ? 'on' : ''; regSelBar(); });
           tr.appendChild(cb);
         }
@@ -1570,12 +1764,12 @@
               // .select()로 실제 삭제 행을 확인 — RLS가 막으면 에러 없이 0행이라 성공으로 오인됨
               const { data: del, error } = await supabase.from('registrations').delete().eq('id', r.id).select('id');
               if (error) {
-                const hint = /permission|policy|denied|42501|row-level/i.test(error.message || '') ? ' (가입자 행은 sql/14)' : '';
+                const hint = /permission|policy|denied|42501|row-level/i.test(error.message || '') ? ' (담당자에게 설정 14 확인 요청)' : '';
                 setStatus($('rg-status'), delErr(error) + hint, 'error'); db.disabled = false; return;
               }
               if (!del || !del.length) {
                 // 0행 = 다른 곳에서 이미 삭제됐거나 권한 부족 — 새로고침으로 실제 상태 표시
-                setStatus($('rg-status'), '삭제된 행이 없어요 — 이미 삭제됐거나 권한이 없습니다(sql/14 정책 확인). 목록을 새로고침합니다.', 'error');
+                setStatus($('rg-status'), '삭제된 행이 없어요 — 이미 삭제됐거나 권한이 없어요(담당자에게 설정 14 확인 요청). 목록을 새로고침합니다.', 'error');
                 regLoad(); return;
               }
               logAction('가입기록삭제', (r.name || '') + ' / ' + (r.company || ''));
@@ -1607,7 +1801,7 @@
             db.disabled = true;
             const { data: del, error } = await supabase.from('registrations').delete().eq('id', r.id).select('id');
             if (error) { setStatus($('rg-status'), delErr(error), 'error'); db.disabled = false; return; }
-            if (!del || !del.length) { setStatus($('rg-status'), '삭제된 행이 없어요 — 권한을 확인하세요(sql/14). 새로고침합니다.', 'error'); regLoad(); return; }
+            if (!del || !del.length) { setStatus($('rg-status'), '삭제된 행이 없어요 — 권한을 확인하세요(담당자에게 설정 14 확인 요청). 새로고침합니다.', 'error'); regLoad(); return; }
             logAction('지원자삭제', r.name || ''); setStatus($('rg-status'), '✅ 삭제했습니다.', 'ok'); regLoad();
           });
           tdd.appendChild(db); tr.appendChild(tdd);
@@ -1635,7 +1829,7 @@
             `<label class="note">상태 <select class="le-status">${opt(window.STATUSES, r.status || '')}</select></label>` +
             `<label class="note">담당 <select class="le-manager">${opt(window.MANAGERS, r.manager || '')}</select></label>` +
             `<label class="note">유형 <select class="le-type1">${opt(window.TYPES, r.type1 || '')}</select></label>` +
-            '<button type="button" class="btn le-save" style="margin-top:0;width:auto;padding:8px 14px">저장</button>' +
+            '<button type="button" class="mju-btn mju-btn--sm le-save">저장</button>' +
             '<span class="le-msg note"></span></div>';
           editorTr.appendChild(td); tr.after(editorTr);
           const elC = td.querySelector('.le-cohort'), elS = td.querySelector('.le-status'), elM = td.querySelector('.le-manager'), elT = td.querySelector('.le-type1');
@@ -1656,7 +1850,7 @@
               regLoad();
             } catch (e) {
               const m = e.message || e;
-              msg.textContent = /not_admin|no_center/.test(m) ? '권한 없음' : (/PGRST202|42883|function|schema cache/i.test(m) ? '서버 업데이트(sql/33) 적용 전이에요.' : '오류: ' + m);
+              msg.textContent = /not_admin|no_center/.test(m) ? '권한 없음' : (/PGRST202|42883|function|schema cache/i.test(m) ? '서버 업데이트(설정 33) 적용 전이에요 — 시스템 담당자에게 요청해주세요.' : '오류: ' + m);
               sb.disabled = false;
             }
           });
@@ -1681,9 +1875,13 @@
       $('rg-table').appendChild(tb);
       // 행 빌드 중 createIcons는 분리된 DOM이라 아이콘을 못 그림 — 표 부착 후 1회 변환(✉·🗑 등 아이콘 전용 버튼 필수)
       if (window.lucide) window.lucide.createIcons();
-      $('rg-table').querySelectorAll('th[data-k]').forEach(th => th.addEventListener('click', () => {
-        const k = th.dataset.k; if (regSort.key === k) regSort.dir = -regSort.dir; else regSort = { key: k, dir: 1 }; regRender();
-      }));
+      $('rg-table').querySelectorAll('th[data-k]').forEach(th => {
+        th.tabIndex = 0;   // 키보드로도 정렬 가능하게
+        th.setAttribute('aria-sort', regSort.key === th.dataset.k ? (regSort.dir < 0 ? 'descending' : 'ascending') : 'none');
+        const sort = () => { const k = th.dataset.k; if (regSort.key === k) regSort.dir = -regSort.dir; else regSort = { key: k, dir: 1 }; regRender(); };
+        th.addEventListener('click', sort);
+        th.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); sort(); } });
+      });
       const all = $('rg-all'); if (all) all.addEventListener('change', e => { rows.forEach(r => e.target.checked ? regSel.add(r.id) : regSel.delete(r.id)); regRender(); });
       regSelBar();
     }
@@ -1704,7 +1902,7 @@
         $('gr-to').value = ''; $('gr-done').checked = false; regLoad();
       } catch (e) {
         const m = e.message || e;
-        setStatus($('gr-status'), /not_admin|no_center/.test(m) ? '권한 없음' : (/PGRST202|42883|function|schema cache/i.test(m) ? '서버 업데이트(sql/33) 적용 전이에요.' : '오류: ' + m), 'error');
+        setStatus($('gr-status'), /not_admin|no_center/.test(m) ? '권한 없음' : (/PGRST202|42883|function|schema cache/i.test(m) ? '서버 업데이트(설정 33) 적용 전이에요 — 시스템 담당자에게 요청해주세요.' : '오류: ' + m), 'error');
       }
       $('gr-go').disabled = false;
     });
@@ -1733,6 +1931,8 @@
       if (!ids.length) { setStatus($('rg-status'), '참여학생을 선택하세요(기수 변경은 학생만).', 'error'); return; }
       const co = prompt(`선택 ${ids.length}명의 기수를 무엇으로 바꿀까요? (예: 2026, 졸업·2025 / 비우면 해제)`);
       if (co === null) return;
+      // 빈 값 OK = 기수 해제 — 실수로 Enter 만 친 경우가 흔해 한 번 더 확인
+      if (!co.trim() && !confirm(`선택 ${ids.length}명의 기수를 해제(비움)할까요?`)) return;
       setStatus($('rg-status'), '변경 중...', 'info');
       const { data, error } = await supabase.from('students').update({ cohort: co.trim() || null }).in('id', ids).select('id');
       if (error) { setStatus($('rg-status'), delErr(error), 'error'); return; }
@@ -1743,10 +1943,10 @@
     $('rg-bstatus').addEventListener('click', () => {
       const n = regSel.size; if (!n) return;
       $('bst-sel').innerHTML = (window.STATUSES || []).map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('');
-      $('bst-n').textContent = `선택 ${n}명의 상태를 변경합니다.`; $('bst-veil').style.display = 'flex';
+      $('bst-n').textContent = `선택 ${n}명의 상태를 변경합니다.`; openModal('bst-veil');
     });
-    $('bst-cancel').addEventListener('click', () => { $('bst-veil').style.display = 'none'; });
-    $('bst-veil').addEventListener('click', e => { if (e.target === $('bst-veil')) $('bst-veil').style.display = 'none'; });
+    $('bst-cancel').addEventListener('click', () => { closeModal('bst-veil'); });
+    $('bst-veil').addEventListener('click', e => { if (e.target === $('bst-veil')) closeModal('bst-veil'); });
     $('bst-apply').addEventListener('click', async () => {
       const st = $('bst-sel').value; if (!st) return;
       const sel = regCache.filter(r => regSel.has(r.id));
@@ -1758,7 +1958,7 @@
         if (stuIds.length) { const { data, error } = await supabase.from('students').update({ status: st }).in('id', stuIds).select('id'); if (error) err = error; else ok += (data || []).length; }
         if (!err && ccIds.length) { const { data, error } = await supabase.from('company_contacts').update({ status: st }).in('id', ccIds).select('id'); if (error) err = error; else ok += (data || []).length; }
       } catch (e) { err = e; }
-      $('bst-apply').disabled = false; $('bst-veil').style.display = 'none';
+      $('bst-apply').disabled = false; closeModal('bst-veil');
       if (err) { setStatus($('rg-status'), delErr(err), 'error'); return; }
       logAction('일괄상태변경', ok + '명 → ' + st); regSel.clear();
       setStatus($('rg-status'), `✅ ${ok}명 상태 → ${st}`, 'ok'); regLoad();
@@ -1767,10 +1967,10 @@
     $('rg-notify').addEventListener('click', () => {
       if (!regSel.size) return;
       $('pv-n').textContent = regSel.size; $('pv-title').value = ''; $('pv-body').value = '';
-      setStatus($('pv-status'), '', 'info'); $('pv-veil').style.display = 'flex';
+      setStatus($('pv-status'), '', 'info'); openModal('pv-veil');
     });
-    $('pv-cancel').addEventListener('click', () => { $('pv-veil').style.display = 'none'; });
-    $('pv-veil').addEventListener('click', e => { if (e.target === $('pv-veil')) $('pv-veil').style.display = 'none'; });
+    $('pv-cancel').addEventListener('click', () => { closeModal('pv-veil'); });
+    $('pv-veil').addEventListener('click', e => { if (e.target === $('pv-veil')) closeModal('pv-veil'); });
     $('pv-send').addEventListener('click', async () => {
       const title = $('pv-title').value.trim(), body = $('pv-body').value.trim();
       if (!title || !body) { setStatus($('pv-status'), '제목·내용을 입력하세요.', 'error'); return; }
@@ -1790,9 +1990,9 @@
         logAction('개인공지', people.length + '명 · ' + title);
         setStatus($('pv-status'), `✅ ${people.length}명에게 개인 공지를 보냈어요 (${PUSH_ETA} 푸시).`, 'ok');
         regSel.clear(); regRender(); nLoad();
-        setTimeout(() => { $('pv-veil').style.display = 'none'; }, 1500);
+        setTimeout(() => { closeModal('pv-veil'); }, 1500);
       } catch (err) {
-        setStatus($('pv-status'), '오류: ' + (err.message || err) + ' — R15 SQL 실행 여부를 확인하세요.', 'error');
+        setStatus($('pv-status'), '오류: ' + (err.message || err) + ' — 계속되면 시스템 담당자에게 서버 설정(R15) 확인을 요청해주세요.', 'error');
       }
       $('pv-send').disabled = false;
     });
@@ -1801,16 +2001,21 @@
     async function uvLoad() {
       const { data, error } = await supabase.from('unverified_signups').select('id,name,phone,target_type,reason,created_at').order('created_at', { ascending: false }).limit(100);
       const el = $('uv-list');
-      if (error) { el.innerHTML = '<p class="note">조회 권한이 없습니다 — supabase_migration_R14_ux.sql 실행 필요</p>'; return; }
-      el.innerHTML = (data && data.length) ? '' : '<p class="note">요청 없음</p>';
+      if (error) { setTabCnt('members', 0); el.innerHTML = '<p class="note">조회 권한이 아직 없어요 — 시스템 담당자에게 서버 설정(R14) 적용을 요청해주세요.</p>'; return; }
+      setTabCnt('members', (data || []).length);   // 가입 못 하고 있는 학생 신호 — 탭에서 바로 보이게
+      el.innerHTML = (data && data.length) ? '' : '<p class="note">처리할 요청이 없어요.</p>';
       const rmap = { phone: '번호 불일치', name: '이름 불일치', none: '명단에 없음' };
       (data || []).forEach(r => {
         const row = document.createElement('div'); row.style.cssText = 'padding:9px 0;border-bottom:1px solid var(--gray-100);display:flex;justify-content:space-between;gap:8px;align-items:center';
         const info = document.createElement('div');
         info.innerHTML = `<b>${esc(r.name || '')}</b> <span class="note">[${r.target_type === 'company' ? '기업' : '학생'} · ${rmap[r.reason] || r.reason || ''}]</span><br/><span class="note">${esc(r.phone || '')} · ${new Date(r.created_at).toLocaleString('ko-KR')}</span>`;
-        const del = document.createElement('button'); del.textContent = '처리완료';
-        del.style.cssText = 'padding:5px 12px;font-size:13px;border:1px solid var(--line);border-radius:8px;background:#fff;cursor:pointer;white-space:nowrap';
-        del.addEventListener('click', async () => { await supabase.from('unverified_signups').delete().eq('id', r.id); uvLoad(); });
+        // 처리완료 = 요청 행 삭제(복구 불가) — 확인 + 실패 표면화
+        const del = mkDelBtn('처리완료', async () => {
+          const { data: d, error: e } = await supabase.from('unverified_signups').delete().eq('id', r.id).select('id');
+          if (e) throw e;
+          if (!d || !d.length) throw new Error('row-level security');
+          uvLoad();
+        }, (r.name || '') + ' 가입 도움 요청');
         row.appendChild(info); row.appendChild(del); el.appendChild(row);
       });
     }
@@ -1821,7 +2026,7 @@
     let evSurveys = [];                       // 행사 설문 목록 캐시 (sv-sem 선택지 공유)
     function svSegRender() {
       const seg = $('sv-seg'); seg.innerHTML = ''; seg.style.display = 'flex';
-      [['event', '행사 설문'], ['student', '학생(구버전)'], ['teacher', '기업현장교사'], ['hrd', 'HRD담당자']].forEach(([k, label]) => {
+      [['event', '행사 설문'], ['student', '학생 학기설문'], ['teacher', '기업현장교사'], ['hrd', 'HRD담당자']].forEach(([k, label]) => {
         const b = document.createElement('button'); b.type = 'button';
         b.className = 'chip' + (svSeg === k ? ' on' : '');
         b.setAttribute('aria-pressed', svSeg === k ? 'true' : 'false');
@@ -1887,7 +2092,7 @@
       let q = supabase.from('company_survey_responses').select('id,round,company,answers,comment,created_at').eq('survey_key', svSeg);
       if (round) q = q.eq('round', round);
       const { data, error } = await q.order('created_at', { ascending: false });
-      if (error) { rep.innerHTML = '<p class="note">' + (tblMissing(error.message) ? 'company_survey_responses 테이블이 없어요 — sql/10_company_survey.sql 실행 필요' : '오류: ' + esc(error.message)) + '</p>'; raw.style.display = 'none'; return; }
+      if (error) { rep.innerHTML = '<p class="note">' + (tblMissing(error.message) ? '기업 설문 기능이 아직 준비되지 않았어요 — 시스템 담당자에게 서버 설정(10 company_survey) 적용을 요청해주세요.' : '오류: ' + esc(error.message)) + '</p>'; raw.style.display = 'none'; return; }
       const rows = data || [];
       if (!rows.length) { rep.innerHTML = '<p class="note">응답이 없습니다.</p>'; raw.style.display = 'none'; return; }
       let html = `<h2 style="margin-bottom:4px">${esc(def.title)} 집계</h2>` +
@@ -1920,7 +2125,7 @@
           if (derr) throw derr;
           if (!del || !del.length) throw new Error('row-level security');
           logAction('기업설문응답삭제', (r.company || '') + ' · ' + svSeg); svCoLoad();
-        }));
+        }, (r.company || '미지정') + ' 응답 1건'));
         raw.appendChild(row);
       });
     }
@@ -1965,14 +2170,14 @@
         d.style.cssText = 'border:1px solid var(--line);border-radius:11px;padding:10px 12px;margin-top:8px;background:var(--surface-sunken)';
         d.innerHTML =
           `<div style="display:flex;gap:6px;align-items:center"><b style="flex-shrink:0">${i + 1}.</b>` +
-          `<input type="text" data-f="label" placeholder="문항 내용 (예: 행사 전반에 만족하셨나요?)" style="flex:1;min-width:120px" />` +
+          `<input type="text" data-f="label" placeholder="문항 내용 (예: 행사 전반에 만족하셨나요?)" aria-label="문항 내용" style="flex:1;min-width:120px" />` +
           `<button type="button" data-act="del" title="문항 삭제" style="padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface-card);cursor:pointer">✕</button></div>` +
           `<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:8px;font-size:13px">` +
           `<label style="margin:0;display:flex;gap:4px;align-items:center;font-weight:600"><input type="radio" name="ev-t-${i}" value="single" ${q.type !== 'multi' ? 'checked' : ''}/> 하나만</label>` +
           `<label style="margin:0;display:flex;gap:4px;align-items:center;font-weight:600"><input type="radio" name="ev-t-${i}" value="multi" ${q.type === 'multi' ? 'checked' : ''}/> 중복 선택</label>` +
           `<label style="margin:0;display:flex;gap:4px;align-items:center;font-weight:600"><input type="checkbox" data-f="scale" ${q.scale ? 'checked' : ''}/> 5점 척도</label>` +
           `<label style="margin:0;display:flex;gap:4px;align-items:center;font-weight:600"><input type="checkbox" data-f="etc" ${q.etc ? 'checked' : ''}/> 기타(직접입력)</label></div>` +
-          `<textarea data-f="opts" rows="3" placeholder="보기를 한 줄에 하나씩 입력" style="margin-top:8px;width:100%"></textarea>`;
+          `<textarea data-f="opts" rows="3" placeholder="보기를 한 줄에 하나씩 입력" aria-label="보기 목록(한 줄에 하나)" style="margin-top:8px;width:100%"></textarea>`;
         d.querySelector('[data-f="label"]').value = q.label;
         d.querySelector('[data-f="opts"]').value = q.opts;
         d.querySelector('[data-f="label"]').addEventListener('input', e => { q.label = e.target.value; });
@@ -2000,7 +2205,7 @@
       const { data, error } = await supabase.from('surveys').select('id,title,open,created_at,questions').order('created_at', { ascending: false });
       if (error) {
         evSurveys = []; svFillSem();
-        list.innerHTML = '<p class="note">' + (tblMissing(error.message) ? '행사 설문 테이블이 없어요 — sql/16_event_surveys.sql 실행 필요' : '오류: ' + esc(error.message)) + '</p>';
+        list.innerHTML = '<p class="note">' + (tblMissing(error.message) ? '행사 설문 기능이 아직 준비되지 않았어요 — 시스템 담당자에게 서버 설정(16 event_surveys) 적용을 요청해주세요.' : '오류: ' + esc(error.message)) + '</p>';
         return;
       }
       evSurveys = data || []; svFillSem();
@@ -2015,14 +2220,18 @@
         const btns = document.createElement('div'); btns.style.cssText = 'display:flex;gap:6px';
         const tg = document.createElement('button'); tg.type = 'button'; tg.textContent = s.open ? '마감' : '다시 열기';
         tg.style.cssText = 'padding:4px 10px;font-size:12.5px;border:1px solid var(--line);border-radius:8px;background:var(--surface-card);cursor:pointer;white-space:nowrap';
-        tg.addEventListener('click', async () => { await supabase.from('surveys').update({ open: !s.open }).eq('id', s.id); logAction(s.open ? '설문마감' : '설문재개', s.title); svEvLoadList(); });
+        tg.addEventListener('click', async () => {
+          tg.disabled = true;
+          if (await updRow('surveys', { open: !s.open }, s.id, $('ev-status'))) logAction(s.open ? '설문마감' : '설문재개', s.title);
+          svEvLoadList();
+        });
         btns.appendChild(tg);
         btns.appendChild(mkDelBtn('삭제', async () => {
           const { data: del, error: derr } = await supabase.from('surveys').delete().eq('id', s.id).select('id');
           if (derr) throw derr;
           if (!del || !del.length) throw new Error('row-level security');
           logAction('설문삭제', s.title); svEvLoadList();
-        }));
+        }, '설문: ' + (s.title || '') + (counts[s.id] ? ` (응답 ${counts[s.id]}건 포함)` : '')));
         row.appendChild(btns); list.appendChild(row);
       });
     }
@@ -2044,14 +2253,25 @@
       if (!evPicker || !evPicker.valid()) { setStatus($('ev-status'), '받는 대상을 선택하세요.', 'error'); return; }
       const scope = evPicker.mode === 'all' ? 'all' : 'custom';
       const value = evPicker.mode === 'all' ? null : evPicker.serial();
-      $('ev-pub').disabled = true; setStatus($('ev-status'), '발행 중...', 'info');
-      const { error } = await supabase.from('surveys').insert({ title, description: desc || null, target_scope: scope, target_value: value, questions, open: true });
-      $('ev-pub').disabled = false;
-      if (error) { setStatus($('ev-status'), tblMissing(error.message) ? 'sql/16_event_surveys.sql 실행이 필요해요.' : '오류: ' + (error.message || error), 'error'); return; }
-      if ($('ev-push').checked) { try { await pushAsNotice(evPicker, '[설문] ' + title, '새 설문이 열렸어요. 앱 만족도 조사에서 참여해주세요.'); } catch (_) {} }
-      logAction('설문발행', title);
-      setStatus($('ev-status'), '✅ 발행했습니다. 발행 후에는 문항 수정이 안 돼요(마감·삭제만 가능).', 'ok');
-      $('ev-title').value = ''; $('ev-desc').value = ''; evQs = []; evPicker.reset(); svEvLoadList();
+      // 발행 확인 — 문항 전체를 응답자 화면 형태로 미리보기(발행 후엔 수정 불가라 마지막 점검 기회)
+      const prev = `<b>${esc(title)}</b>` +
+        (desc ? `<p class="note" style="margin:4px 0 0">${esc(desc)}</p>` : '') +
+        questions.map((qd, i) =>
+          `<p style="margin:10px 0 2px;font-weight:700">${i + 1}. ${esc(qd.label)}${qd.type === 'multi' ? ' <span class="note">(중복 선택)</span>' : ''}</p>` +
+          '<ul style="margin:0;padding-left:18px">' + qd.options.map(o => `<li>${esc(o)}</li>`).join('') + (qd.etc ? '<li>기타 (직접입력)</li>' : '') + '</ul>'
+        ).join('') +
+        `<p class="note" style="margin:10px 0 0">대상 ${esc(evPicker.label())}</p>`;
+      const pubGen = pubConfirm(prev, '발행하면 문항을 수정할 수 없어요(마감·삭제만 가능).' + ($('ev-push').checked ? ' 발행 즉시 푸시가 나갑니다.' : ''), async () => {
+        setStatus($('ev-status'), '발행 중...', 'info');
+        const { error } = await supabase.from('surveys').insert({ title, description: desc || null, target_scope: scope, target_value: value, questions, open: true });
+        if (error) { setStatus($('ev-status'), tblMissing(error.message) ? '행사 설문 기능이 아직 준비되지 않았어요 — 시스템 담당자에게 서버 설정(16 event_surveys) 적용을 요청해주세요.' : '오류: ' + (error.message || error), 'error'); return; }
+        let pushFail = false;
+        if ($('ev-push').checked) { try { await pushAsNotice(evPicker, '[설문] ' + title, '새 설문이 열렸어요. 앱 만족도 조사에서 참여해주세요.'); } catch (_) { pushFail = true; } }
+        logAction('설문발행', title);
+        setStatus($('ev-status'), (pushFail ? '✅ 설문은 발행됐어요.' + PUSH_FAIL_MSG : '✅ 발행했습니다.') + ' 발행 후에는 문항 수정이 안 돼요(마감·삭제만 가능).', pushFail ? 'error' : 'ok');
+        $('ev-title').value = ''; $('ev-desc').value = ''; evQs = []; evPicker.reset(); svEvLoadList();
+      });
+      evPicker.count().then(n => { if (pubGen === _pubGen) $('pub-count').textContent = `예상 대상 ${n}명`; }).catch(() => { if (pubGen === _pubGen) $('pub-count').textContent = ''; });
     });
     async function svEventLoad() {
       const rep = $('sv-report'), raw = $('sv-raw');
@@ -2059,7 +2279,7 @@
       const def = evSurveys.find(s => s.id === id);
       if (!def) { rep.innerHTML = '<p class="note">집계할 설문을 선택하세요. (행사 설문이 없으면 먼저 발행하세요)</p>'; raw.style.display = 'none'; return; }
       const { data, error } = await supabase.from('survey_answers').select('id,answers,comment,job_key,created_at').eq('survey_id', id).order('created_at', { ascending: false });
-      if (error) { rep.innerHTML = '<p class="note">' + (tblMissing(error.message) ? 'sql/16_event_surveys.sql 실행 필요' : '오류: ' + esc(error.message)) + '</p>'; raw.style.display = 'none'; return; }
+      if (error) { rep.innerHTML = '<p class="note">' + (tblMissing(error.message) ? '행사 설문 기능이 아직 준비되지 않았어요 — 시스템 담당자에게 서버 설정(16 event_surveys) 적용을 요청해주세요.' : '오류: ' + esc(error.message)) + '</p>'; raw.style.display = 'none'; return; }
       const rows = data || [];
       if (!rows.length) { rep.innerHTML = '<p class="note">응답이 없습니다.</p>'; raw.style.display = 'none'; return; }
       let html = `<h2 style="margin-bottom:4px">${esc(def.title)} 집계</h2>` +
@@ -2082,18 +2302,20 @@
           if (derr) throw derr;
           if (!del || !del.length) throw new Error('row-level security');
           logAction('설문응답삭제', def.title); svEventLoad();
-        }));
+        }, (r.job_key || '직무 미지정') + ' 응답 1건'));
         raw.appendChild(row);
       });
     }
 
     // ===== 운영 요약(대시보드) =====
-    $('d-goConsult').addEventListener('click', () => { const b = document.querySelector('.tabs button[data-tab="consult"]'); if (b) b.click(); });
+    $('d-goConsult').addEventListener('click', () => { location.hash = 'consult'; });
+    // 지표 카드 → 해당 탭으로 (보고 끝나는 대시보드가 아니라 행동으로 이어지게)
+    document.querySelectorAll('.stat-cell[data-go]').forEach(c => c.addEventListener('click', () => { location.hash = c.dataset.go; }));
     async function dashLoad() {
       const st = $('d-status'); st.textContent = '';
       const { data, error } = await supabase.rpc('admin_stats');
       if (error) {
-        setStatus(st, 'admin_stats 함수가 없습니다 — supabase_migration_R9_tasks.sql 실행 필요', 'error');
+        setStatus(st, '요약 지표를 아직 쓸 수 없어요 — 시스템 담당자에게 서버 설정(R9 admin_stats) 적용을 요청해주세요.', 'error');
       } else if (data) {
         $('d-matched').textContent = (data.students_matched ?? '?') + ' / ' + (data.students_total ?? '?');
         $('d-consult').textContent = data.consult_open ?? '?';
@@ -2107,7 +2329,7 @@
       let hp = '';
       try {
         const { data: sl } = await supabase.from('sync_log').select('created_at').order('created_at', { ascending: false }).limit(1);
-        if (sl && sl[0]) { const h = (Date.now() - new Date(sl[0].created_at).getTime()) / 3600000; hp += '🔄 마지막 동기화 ' + (h < 1 ? '방금' : Math.round(h) + '시간 전') + (h > 36 ? ' ⚠️멈춤?' : '') + ' '; }
+        if (sl && sl[0]) { const h = (Date.now() - new Date(sl[0].created_at).getTime()) / 3600000; hp += '🔄 마지막 동기화 ' + (h < 1 ? '방금' : Math.round(h) + '시간 전') + (h > 36 ? ' ⚠️ 36시간 이상 소식 없음 — 동기화 점검 필요' : '') + ' '; }
       } catch (_) {}
       try {
         const { data: pl } = await supabase.from('push_logs').select('sent_at').order('sent_at', { ascending: false }).limit(1);
@@ -2143,20 +2365,22 @@
       $('jp-add').disabled = true;
       const { error } = await supabase.from('job_postings').insert(row);
       $('jp-add').disabled = false;
-      if (error) { setStatus($('jp-status'), tblMissing(error.message) ? 'job_postings 테이블이 없어요 — sql/03_recruit.sql 실행 필요' : '오류: ' + error.message, 'error'); return; }
+      if (error) { setStatus($('jp-status'), tblMissing(error.message) ? '채용공고 기능이 아직 준비되지 않았어요 — 시스템 담당자에게 서버 설정(03 recruit) 적용을 요청해주세요.' : '오류: ' + error.message, 'error'); return; }
+      let pushFail = false;
       if ($('jp-push').checked) {
         try {
-          await supabase.from('notices').insert({
+          const { error: pe } = await supabase.from('notices').insert({
             title: '[채용] ' + company + (row.job_key ? ' — ' + row.job_key : ''),
             body: title + (row.deadline ? ' · 마감 ' + row.deadline : ' · 상시') + '. 앱 모집기업에서 확인하세요.',
             target_scope: 'custom', target_value: JSON.stringify({ targets: ['applicant'], jobs: [], companies: [], types: [], managers: [] }),
             published: true, created_by: null
           });
+          if (pe) throw pe;
           kickPush();
-        } catch (_) {}
+        } catch (_) { pushFail = true; }
       }
       logAction('공고발행', company + ' · ' + title);
-      setStatus($('jp-status'), $('jp-push').checked ? `✅ 공고 발행 + 지원자 알림 (${PUSH_ETA} 푸시).` : '✅ 공고가 발행됐어요.', 'ok');
+      setStatus($('jp-status'), pushFail ? '✅ 공고는 발행됐어요.' + PUSH_FAIL_MSG : ($('jp-push').checked ? `✅ 공고 발행 + 지원자 알림 (${PUSH_ETA} 푸시).` : '✅ 공고가 발행됐어요.'), pushFail ? 'error' : 'ok');
       ['jp-company', 'jp-title', 'jp-region', 'jp-intro', 'jp-perks', 'jp-deadline'].forEach(id => { $(id).value = ''; });
       rcLoad();
     });
@@ -2168,7 +2392,7 @@
         title, body, job_key: $('sc-job').value || null, company: $('sc-company').value.trim() || null, published: true
       });
       $('sc-add').disabled = false;
-      if (error) { setStatus($('sc-status'), tblMissing(error.message) ? 'success_cases 테이블이 없어요 — sql/03_recruit.sql 실행 필요' : '오류: ' + error.message, 'error'); return; }
+      if (error) { setStatus($('sc-status'), tblMissing(error.message) ? '선배 사례 기능이 아직 준비되지 않았어요 — 시스템 담당자에게 서버 설정(03 recruit) 적용을 요청해주세요.' : '오류: ' + error.message, 'error'); return; }
       logAction('사례등록', title);
       setStatus($('sc-status'), '✅ 사례가 공개됐어요.', 'ok');
       ['sc-title', 'sc-company', 'sc-body'].forEach(id => { $(id).value = ''; });
@@ -2182,7 +2406,7 @@
         audience: $('qa-aud').value, category: $('qa-cat').value.trim() || null, question: q, answer: a, source: 'manual', published: true
       });
       $('qa-add').disabled = false;
-      if (error) { setStatus($('qa-status'), tblMissing(error.message) ? 'qna_posts 테이블이 없어요 — sql/05_qna.sql 실행 필요' : '오류: ' + error.message, 'error'); return; }
+      if (error) { setStatus($('qa-status'), tblMissing(error.message) ? 'FAQ 기능이 아직 준비되지 않았어요 — 시스템 담당자에게 서버 설정(05 qna) 적용을 요청해주세요.' : '오류: ' + error.message, 'error'); return; }
       logAction('FAQ공개', q.slice(0, 30));
       setStatus($('qa-status'), '✅ 자주 묻는 질문에 공개됐어요.', 'ok');
       ['qa-cat', 'qa-q', 'qa-a'].forEach(id => { $(id).value = ''; });
@@ -2202,7 +2426,7 @@
         const h = document.createElement('p');
         h.style.cssText = 'margin:12px 0 4px;font-size:12px;font-weight:800;color:var(--text-muted)';
         h.textContent = label; el.appendChild(h);
-        if (res.error) { const p = document.createElement('p'); p.className = 'note'; p.textContent = tblMissing(res.error.message) ? '테이블 없음 — sql/ 마이그레이션 실행 필요' : '조회 오류'; el.appendChild(p); continue; }
+        if (res.error) { const p = document.createElement('p'); p.className = 'note'; p.textContent = tblMissing(res.error.message) ? '이 기능은 아직 준비되지 않았어요 — 시스템 담당자에게 서버 설정 적용을 요청해주세요.' : '목록을 불러오지 못했어요.'; el.appendChild(p); continue; }
         if (!(res.data || []).length) { const p = document.createElement('p'); p.className = 'note'; p.textContent = '없음'; el.appendChild(p); continue; }
         res.data.forEach(r => {
           const e = document.createElement('div'); e.textContent = fmt(r);
@@ -2211,7 +2435,11 @@
           row.innerHTML = `<div style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.innerHTML}${st}</div>`;
           const tg = document.createElement('button'); tg.textContent = r.published ? '내리기' : '올리기';
           tg.style.cssText = 'padding:4px 10px;font-size:12.5px;border:1px solid var(--line);border-radius:8px;background:var(--surface-card);cursor:pointer;white-space:nowrap';
-          tg.addEventListener('click', async () => { await supabase.from(table).update({ published: !r.published }).eq('id', r.id); rcLoad(); });
+          tg.addEventListener('click', async () => {
+            tg.disabled = true;
+            await updRow(table, { published: !r.published }, r.id, $('rc-status'));
+            rcLoad();
+          });
           row.appendChild(tg); el.appendChild(row);
         });
       }
@@ -2227,11 +2455,11 @@
       const c = ciMap[co] || {};
       $('ci-schedule').value = c.schedule || ''; $('ci-beacon').value = c.beacon || '';
       $('ci-commute').value = c.commute || ''; $('ci-extra').value = c.extra || '';
-      setStatus($('ci-status'), ciReady ? '' : 'sql/18_company_info.sql 실행 전이라 저장이 안 될 수 있어요.', ciReady ? 'info' : 'error');
-      $('ci-veil').style.display = 'flex';
+      setStatus($('ci-status'), ciReady ? '' : '서버 설정(18 company_info) 적용 전이라 저장이 안 될 수 있어요 — 시스템 담당자에게 요청해주세요.', ciReady ? 'info' : 'error');
+      openModal('ci-veil');
     }
-    $('ci-cancel').addEventListener('click', () => { $('ci-veil').style.display = 'none'; });
-    $('ci-veil').addEventListener('click', e => { if (e.target === $('ci-veil')) $('ci-veil').style.display = 'none'; });
+    $('ci-cancel').addEventListener('click', () => { closeModal('ci-veil'); });
+    $('ci-veil').addEventListener('click', e => { if (e.target === $('ci-veil')) closeModal('ci-veil'); });
     $('ci-save').addEventListener('click', async () => {
       if (!ciCompany) return;
       const row = {
@@ -2243,7 +2471,7 @@
       $('ci-save').disabled = true; setStatus($('ci-status'), '저장 중...', 'info');
       const { error } = await supabase.from('company_info').upsert(row);
       $('ci-save').disabled = false;
-      if (error) { setStatus($('ci-status'), tblMissing(error.message) ? 'sql/18_company_info.sql 실행이 필요해요.' : '오류: ' + (error.message || error), 'error'); return; }
+      if (error) { setStatus($('ci-status'), tblMissing(error.message) ? '기업 정보 저장 기능이 아직 준비되지 않았어요 — 시스템 담당자에게 서버 설정(18 company_info)을 요청해주세요.' : '오류: ' + (error.message || error), 'error'); return; }
       ciMap[ciCompany] = row; ciReady = true;
       logAction('기업정보저장', ciCompany);
       setStatus($('ci-status'), '✅ 저장했습니다 — 해당 기업의 내 학습기업 화면에 표시돼요.', 'ok');
@@ -2253,10 +2481,10 @@
       $('cn-title').textContent = co + ' — 기업 공지';
       $('cn-ntitle').value = ''; $('cn-body').value = '';
       setStatus($('cn-status'), '', 'info');
-      $('cn-veil').style.display = 'flex';
+      openModal('cn-veil');
     }
-    $('cn-cancel').addEventListener('click', () => { $('cn-veil').style.display = 'none'; });
-    $('cn-veil').addEventListener('click', e => { if (e.target === $('cn-veil')) $('cn-veil').style.display = 'none'; });
+    $('cn-cancel').addEventListener('click', () => { closeModal('cn-veil'); });
+    $('cn-veil').addEventListener('click', e => { if (e.target === $('cn-veil')) closeModal('cn-veil'); });
     $('cn-send').addEventListener('click', async () => {
       if (!cnCompany) return;
       const title = $('cn-ntitle').value.trim(), body = $('cn-body').value.trim();
@@ -2322,7 +2550,7 @@
     }
     function stRender() {
       const el = $('st-list');
-      if (!stagesReady) { el.innerHTML = '<p class="note">진행단계 테이블이 없어요 — sql/04_stages.sql 을 실행하면 켜집니다.' + (coCodesReady ? '' : ' (기업 코드는 sql/02_codes.sql)') + '</p>'; return; }
+      if (!stagesReady) { el.innerHTML = '<p class="note">진행단계 기능이 아직 준비되지 않았어요 — 시스템 담당자에게 서버 설정(04 stages) 적용을 요청해주세요.' + (coCodesReady ? '' : ' (기업 코드는 설정 02)') + '</p>'; return; }
       const STAGES = window.COMPANY_STAGES || [];
       const arrow = key => stSort.key === key ? (stSort.dir < 0 ? ' ▼' : ' ▲') : '';
       el.innerHTML = '<div class="mtbl-wrap"><table class="mtbl"><thead><tr>'
@@ -2331,7 +2559,13 @@
         + `<th data-k="mgr">담당직원${arrow('mgr')}</th>`
         + '<th class="nosort">안내 메모</th><th class="nosort">알림</th><th class="nosort">저장</th><th class="nosort">코드·정보·공지</th></tr></thead><tbody></tbody></table></div>';
       const stBody = el.querySelector('tbody');
-      el.querySelectorAll('th[data-k]').forEach(th => th.addEventListener('click', () => { const k = th.dataset.k; if (stSort.key === k) stSort.dir = -stSort.dir; else stSort = { key: k, dir: 1 }; stRender(); }));
+      el.querySelectorAll('th[data-k]').forEach(th => {
+        th.tabIndex = 0;   // 키보드로도 정렬 가능하게
+        th.setAttribute('aria-sort', stSort.key === th.dataset.k ? (stSort.dir < 0 ? 'descending' : 'ascending') : 'none');
+        const sort = () => { const k = th.dataset.k; if (stSort.key === k) stSort.dir = -stSort.dir; else stSort = { key: k, dir: 1 }; stRender(); };
+        th.addEventListener('click', sort);
+        th.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); sort(); } });
+      });
       const list = stFiltered();
       if (!list.length) { stBody.innerHTML = '<tr><td colspan="7" style="color:var(--text-muted)">기업이 없어요.</td></tr>'; return; }
       const mkTd = (...kids) => { const d = document.createElement('td'); kids.forEach(k => d.appendChild(k)); return d; };
@@ -2349,20 +2583,23 @@
         save.addEventListener('click', async () => {
           save.disabled = true;
           const { error } = await supabase.from('company_stages').upsert({ company: co, stage_key: sel.value, memo: memo.value.trim() || null, updated_at: new Date().toISOString() });
+          let pushFail = false;
           if (!error && ntf.querySelector('input').checked) {
             const label = (STAGES.find(s => s.key === sel.value) || {}).label || sel.value;
             try {
-              await supabase.from('notices').insert({
+              const { error: pe } = await supabase.from('notices').insert({
                 title: '[진행 안내] ' + label,
                 body: '「' + co + '」 진행단계가 \'' + label + '\'(으)로 업데이트됐어요.' + (memo.value.trim() ? ' — ' + memo.value.trim() : '') + ' 앱 홈에서 확인하세요.',
                 target_scope: 'custom', target_value: JSON.stringify({ targets: [], jobs: [], companies: [co], types: [], managers: [] }),
                 published: true, created_by: null
               });
+              if (pe) throw pe;
               kickPush();
-            } catch (_) {}
+            } catch (_) { pushFail = true; }
           }
           save.disabled = false;
-          setStatus($('st-status'), error ? '오류: ' + error.message : '✅ ' + co + ' 저장' + (ntf.querySelector('input').checked ? ' + 알림 발행' : ''), error ? 'error' : 'ok');
+          setStatus($('st-status'), error ? '오류: ' + error.message
+            : '✅ ' + co + ' 저장' + (pushFail ? '.' + PUSH_FAIL_MSG : (ntf.querySelector('input').checked ? ' + 알림 발행' : '')), (error || pushFail) ? 'error' : 'ok');
           if (!error) logAction('단계변경', co + ' → ' + sel.value);
         });
         const hrdInfo = stHrdMap[normCo(co)];
@@ -2435,10 +2672,21 @@
       const rd = new FileReader();
       rd.onload = () => {
         if (gen !== _bulkGen) return;         // 그 사이 타입/파일이 바뀜 → 이 결과 무시(엉뚱한 매핑 업로드 방지)
-        const grid = parseCSV(String(rd.result || '').replace(/^﻿/, ''));
+        // Excel '다른 이름으로 저장' 기본 CSV는 CP949 — UTF-8로 읽어 깨지면(U+FFFD) EUC-KR 재시도
+        const buf = rd.result;
+        let text = new TextDecoder('utf-8').decode(buf);
+        if (text.includes('�')) {
+          try { const alt = new TextDecoder('euc-kr').decode(buf); if (!alt.includes('�')) text = alt; } catch (_) {}
+        }
+        if (text.includes('�')) {   // 두 인코딩 모두 실패 — 깨진 이름이 그대로 명단에 들어가지 않게 차단
+          $('bulk-preview').innerHTML = '<span style="color:var(--coral-600)">한글이 깨져 읽혔어요 — Excel에서 <b>CSV UTF-8</b> 형식으로 다시 저장한 뒤 올려주세요.</span>';
+          $('bulk-upload').disabled = true; return;
+        }
+        const grid = parseCSV(text.replace(/^﻿/, ''));
         if (grid.length < 2) { $('bulk-preview').textContent = '데이터 행이 없어요(머리글 + 1행 이상).'; bulkRows = []; bulkType = ''; $('bulk-upload').disabled = true; return; }
         const hdr = grid[0].map(h => (h || '').trim());
-        const built = grid.slice(1).map(cells => {
+        const skipped = [];                    // 이름 없어 제외된 행 번호(머리글 제외, 1부터)
+        const built = grid.slice(1).map((cells, ri) => {
           const o = {};
           hdr.forEach((h, i) => {
             const col = map[h]; if (!col) return;
@@ -2446,14 +2694,24 @@
             if (col === 'job_keys') o[col] = v.split(/[;|]/).map(s => s.trim()).filter(Boolean);
             else o[col] = v;
           });
+          if (!o.name) skipped.push(o);   // 빈 줄 필터링으로 원본 행 번호가 어긋날 수 있어 개수만 안내
           return o;
         }).filter(o => o.name);
         bulkRows = built; bulkType = type;     // 파싱에 쓴 타입을 행과 함께 고정 → 업로드가 그 타입의 RPC 를 호출
         const unmapped = hdr.filter(h => h && !map[h]);
-        $('bulk-preview').innerHTML = '인식된 행 <b>' + bulkRows.length + '</b>개' + (unmapped.length ? ' · 무시된 열: ' + unmapped.join(', ') : '');
+        // 업로드 전 미리보기 — 열 매핑 결과를 눈으로 확인하고 올리게(첫 5행)
+        const KOR = { name: '이름', student_no: '학번', phone: '휴대폰', dept_key: '학과', company: type === 'student' ? '소속기업' : undefined, job_keys: '직무', type1: '유형', semester: '학기', manager: '담당', cohort: '기수', biz_no: '사업자번호', status: '상태', contact_name: '담당자명', contact_phone: '담당자연락처', contact_email: '담당자이메일' };
+        const cols = [...new Set(built.flatMap(o => Object.keys(o)))];
+        const head = cols.map(c => `<th style="padding:4px 8px;border:1px solid var(--gray-200);background:var(--surface-sunken);font-size:12px">${esc(KOR[c] || c)}</th>`).join('');
+        const body = built.slice(0, 5).map(o => '<tr>' + cols.map(c => `<td style="padding:4px 8px;border:1px solid var(--gray-200);font-size:12px">${esc(Array.isArray(o[c]) ? o[c].join('·') : (o[c] || ''))}</td>`).join('') + '</tr>').join('');
+        $('bulk-preview').innerHTML =
+          '인식된 행 <b>' + bulkRows.length + '</b>개' +
+          (skipped.length ? ` · <span style="color:var(--coral-600)">이름 값이 없어 ${skipped.length}행 제외됨 — 파일에서 이름 열을 확인하세요</span>` : '') +
+          (unmapped.length ? ' · 무시된 열: ' + esc(unmapped.join(', ')) : '') +
+          (built.length ? `<div style="overflow-x:auto;margin-top:6px"><table style="border-collapse:collapse">${'<tr>' + head + '</tr>'}${body}</table>${built.length > 5 ? '<p class="note" style="margin:4px 0 0">…외 ' + (built.length - 5) + '행</p>' : ''}</div>` : '');
         $('bulk-upload').disabled = bulkRows.length === 0;
       };
-      rd.readAsText(f, 'utf-8');
+      rd.readAsArrayBuffer(f);
     }
     $('bulk-type')?.addEventListener('change', bulkBuild);
     $('bulk-file')?.addEventListener('change', bulkBuild);
@@ -2471,11 +2729,12 @@
       const { data, error } = await supabase.rpc(fn, { p_rows: bulkRows });
       $('bulk-upload').disabled = false;
       if (error) {
-        const msg = /function|PGRST202|42883|schema cache/i.test(error.message || '') ? '서버 업데이트(sql/27·28) 적용 전이에요 — 센터로 문의.' : (error.message || error);
+        const msg = /function|PGRST202|42883|schema cache/i.test(error.message || '') ? '서버 업데이트(설정 27·28) 적용 전이에요 — 시스템 담당자에게 요청해주세요.' : (error.message || error);
         setStatus($('bulk-status'), '오류: ' + msg, 'error'); return;
       }
-      setStatus($('bulk-status'), '✅ ' + ((data && data.count) || 0) + '건 처리됐어요.', 'ok');
+      setStatus($('bulk-status'), '✅ ' + ((data && data.count) || 0) + '건 처리됐어요 — 가입자 탭에서 확인하세요.', 'ok');
       $('bulk-file').value = ''; bulkRows = []; $('bulk-preview').textContent = '';
+      regLoad();   // 방금 올린 명단이 가입자 탭에 바로 보이게(교차 탭 정합성)
     });
 
     // [②c] 학생 1명 수기 추가 + 즉시 코드발급 — bulk_upsert_student_roster([1])·issueCode 재사용(center 서버 주입).
@@ -2502,7 +2761,7 @@
       $('as-add').disabled = true; setStatus($('as-status'), '추가 중...', 'info');
       const { error: e1 } = await supabase.rpc('bulk_upsert_student_roster', { p_rows: [row] });
       if (e1) {
-        const m = /function|PGRST202|42883|schema cache/i.test(e1.message || '') ? '서버 업데이트(sql/28) 적용 전이에요.' : (e1.message || e1);
+        const m = /function|PGRST202|42883|schema cache/i.test(e1.message || '') ? '서버 업데이트(설정 28) 적용 전이에요 — 시스템 담당자에게 요청해주세요.' : (e1.message || e1);
         setStatus($('as-status'), '오류: ' + m, 'error'); $('as-add').disabled = false; return;
       }
       let codeMsg = '';
@@ -2510,6 +2769,7 @@
       $('as-add').disabled = false;
       setStatus($('as-status'), '✅ ' + name + ' 명단 추가됨' + codeMsg + ' (가입은 학생이 코드로)', 'ok');
       $('as-name').value = ''; $('as-no').value = ''; $('as-phone').value = ''; $('as-job').value = ''; $('as-company').value = ''; $('as-cohort').value = '';
+      regLoad();   // 가입자 탭에 바로 반영
     });
 
     // [②c] 기업 1명(곳) 수기 추가 + 즉시 코드발급 — bulk_upsert_companies([1])·issueCoCode 재사용(center 서버 주입).
@@ -2523,7 +2783,7 @@
       $('ac-add').disabled = true; setStatus($('ac-status'), '추가 중...', 'info');
       const { error: e1 } = await supabase.rpc('bulk_upsert_companies', { p_rows: [row] });
       if (e1) {
-        const m = /function|PGRST202|42883|schema cache/i.test(e1.message || '') ? '서버 업데이트(sql) 적용 전이에요.' : (e1.message || e1);
+        const m = /function|PGRST202|42883|schema cache/i.test(e1.message || '') ? '서버 업데이트 적용 전이에요 — 시스템 담당자에게 요청해주세요.' : (e1.message || e1);
         setStatus($('ac-status'), '오류: ' + m, 'error'); $('ac-add').disabled = false; return;
       }
       companies = null;   // loadCompanies 캐시 무효화 → 드롭다운·기업 탭에 즉시 반영
@@ -2532,6 +2792,7 @@
       $('ac-add').disabled = false;
       setStatus($('ac-status'), '✅ ' + name + ' 추가됨' + codeMsg + ' (담당자는 코드로 가입)', 'ok');
       $('ac-name').value = ''; $('ac-mgr').value = ''; $('ac-phone').value = ''; $('ac-email').value = '';
+      stLoad();   // 기업 관리 탭에 바로 반영
     });
 
     // [4단계] 역할 게이팅 — super 전용 '센터' 탭 가시성. (데이터 경계는 RLS(sql/21)가 강제; UI는 편의.)
@@ -2555,7 +2816,8 @@
         if (me && /relation|does not exist|PGRST205|42P01|schema cache/i.test(me.message || '')) {
           // 미적용 DB → 레거시 전체 콘솔(ADMIN_ROLE=null). 회귀 없음.
         } else if (!me && !m) {
-          // 로그인됐지만 어떤 센터의 관리자도 아님 → 권한 없음(패널 숨김).
+          // 로그인됐지만 어떤 센터의 관리자도 아님 → 권한 없음(패널 숨김). 해시 경유 탭 로더도 못 돌게 이메일 되돌림.
+          adminEmail = '';
           $('panel').style.display = 'none';
           if (_np) _np.style.display = 'block';
           if (_u) _u.style.display = 'none';
@@ -2567,6 +2829,9 @@
       applyRoleUI();
       await applyCenterVocab();   // [원장] 담당/유형/상태 등을 DB(centers.vocab)에서 먼저 배급 → 이후 모든 로더가 DB값 사용
       dashLoad(); initPickers().then(fillRecruitPickers); nLoad(); plLoad(); lLoad(); cLoad(); clLoad(); regLoad(); uvLoad(); rcLoad(); stLoad(); svEvLoadList(); poLoad(); populateAddStudentPickers();
+      // URL 해시의 탭 복원(새로고침·재로그인 후 작업 위치 유지) — 위에서 전체 로드했으니 중복 조회는 생략
+      const t = location.hash.slice(1);
+      if (t && TAB_KEYS.includes(t) && !(t === 'centers' && window.ADMIN_ROLE !== 'super_admin')) showTab(t, { noLoad: true });
     }
     $('loginBtn').addEventListener('click', async () => {
       const email = $('email').value.trim(), password = $('pw').value;
@@ -2591,6 +2856,7 @@
       $('cc-create').disabled = false;
       if (error) { setStatus($('cc-status'), '오류: ' + (error.message || error), 'error'); return; }
       setStatus($('cc-status'), '✅ 센터 개설됨 — 이제 관리자를 발급하세요.', 'ok');
+      $('cc-slug').value = ''; $('cc-name').value = ''; $('cc-region').value = '';
     });
     $('ga-grant')?.addEventListener('click', async () => {
       const email = $('ga-email').value.trim(), slug = $('ga-slug').value.trim(), role = $('ga-role').value;
@@ -2600,6 +2866,7 @@
       $('ga-grant').disabled = false;
       if (error) { setStatus($('ga-status'), '오류: ' + (error.message || error), 'error'); return; }
       setStatus($('ga-status'), '✅ 관리자 발급됨 (' + email + ' → ' + slug + ' / ' + role + ')', 'ok');
+      $('ga-email').value = ''; $('ga-slug').value = '';
     });
     refresh();
   </script>
