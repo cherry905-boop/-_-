@@ -14,8 +14,11 @@
     table.rep{width:100%;border-collapse:collapse;margin-top:10px}
     table.rep th,table.rep td{border:1px solid var(--gray-200);padding:7px 9px;font-size:14px;text-align:center}
     table.rep th{background:var(--surface-sunken);color:var(--blue-600)}
-    .adm-nav .adm-nav-item.on{background:var(--blue-600);color:#fff}
     .adm-2col{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start}
+    button.stat-cell{font:inherit;text-align:left;cursor:pointer}
+    button.stat-cell:hover{border-color:var(--accent)}
+    button.stat-cell:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
+    #sv-report{overflow-x:auto}
     @media(max-width:820px){.adm-2col{grid-template-columns:1fr}}
     @media print{ body *{visibility:hidden} #sv-report,#sv-report *{visibility:visible} #sv-report{position:absolute;left:0;top:0;width:100%} .adm-header,.adm-nav,.btn,.mju-btn{display:none!important} }
   </style>
@@ -61,7 +64,7 @@
   <div id="panel" style="display:none">
     <div class="adm-shell">
       <nav class="adm-nav tabs">
-        <button class="adm-nav-item on" data-tab="dash"><i data-lucide="layout-dashboard"></i>요약</button>
+        <button class="adm-nav-item act" data-tab="dash" aria-current="page"><i data-lucide="layout-dashboard"></i>요약</button>
         <div class="adm-nav-sep"></div>
         <button class="adm-nav-item" data-tab="notice"><i data-lucide="megaphone"></i>공지</button>
         <button class="adm-nav-item" data-tab="vote"><i data-lucide="vote"></i>투표</button>
@@ -83,10 +86,10 @@
       <div class="tabsec" id="sec-dash">
         <h2 class="adm-h2">운영 요약 <span class="hint" id="d-health"></span></h2>
         <div class="stat-row">
-          <div class="stat-cell"><div class="sk">학생 매칭</div><div class="sv" id="d-matched">–</div></div>
-          <div class="stat-cell"><div class="sk">미답변 상담</div><div class="sv" id="d-consult">–</div></div>
-          <div class="stat-cell warn"><div class="sk">마감 임박 (D-3 이내)</div><div class="sv" id="d-due3">–</div></div>
-          <div class="stat-cell"><div class="sk">오늘 발송</div><div class="sv" id="d-sent">–</div></div>
+          <button type="button" class="stat-cell" data-go="members" title="가입자 탭으로"><div class="sk">학생 매칭</div><div class="sv" id="d-matched">–</div></button>
+          <button type="button" class="stat-cell" data-go="consult" title="상담 탭으로"><div class="sk">미답변 상담</div><div class="sv" id="d-consult">–</div></button>
+          <button type="button" class="stat-cell warn" data-go="calendar" title="일정 탭으로"><div class="sk">마감 임박 (D-3 이내)</div><div class="sv" id="d-due3">–</div></button>
+          <button type="button" class="stat-cell" data-go="notice" title="공지 탭 발송 기록으로"><div class="sk">오늘 발송</div><div class="sv" id="d-sent">–</div></button>
         </div>
         <div class="card">
           <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px">
@@ -574,17 +577,21 @@
     const esc = s => { const e = document.createElement('div'); e.textContent = s || ''; return e.innerHTML; };
     const maskPhone = p => (p && p.length >= 7) ? (p.slice(0, 3) + '-****-' + p.slice(-4)) : (p || '');
     // 삭제 버튼 공통 (다 쓴 콘텐츠 정리용 — 복구 불가 확인 후 실행)
-    const DEL_CSS = 'padding:5px 12px;font-size:13px;border:1px solid var(--coral-500);color:var(--coral-600);border-radius:8px;background:var(--surface-card);cursor:pointer;white-space:nowrap';
     const delErr = e => {
       const m = (e && e.message) || String(e || '');
-      if (/permission|policy|denied|42501|row-level/i.test(m)) return '삭제 권한이 없어요 — sql/07_admin_tools.sql 실행 필요';
-      if (/foreign key|23503/i.test(m)) return '연결된 데이터가 있어 삭제하지 못했어요 — sql/07_admin_tools.sql(및 R15) 실행 여부를 확인하세요.';
+      if (/permission|policy|denied|42501|row-level/i.test(m)) return '삭제 권한이 아직 없어요 — 시스템 담당자에게 서버 설정(07 admin_tools) 적용을 요청해주세요.';
+      if (/foreign key|23503/i.test(m)) return '연결된 데이터가 있어 삭제하지 못했어요 — 시스템 담당자에게 서버 설정(07 admin_tools·R15) 확인을 요청해주세요.';
       return '오류: ' + m;
     };
-    function mkDelBtn(label, onDel) {
-      const b = document.createElement('button'); b.textContent = label || '삭제'; b.style.cssText = DEL_CSS;
+    // what: 확인 문구에 넣을 대상 이름(무엇을 지우는지 보이게)
+    function mkDelBtn(label, onDel, what) {
+      const b = document.createElement('button'); b.type = 'button';
+      b.textContent = label || '삭제';
+      b.className = 'mju-btn mju-btn--coral-outline mju-btn--sm';
+      b.style.whiteSpace = 'nowrap';
       b.addEventListener('click', async () => {
-        if (!confirm('정말 삭제할까요? 복구할 수 없습니다.')) return;
+        const name = (what || '').trim();
+        if (!confirm(name ? `'${name.length > 40 ? name.slice(0, 40) + '…' : name}'을(를) 삭제할까요? 복구할 수 없습니다.` : '정말 삭제할까요? 복구할 수 없습니다.')) return;
         b.disabled = true;
         try { await onDel(); } catch (e) { alert(delErr(e)); }
         b.disabled = false;
@@ -616,11 +623,93 @@
       try { await supabase.from('admin_logs').insert({ actor: adminEmail || null, action, detail: detail || null }); } catch (_) {}
     }
 
-    // 탭 전환
+    // 탭 전환 — location.hash 기록·복원(새로고침·뒤로가기·링크 공유에도 탭 유지) + 활성화 시 해당 탭 재조회
+    const TAB_KEYS = ['dash', 'notice', 'vote', 'library', 'calendar', 'consult', 'survey', 'members', 'onboard', 'recruit', 'stages', 'centers'];
+    // 탭별 로더 — 아침에 켜둔 콘솔이 로그인 시점 스냅샷에 고정되지 않게, 탭을 열 때마다 새로 조회
+    const TAB_LOAD = {
+      dash: () => dashLoad(),
+      notice: () => { nLoad(); plLoad(); },
+      vote: () => poLoad(),
+      library: () => lLoad(),
+      calendar: () => cLoad(),
+      consult: () => clLoad(),
+      survey: () => svEvLoadList(),
+      members: () => { regLoad(); uvLoad(); },
+      recruit: () => rcLoad(),
+      stages: () => stLoad(),
+    };
+    function showTab(tab, opts) {
+      if (!TAB_KEYS.includes(tab)) tab = 'dash';
+      document.querySelectorAll('.tabs button').forEach(x => {
+        const on = x.dataset.tab === tab;
+        x.classList.toggle('act', on);
+        if (on) x.setAttribute('aria-current', 'page'); else x.removeAttribute('aria-current');
+        if (on && x.scrollIntoView) x.scrollIntoView({ block: 'nearest', inline: 'nearest' });   // 모바일 가로 탭바에서 활성 탭 보이게
+      });
+      TAB_KEYS.forEach(t => { const el = $('sec-' + t); if (el) el.style.display = (t === tab ? 'block' : 'none'); });
+      if (adminEmail && !(opts && opts.noLoad) && TAB_LOAD[tab]) TAB_LOAD[tab]();   // 로그인 전에는 조회 안 함
+    }
     document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => {
-      document.querySelectorAll('.tabs button').forEach(x => x.classList.toggle('on', x === b));
-      ['dash', 'notice', 'vote', 'library', 'calendar', 'consult', 'survey', 'members', 'onboard', 'recruit', 'stages', 'centers'].forEach(t => { const el = $('sec-' + t); if (el) el.style.display = (t === b.dataset.tab ? 'block' : 'none'); });
+      if (location.hash !== '#' + b.dataset.tab) location.hash = b.dataset.tab;   // hashchange 가 showTab 호출
+      else showTab(b.dataset.tab);
     }));
+    window.addEventListener('hashchange', () => showTab(location.hash.slice(1)));
+
+    // 작성 중 이탈 가드 — 폼에 내용이 남아 있으면 새로고침·창 닫기 전에 확인(통째 유실 방지)
+    const DRAFT_IDS = ['n-title', 'n-body', 'po-q', 'po-desc', 'po-opts', 'l-title', 'l-url', 'c-title', 'c-memo',
+      'ev-title', 'ev-desc', 'jp-company', 'jp-title', 'jp-region', 'jp-intro', 'jp-perks', 'sc-title', 'sc-company', 'sc-body',
+      'qa-cat', 'qa-q', 'qa-a', 'qv-q', 'qv-a', 'pv-title', 'pv-body', 'cn-ntitle', 'cn-body', 'cl-reply',
+      'as-name', 'ac-name', 'gr-to', 'cc-slug', 'cc-name', 'ga-email'];
+    window.addEventListener('beforeunload', e => {
+      const dirty = DRAFT_IDS.some(id => { const el = $(id); return el && (el.value || '').trim(); })
+        || (typeof evQs !== 'undefined' && evQs.some(q => (q.label || '').trim()));
+      if (dirty) { e.preventDefault(); e.returnValue = ''; }
+    });
+
+    // 모달 공통 — 열릴 때 첫 컨트롤로 포커스, ESC 닫기, Tab 포커스 트랩, 닫으면 원래 자리로 복귀
+    let _mvLast = null;
+    function openModal(id) {
+      _mvLast = document.activeElement;
+      const v = $(id); v.style.display = 'flex';
+      const first = v.querySelector('input,select,textarea,button');
+      if (first) first.focus();
+    }
+    function closeModal(id) {
+      $(id).style.display = 'none';
+      if (_mvLast && _mvLast.focus) { try { _mvLast.focus(); } catch (_) {} }
+      _mvLast = null;
+    }
+    document.addEventListener('keydown', e => {
+      if (e.key !== 'Escape' && e.key !== 'Tab') return;
+      const v = [...document.querySelectorAll('.modal-veil')].find(x => x.style.display === 'flex');
+      if (!v) return;
+      if (e.key === 'Escape') { closeModal(v.id); return; }
+      const f = [...v.querySelectorAll('input,select,textarea,button')].filter(x => !x.disabled && x.offsetParent !== null);
+      if (!f.length) return;
+      const first = f[0], last = f[f.length - 1];
+      if (e.shiftKey && document.activeElement === first) { last.focus(); e.preventDefault(); }
+      else if (!e.shiftKey && document.activeElement === last) { first.focus(); e.preventDefault(); }
+    });
+
+    // 조회 실패를 '없음'(빈 상태)으로 위장하지 않기 — 에러는 재시도 버튼과 함께 표시
+    function loadFail(el, msg, retry) {
+      el.innerHTML = '';
+      const p = document.createElement('p'); p.className = 'note';
+      p.textContent = (msg || '목록을 불러오지 못했어요.') + ' ';
+      const b = document.createElement('button'); b.type = 'button';
+      b.className = 'mju-btn mju-btn--secondary mju-btn--sm'; b.textContent = '다시 시도';
+      b.addEventListener('click', retry);
+      p.appendChild(b); el.appendChild(p);
+    }
+
+    // 탭 배지 — 처리 대기 건수(.cnt 스타일은 styles.css). 0이면 제거.
+    function setTabCnt(tab, n) {
+      const b = document.querySelector(`.adm-nav-item[data-tab="${tab}"]`); if (!b) return;
+      let c = b.querySelector('.cnt');
+      if (!n) { if (c) c.remove(); return; }
+      if (!c) { c = document.createElement('span'); c.className = 'cnt'; b.appendChild(c); }
+      c.textContent = n;
+    }
 
     // ===== 받는 대상 상세 지정 (전체 / 상세 칩 조합 + 예상 대상 N명) =====
     // 마이그레이션 없이: notices=target_scope 'custom'+target_value JSON / library·calendar=job_key 'custom:'+JSON
@@ -935,7 +1024,7 @@
           if (error) throw error;
           if (!data || !data.length) throw new Error('row-level security');
           logAction('공지삭제', n.title); nLoad();
-        });
+        }, n.title);
         const btns = document.createElement('div'); btns.style.cssText = 'display:flex;gap:6px;flex-shrink:0';
         btns.appendChild(tg); btns.appendChild(del);
         row.appendChild(info); row.appendChild(btns); el.appendChild(row);
@@ -957,7 +1046,7 @@
           const { data: del, error: derr } = await supabase.from('push_logs').delete().eq('id', p.id).select('id');
           if (derr || !del || !del.length) throw new Error('발송기록 삭제 권한이 없어요 — sql/09_admin_extras.sql 실행 필요' + (derr ? ' (' + derr.message + ')' : ''));
           logAction('발송기록삭제', p.title); plLoad();
-        }));
+        }, '발송 기록: ' + (p.title || '')));
         el.appendChild(row);
       });
     }
@@ -1016,7 +1105,7 @@
           if (derr) throw derr;
           if (!del || !del.length) throw new Error('row-level security');
           logAction('투표삭제', p.question); poLoad();
-        }));
+        }, '투표: ' + (p.question || '')));
         box.appendChild(btns);
         el.appendChild(box);
       }
@@ -1127,7 +1216,7 @@
           const path = m ? decodeURIComponent(m[1].split('?')[0]) : (!/^https?:\/\//i.test(raw) ? raw : '');
           if (path) { try { await supabase.storage.from('library').remove([path]); } catch (_) {} }
           logAction('자료삭제', r.title); lLoad();
-        }));
+        }, '자료: ' + (r.title || '')));
         el.appendChild(row);
       });
     }
@@ -1176,7 +1265,7 @@
           if (error) throw error;
           if (!data || !data.length) throw new Error('row-level security');
           logAction('일정삭제', r.title); cLoad();
-        }));
+        }, '일정: ' + (r.title || '')));
         el.appendChild(row);
       });
     }
@@ -1920,7 +2009,7 @@
           if (derr) throw derr;
           if (!del || !del.length) throw new Error('row-level security');
           logAction('기업설문응답삭제', (r.company || '') + ' · ' + svSeg); svCoLoad();
-        }));
+        }, (r.company || '미지정') + ' 응답 1건'));
         raw.appendChild(row);
       });
     }
@@ -2022,7 +2111,7 @@
           if (derr) throw derr;
           if (!del || !del.length) throw new Error('row-level security');
           logAction('설문삭제', s.title); svEvLoadList();
-        }));
+        }, '설문: ' + (s.title || '') + (counts[s.id] ? ` (응답 ${counts[s.id]}건 포함)` : '')));
         row.appendChild(btns); list.appendChild(row);
       });
     }
@@ -2082,13 +2171,15 @@
           if (derr) throw derr;
           if (!del || !del.length) throw new Error('row-level security');
           logAction('설문응답삭제', def.title); svEventLoad();
-        }));
+        }, (r.job_key || '직무 미지정') + ' 응답 1건'));
         raw.appendChild(row);
       });
     }
 
     // ===== 운영 요약(대시보드) =====
-    $('d-goConsult').addEventListener('click', () => { const b = document.querySelector('.tabs button[data-tab="consult"]'); if (b) b.click(); });
+    $('d-goConsult').addEventListener('click', () => { location.hash = 'consult'; });
+    // 지표 카드 → 해당 탭으로 (보고 끝나는 대시보드가 아니라 행동으로 이어지게)
+    document.querySelectorAll('.stat-cell[data-go]').forEach(c => c.addEventListener('click', () => { location.hash = c.dataset.go; }));
     async function dashLoad() {
       const st = $('d-status'); st.textContent = '';
       const { data, error } = await supabase.rpc('admin_stats');
@@ -2567,6 +2658,9 @@
       applyRoleUI();
       await applyCenterVocab();   // [원장] 담당/유형/상태 등을 DB(centers.vocab)에서 먼저 배급 → 이후 모든 로더가 DB값 사용
       dashLoad(); initPickers().then(fillRecruitPickers); nLoad(); plLoad(); lLoad(); cLoad(); clLoad(); regLoad(); uvLoad(); rcLoad(); stLoad(); svEvLoadList(); poLoad(); populateAddStudentPickers();
+      // URL 해시의 탭 복원(새로고침·재로그인 후 작업 위치 유지) — 위에서 전체 로드했으니 중복 조회는 생략
+      const t = location.hash.slice(1);
+      if (t && TAB_KEYS.includes(t) && !(t === 'centers' && window.ADMIN_ROLE !== 'super_admin')) showTab(t, { noLoad: true });
     }
     $('loginBtn').addEventListener('click', async () => {
       const email = $('email').value.trim(), password = $('pw').value;
