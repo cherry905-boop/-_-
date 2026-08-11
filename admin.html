@@ -237,6 +237,29 @@
             <div id="c-list"></div>
           </div>
         </div>
+        <!-- [할 일 관리] tasks — 학생·기업 앱의 체크 가능한 항목 + 요약 탭 진행률의 원장 -->
+        <div class="adm-2col" style="margin-top:18px">
+          <div class="card">
+            <p class="ph-card-title">할 일 등록</p>
+            <p class="note" style="margin:0 0 6px">일정과 달리 <b>완료 체크</b>가 붙어요 — 학생·기업 앱 홈에 표시되고 요약 탭 '이달의 확인 업무' 진행률로 집계됩니다.</p>
+            <label for="tk-title">제목 <span class="req">*</span></label>
+            <input type="text" id="tk-title" placeholder="예: 9월분 출석결과확인 등록 (고용24)" />
+            <label for="tk-aud">대상</label>
+            <select id="tk-aud" class="ph-select"><option>매칭학생</option><option>기업</option><option>전체</option></select>
+            <label for="tk-due">마감일 (선택 — 비우면 '마감 미정')</label>
+            <input type="date" id="tk-due" />
+            <label for="tk-memo">메모 (선택)</label>
+            <input type="text" id="tk-memo" placeholder="예: 저장만으로는 안 돼요 — 등록 버튼까지" />
+            <label for="tk-link">링크 (선택)</label>
+            <input type="text" id="tk-link" placeholder="https:// 로 시작하는 안내 링크" />
+            <button class="mju-btn mju-btn--full" id="tk-add" style="margin-top:12px">할 일 등록</button>
+            <div class="status" id="tk-status"></div>
+          </div>
+          <div class="card">
+            <p class="ph-card-title">등록된 할 일</p>
+            <div id="tk-list"></div>
+          </div>
+        </div>
       </div>
 
       <!-- 상담 -->
@@ -673,7 +696,7 @@
       notice: () => { nLoad(); plLoad(); },
       vote: () => poLoad(),
       library: () => lLoad(),
-      calendar: () => cLoad(),
+      calendar: () => { cLoad(); tkLoad(); },
       consult: () => clLoad(),
       survey: () => { svEvLoadList(); svDispatch(); },   // [UX] 첫 진입도 빈 화면 없이 마지막 세그·학기 기준 자동 집계(세그 전환과 동일 동작)
       // 인라인 편집기(.le-save)가 열려 있으면 표 재조회를 건너뜀 — 탭 전환만으로 입력이 날아가지 않게
@@ -1193,6 +1216,72 @@
     $('n-q')?.addEventListener('input', debounce(nLoad, 300));
     $('l-q')?.addEventListener('input', debounce(lLoad, 300));
     $('c-q')?.addEventListener('input', debounce(cLoad, 300));
+
+    // ===== [할 일 관리] tasks 등록·목록 — 일정 탭. center_id는 sql/41 트리거가 주입(미적용 시 명시값 폴백) =====
+    async function tkLoad() {
+      const el = $('tk-list'); if (!el) return;
+      const { data, error } = await supabase.from('tasks')
+        .select('id,title,audience,due_date,memo,published')
+        .or('due_date.is.null,due_date.gte.' + ymdLocal(-60))
+        .order('due_date', { ascending: true, nullsFirst: false }).limit(50);
+      if (error) { el.innerHTML = '<p class="note">할 일 목록을 불러오지 못했어요.</p>'; return; }
+      if (!data || !data.length) { el.innerHTML = '<p class="note">등록된 할 일이 없어요 — 왼쪽에서 첫 할 일을 등록해보세요.</p>'; return; }
+      el.innerHTML = '';
+      data.forEach(t => {
+        const row = document.createElement('div');
+        row.style.cssText = 'padding:9px 0;border-bottom:1px solid var(--gray-100);display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap';
+        row.innerHTML = `<div style="min-width:0;flex:1"><b style="font-size:13.5px">${esc(t.title)}</b><br/><span class="note">${esc(t.audience || '전체')} · ${t.due_date || '마감 미정'}${t.memo ? ' · ' + esc(t.memo) : ''}${t.published ? '' : ' · <b>내려짐</b>'}</span></div>`;
+        const wrap = document.createElement('div'); wrap.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap';
+        const pb = document.createElement('button'); pb.type = 'button'; pb.className = 'phone-btn'; pb.textContent = t.published ? '내리기' : '발행';
+        pb.addEventListener('click', async () => {
+          const { error: e } = await supabase.from('tasks').update({ published: !t.published }).eq('id', t.id);
+          if (e) { alert('변경 실패: ' + (e.message || e)); return; }
+          logAction(t.published ? '할일내림' : '할일발행', t.title); tkLoad(); dashTasksLoad();
+        });
+        wrap.appendChild(pb);
+        if (t.due_date) {
+          const cp = document.createElement('button'); cp.type = 'button'; cp.className = 'phone-btn'; cp.textContent = '다음 달로 복사';
+          cp.addEventListener('click', async () => {
+            const d = new Date(t.due_date + 'T00:00:00'); d.setMonth(d.getMonth() + 1);
+            const nd = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+            const nt = t.title.replace(/(\d{1,2})월분/, m => (parseInt(m) % 12 + 1) + '월분');   // '9월분' → '10월분' (12월분 → 1월분)
+            const row2 = { title: nt, kind: '마감', audience: t.audience, due_date: nd, memo: t.memo, published: true };
+            if (window.ADMIN_CENTER_ID) row2.center_id = window.ADMIN_CENTER_ID;
+            const { error: e } = await supabase.from('tasks').insert(row2);
+            if (e) { alert('복사 실패: ' + (e.message || e)); return; }
+            logAction('할일복사', nt + ' (' + nd + ')'); tkLoad();
+          });
+          wrap.appendChild(cp);
+        }
+        wrap.appendChild(mkDelBtn('삭제', async () => {
+          const { data: del, error: e } = await supabase.from('tasks').delete().eq('id', t.id).select('id');
+          if (e) throw e; if (!del || !del.length) throw new Error('row-level security');
+          logAction('할일삭제', t.title); tkLoad(); dashTasksLoad();
+        }, '할 일: ' + (t.title || '') + ' — 완료 체크 기록도 함께 삭제됩니다'));
+        row.appendChild(wrap); el.appendChild(row);
+      });
+    }
+    $('tk-add')?.addEventListener('click', async () => {
+      const title = $('tk-title').value.trim(), aud = $('tk-aud').value, due = $('tk-due').value || null;
+      const memo = $('tk-memo').value.trim() || null; const link = $('tk-link').value.trim() || null;
+      if (!title) { setStatus($('tk-status'), '제목을 입력하세요.', 'error'); return; }
+      if (link && !/^https?:\/\//i.test(link)) { setStatus($('tk-status'), '링크는 https:// 로 시작해야 해요.', 'error'); return; }
+      let cid = window.ADMIN_CENTER_ID;
+      if (!cid) { try { const r = await supabase.rpc('center_id_for_slug', { p_slug: localStorage.getItem('ilhak_center') || 'mju' }); if (!r.error) cid = r.data; } catch (_) {} }
+      const row = { title, kind: '마감', audience: aud, due_date: due, memo, link, published: true };
+      if (cid) row.center_id = cid;
+      const { error } = await supabase.from('tasks').insert(row);
+      if (error) {
+        setStatus($('tk-status'), /row-level|permission|denied|42501|null value/i.test(error.message || '')
+          ? '할 일 등록 권한이 아직 없어요 — 시스템 담당자에게 서버 설정(sql/41) 적용을 요청해주세요.'
+          : '오류: ' + (error.message || error), 'error');
+        return;
+      }
+      logAction('할일등록', title + ' → ' + aud);
+      setStatus($('tk-status'), '✅ 등록했어요 — 대상 앱 홈과 요약 카드에 바로 표시됩니다.', 'ok');
+      $('tk-title').value = ''; $('tk-memo').value = ''; $('tk-link').value = ''; $('tk-due').value = '';
+      tkLoad(); dashTasksLoad();
+    });
 
     // ===== 발송 기록 =====
     async function plLoad() {
@@ -2538,25 +2627,26 @@
         .gte('due_date', ymdLocal(-7)).lte('due_date', ymdLocal(31))
         .order('due_date', { ascending: true }).limit(6);
       if (error) { list.innerHTML = '<p class="note">할 일 목록을 불러오지 못했어요.</p>'; return; }
-      const stu = (tasks || []).filter(t => t.audience !== '기업');
-      const coN = (tasks || []).length - stu.length;
-      if (!stu.length) {
-        list.innerHTML = '<p class="note">이번 달 확인할 할 일이 없어요 — 일정 탭에서 할 일을 등록하면 여기에 진행률이 표시됩니다.' + (coN ? ' (기업 대상 ' + coN + '건은 기업 단위 체크 적용 후 표시)' : '') + '</p>';
+      if (!(tasks || []).length) {
+        list.innerHTML = '<p class="note">이번 달 확인할 할 일이 없어요 — 일정 탭에서 할 일을 등록하면 여기에 진행률이 표시됩니다.</p>';
         return;
       }
       list.innerHTML = '';
-      for (const t of stu) {
+      for (const t of tasks) {
         const box = document.createElement('div');
         box.style.cssText = 'padding:10px 0;border-bottom:1px solid var(--gray-100)';
         const dd = t.due_date ? Math.round((new Date(t.due_date) - new Date(ymdLocal(0))) / 86400000) : null;
         const ddTxt = dd === null ? '' : dd < 0 ? `<span class="mju-badge mju-badge--coral">지남 D+${-dd}</span>` : dd === 0 ? '<span class="mju-badge mju-badge--coral">오늘 마감</span>' : `<span class="mju-badge ${dd <= 3 ? 'mju-badge--gold' : 'mju-badge--sky'}">D-${dd}</span>`;
-        box.innerHTML = `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b style="font-size:14px">${esc(t.title)}</b> ${ddTxt} <span class="note">${esc(t.due_date || '')}</span><span style="margin-left:auto" class="note tp-prog">집계 중…</span></div>`;
+        box.innerHTML = `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b style="font-size:14px">${esc(t.title)}</b> <span class="mju-badge mju-badge--neutral">${esc(t.audience || '전체')}</span> ${ddTxt} <span class="note">${esc(t.due_date || '')}</span><span style="margin-left:auto" class="note tp-prog">집계 중…</span></div>`;
         list.appendChild(box);
         try {
           const { data: p, error: pe } = await supabase.rpc('admin_task_progress', { p_task_id: t.id });
           const prog = box.querySelector('.tp-prog');
           if (pe) { prog.textContent = /function|does not exist|schema cache|PGRST202|42883/i.test(pe.message || '') ? '서버 설정(sql/40) 적용 후 표시돼요' : '집계 실패 — 새로고침해 보세요'; continue; }
-          if (!p || p.ok !== true) { prog.textContent = '집계 불가'; continue; }
+          if (!p || p.ok !== true) {
+            prog.textContent = (p && p.reason === 'company_audience') ? '기업 단위 집계는 서버 설정(sql/41) 적용 후 표시돼요' : '집계 불가';
+            continue;
+          }
           prog.textContent = '';
           const done = p.done || 0, total = p.total || 0;
           const pending = Array.isArray(p.pending_names) ? p.pending_names : [];
@@ -2566,21 +2656,31 @@
           bar.style.cssText = 'display:flex;align-items:center;gap:10px;margin-top:8px';
           bar.innerHTML = `<div style="flex:1;height:8px;border-radius:4px;background:var(--gray-200);overflow:hidden"><div style="width:${pct}%;height:100%;background:var(--success-500)"></div></div><b style="font-size:13px;white-space:nowrap">${done}/${total} 완료</b>`;
           box.appendChild(bar);
-          if (pending.length || unknown.length) {
-            const act = document.createElement('div');
-            act.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px';
-            if (pending.length) {
+          const act = document.createElement('div');
+          act.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px';
+          if (pending.length) {
+            if (!p.company) {
               const pb = document.createElement('button'); pb.type = 'button'; pb.className = 'mju-btn mju-btn--gold mju-btn--sm';
               pb.innerHTML = `<i data-lucide="send"></i> 미완료 ${pending.length}명 — 독촉 공지`;
               pb.addEventListener('click', () => tpNudge(t, pending));
               act.appendChild(pb);
-              const cp = document.createElement('button'); cp.type = 'button'; cp.className = 'phone-btn'; cp.textContent = '이름 복사';
-              cp.addEventListener('click', async () => { try { await navigator.clipboard.writeText(pending.join('\n')); cp.textContent = '복사됨'; setTimeout(() => { cp.textContent = '이름 복사'; }, 1200); } catch (_) {} });
-              act.appendChild(cp);
+            } else {
+              const lb = document.createElement('span'); lb.className = 'note'; lb.innerHTML = `<b>미완료 기업 ${pending.length}곳</b>`; act.appendChild(lb);
             }
-            if (unknown.length) { const u = document.createElement('span'); u.className = 'note'; u.textContent = `미가입 ${unknown.length}명 — 앱 설치 안내 필요`; act.appendChild(u); }
-            box.appendChild(act);
+            const cp = document.createElement('button'); cp.type = 'button'; cp.className = 'phone-btn'; cp.textContent = p.company ? '기업명 복사' : '이름 복사';
+            cp.addEventListener('click', async () => { try { await navigator.clipboard.writeText(pending.join('\n')); const o = cp.textContent; cp.textContent = '복사됨'; setTimeout(() => { cp.textContent = o; }, 1200); } catch (_) {} });
+            act.appendChild(cp);
           }
+          if (unknown.length && !p.company) { const u = document.createElement('span'); u.className = 'note'; u.textContent = `미가입 ${unknown.length}명 — 앱 설치 안내 필요`; act.appendChild(u); }
+          // [Step 6-lite] 마감 리마인드 — 자동 무인 발송 대신 '초안 프리필 + 사람 확인 후 발행' (오발송 방지 원칙)
+          const nb = document.createElement('button'); nb.type = 'button'; nb.className = 'phone-btn'; nb.textContent = '안내 공지 초안';
+          nb.addEventListener('click', () => {
+            $('n-title').value = '[마감 안내] ' + (t.title || '');
+            $('n-body').value = `'${t.title}' 마감일이 ${t.due_date || '(기한 확인)'} 입니다. 기한 내 처리 부탁드려요. 처리 후에는 앱 홈에서 완료 체크를 눌러주세요.`;
+            showTab('notice'); window.scrollTo({ top: 0 });
+          });
+          act.appendChild(nb);
+          box.appendChild(act);
           if (window.lucide) window.lucide.createIcons();
         } catch (_) { const prog = box.querySelector('.tp-prog'); if (prog) prog.textContent = '집계 실패'; }
       }
