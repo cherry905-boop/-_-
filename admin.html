@@ -141,6 +141,7 @@
             <div class="card">
               <div style="display:flex;align-items:center;gap:8px">
                 <p class="ph-card-title" style="margin:0;flex:1">발송 기록</p>
+                <button class="mju-btn mju-btn--secondary mju-btn--sm" id="pl-csv"><i data-lucide="download"></i> CSV</button>
                 <button class="mju-btn mju-btn--coral-outline mju-btn--sm" id="pl-clear"><i data-lucide="trash-2"></i> 기록 모두 지우기</button>
               </div>
               <p class="note">실제 푸시 발송 결과(대상·성공 인원).</p><div id="pl-list"></div>
@@ -264,6 +265,7 @@
           <select id="sv-sem" class="ph-select"></select>
           <div style="display:flex;gap:8px;margin-top:14px">
             <button class="mju-btn mju-btn--full" id="sv-refresh">새로고침</button>
+            <button class="mju-btn mju-btn--secondary mju-btn--full" id="sv-csv" style="margin-top:8px"><i data-lucide="download"></i> 응답 CSV 내보내기</button>
             <button class="mju-btn mju-btn--secondary mju-btn--full" id="sv-print"><i data-lucide="file-text"></i> PDF로 저장(인쇄)</button>
           </div>
         </div>
@@ -303,6 +305,7 @@
             <select id="rg-fsigned" aria-label="가입 여부 필터"><option value="">가입 전체</option></select>
             <select id="rg-fcohort" aria-label="기수 필터"><option value="">기수 전체</option></select>
             <button class="mju-btn mju-btn--secondary mju-btn--sm" id="rg-refresh"><i data-lucide="refresh-cw"></i> 새로고침</button>
+            <button class="mju-btn mju-btn--secondary mju-btn--sm" id="rg-csv" title="현재 필터 결과를 CSV로"><i data-lucide="download"></i> CSV</button>
           </div>
           <div class="selbar" id="rg-selbar" style="display:none">
             <b id="rg-selcount">선택 0명</b>
@@ -783,6 +786,14 @@
     const debounce = (fn, ms) => { let t; return () => { clearTimeout(t); t = setTimeout(fn, ms); }; };
     // ilike 리터럴 검색 — 제목에 흔한 %·_(할인, 파일명형 제목)가 와일드카드로 해석되지 않게
     const likeEsc = s => s.replace(/[\\%_*]/g, m => '\\' + m);
+    // [UX] CSV 내보내기 공통 — BOM(엑셀 한글 호환)은 템플릿 다운로드와 동일 방식. 화면에 있는 열만 내보내 PII 최소화.
+    const dlCsv = (name, header, rows) => {
+      const cell = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+      const csv = '﻿' + [header].concat(rows).map(r => r.map(cell).join(',')).join('\r\n');
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+      a.download = name + '_' + ymdLocal(0) + '.csv'; a.click();
+    };
     // 로컬(KST) 날짜 문자열 — toISOString()은 UTC라 자정~오전 9시에 하루 어긋남
     const ymdLocal = (offsetDays = 0) => {
       const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() + offsetDays);
@@ -1202,6 +1213,14 @@
         el.appendChild(row);
       });
     }
+    // [UX] 발송 기록 CSV — 화면(15건)보다 넓게 최근 500건
+    $('pl-csv')?.addEventListener('click', async () => {
+      const { data, error } = await supabase.from('push_logs').select('title,scope,target,recipient_count,success_count,sent_at').order('sent_at', { ascending: false }).limit(500);
+      if (error || !data || !data.length) { alert(error ? '발송 기록을 불러오지 못했어요.' : '내보낼 기록이 없어요.'); return; }
+      dlCsv('발송기록', ['제목', '대상', '대상수', '성공수', '발송시각'],
+        data.map(p => [p.title, fmtTarget(p.scope, p.target), p.recipient_count ?? '', p.success_count ?? '', new Date(p.sent_at).toLocaleString('ko-KR')]));
+      logAction('CSV내보내기', '발송기록 ' + data.length + '건');
+    });
     $('pl-clear').addEventListener('click', async () => {
       if (!confirm('발송 기록을 모두 지울까요? 복구할 수 없고, 요약 탭의 발송 헬스 표기가 초기화됩니다.')) return;
       $('pl-clear').disabled = true;
@@ -2000,6 +2019,19 @@
     const regRenderDebounced = debounce(regRender, 200);
     ['rg-search', 'rg-fmanager', 'rg-fjob', 'rg-ftype', 'rg-fstatus', 'rg-fsigned', 'rg-fcohort'].forEach(id => { const e = $(id); if (e) e.addEventListener('input', id === 'rg-search' ? regRenderDebounced : regRender); });
     $('rg-refresh').addEventListener('click', regLoad);
+    // [UX] 가입자 CSV — 현재 세그먼트·필터 결과 그대로. 연락처는 제외(PII 최소화), 초대코드 포함(배부용)
+    $('rg-csv')?.addEventListener('click', () => {
+      const rows = regFiltered();
+      if (!rows.length) { alert('내보낼 행이 없어요 — 필터를 확인해주세요.'); return; }
+      const isStu = regSeg === 'student';
+      const header = isStu ? ['이름', '담당직원', '직무', '기업', '유형', '기수', '상태', '초대코드']
+                           : ['이름', '기업', '역할', '담당직원', '상태', '앱가입'];
+      dlCsv(isStu ? '참여학생' : (regSeg === 'applicant' ? '지원자' : '기업담당자'), header,
+        rows.map(r => isStu
+          ? [r.name, r.manager, r.job_key, r.company, r.type1, r.cohort, r.status, (codeMap[(r.name || '') + '|' + (r.phone || '')] || {}).code || '']
+          : [r.name, r.company, r.role, r.manager, r.status, r.signed ? '가입' : '미가입']));
+      logAction('CSV내보내기', (isStu ? '참여학생' : regSeg) + ' ' + rows.length + '행');
+    });
     $('rg-clearsel').addEventListener('click', () => { regSel.clear(); regRender(); });
     // [정합성] 졸업 = 기수 일괄 이동(graduate_cohort RPC, 센터 스코프). 데이터 보존, 선택 시 status='수료'.
     $('gr-go')?.addEventListener('click', async () => {
@@ -2180,6 +2212,7 @@
       (svSeg === 'student' ? SV_SEMS : (window.COMPANY_SURVEY_ROUNDS || [])).forEach(v => { const o = document.createElement('option'); o.textContent = v; sel.appendChild(o); });
       $('sv-sem-label').textContent = svSeg === 'student' ? '학기' : '회차';
     }
+    let svLastRows = [], svLastKind = '';   // [UX] CSV 내보내기용 — 마지막 집계 원자료
     function svDispatch() { return svSeg === 'student' ? svLoad() : svSeg === 'event' ? svEventLoad() : svCoLoad(); }
     svSegRender(); svFillSem();
     // 보기 점수 환산 (config의 score 매핑, '해당없음' 등은 null=평균 제외)
@@ -2223,6 +2256,7 @@
       const { data, error } = await q.order('created_at', { ascending: false });
       if (error) { rep.innerHTML = tblMissing(error.message) ? featureOff('기업 설문(서버 설정 10 company_survey) · ' + (error.message || '')) : '<p class="note">오류: ' + esc(error.message) + '</p>'; raw.style.display = 'none'; return; }
       const rows = data || [];
+      svLastRows = rows; svLastKind = 'co';
       if (!rows.length) { rep.innerHTML = '<p class="note">응답이 없습니다.</p>'; raw.style.display = 'none'; return; }
       let html = `<h2 style="margin-bottom:4px">${esc(def.title)} 집계</h2>` +
         `<p class="note">${esc(round || '전체 회차')} · 응답 ${rows.length}건 · 출력 ${new Date().toLocaleDateString('ko-KR')}</p>`;
@@ -2268,6 +2302,7 @@
       const rep = $('sv-report');
       if (error) { rep.innerHTML = '<p class="note">오류: ' + esc(error.message) + '</p>'; return; }
       const rows = data || [];
+      svLastRows = rows; svLastKind = 'stu';
       if (!rows.length) { rep.innerHTML = '<p class="note">응답이 없습니다.</p>'; return; }
       const items = [['r_train', '훈련내용'], ['r_facility', '시설·환경'], ['r_teacher', '교·강사'], ['r_ops', '운영·소통'], ['r_overall', '전반']];
       const avg = (k) => { const v = rows.map(r => r[k]).filter(x => x != null); return v.length ? (v.reduce((a, b) => a + b, 0) / v.length).toFixed(2) : '-'; };
@@ -2285,6 +2320,14 @@
         (comments ? `<h2 style="margin:18px 0 6px;font-size:15px">개선 의견</h2><ul style="padding-left:18px;margin:0">${comments}</ul>` : '');
     }
     $('sv-refresh').addEventListener('click', svDispatch);
+    // [UX] 만족도 응답 CSV — 마지막으로 집계한 세그먼트의 원자료(보고서 재가공용)
+    $('sv-csv')?.addEventListener('click', () => {
+      if (!svLastRows.length) { alert('먼저 집계를 불러와주세요. (응답이 없으면 내보낼 것도 없어요)'); return; }
+      if (svLastKind === 'stu') dlCsv('학생만족도', ['학기', '직무', '훈련내용', '시설환경', '교강사', '운영소통', '전반', '의견'], svLastRows.map(r => [r.semester, r.job_key, r.r_train, r.r_facility, r.r_teacher, r.r_ops, r.r_overall, r.comment]));
+      else if (svLastKind === 'co') dlCsv('기업설문', ['회차', '기업', '응답(JSON)', '자유의견', '제출시각'], svLastRows.map(r => [r.round, r.company, JSON.stringify(r.answers || {}), r.comment, new Date(r.created_at).toLocaleString('ko-KR')]));
+      else dlCsv('행사설문', ['직무', '응답(JSON)', '의견', '제출시각'], svLastRows.map(r => [r.job_key, JSON.stringify(r.answers || {}), r.comment, new Date(r.created_at).toLocaleString('ko-KR')]));
+      logAction('CSV내보내기', '만족도(' + svLastKind + ') ' + svLastRows.length + '건');
+    });
     $('sv-sem').addEventListener('change', svDispatch);
     $('sv-print').addEventListener('click', () => window.print());
 
@@ -2411,6 +2454,7 @@
       const { data, error } = await supabase.from('survey_answers').select('id,answers,comment,job_key,created_at').eq('survey_id', id).order('created_at', { ascending: false });
       if (error) { rep.innerHTML = tblMissing(error.message) ? featureOff('행사 설문 집계(서버 설정 16 event_surveys) · ' + (error.message || '')) : '<p class="note">오류: ' + esc(error.message) + '</p>'; raw.style.display = 'none'; return; }
       const rows = data || [];
+      svLastRows = rows; svLastKind = 'event';
       if (!rows.length) { rep.innerHTML = '<p class="note">응답이 없습니다.</p>'; raw.style.display = 'none'; return; }
       let html = `<h2 style="margin-bottom:4px">${esc(def.title)} 집계</h2>` +
         `<p class="note">응답 ${rows.length}건 · 출력 ${new Date().toLocaleDateString('ko-KR')}</p>`;

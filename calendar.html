@@ -72,6 +72,8 @@
     const pad = n => String(n).padStart(2, '0');
     const now = new Date();
     const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+    const weekAgo = new Date(now); weekAgo.setDate(weekAgo.getDate() - 7);
+    const weekAgoStr = `${weekAgo.getFullYear()}-${pad(weekAgo.getMonth() + 1)}-${pad(weekAgo.getDate())}`;   // [TASKS v2 Q2] 지난 마감 노출 창
     let all = [], kindSel = '', daySel = '';
     let calY = now.getFullYear(), calM = now.getMonth();             // 표시 중인 달
     let loadedFrom = null;                                            // 가장 이른 조회 시작일
@@ -81,7 +83,7 @@
     function renderList() {
       const shown = all.filter(r =>
         (!kindSel || r.kind === kindSel) &&
-        (daySel ? r.event_date === daySel : r.event_date >= todayStr));
+        (daySel ? r.event_date === daySel : (r.event_date >= todayStr || (r.is_task && r.event_date >= weekAgoStr))));   // 지난 마감 할 일은 7일까지 노출(Q2)
       listEl.innerHTML = '';
       const em = document.getElementById('empty');
       if (!shown.length) {
@@ -93,15 +95,20 @@
       shown.forEach(r => {
         const dd = dday(r.event_date);
         const badgeCls = KIND_BADGE[r.kind] || 'mju-badge--neutral';
-        const ddClass = dd.label === '종료' ? 'dday muted' : (dd.color === '#c1121f' ? 'dday urgent' : 'dday');
+        // 지난 마감 할 일은 '종료' 대신 '지남 D+n' — 놓친 마감을 놓친 줄 알게(Q2)
+        const overdueTask = r.is_task && r.event_date < todayStr;
+        const ddLabel = overdueTask ? '지남 D+' + Math.round((new Date(todayStr + 'T00:00:00') - new Date(r.event_date + 'T00:00:00')) / 86400000) : dd.label;
+        const ddClass = overdueTask ? 'dday urgent' : (dd.label === '종료' ? 'dday muted' : (dd.color === '#c1121f' ? 'dday urgent' : 'dday'));
+        const safeLink = (r.link && /^https?:\/\//i.test(r.link)) ? r.link : null;
         const card = document.createElement('div');
         card.className = 'card';
         card.innerHTML =
           `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px">` +
           `<span class="mju-badge ${badgeCls}">${esc(r.kind)}</span>` +
-          `<span class="${ddClass}">${dd.label}</span></div>` +
+          `<span class="${ddClass}">${ddLabel}</span></div>` +
           `<p class="ph-card-title" style="margin:0 0 2px">${esc(r.title)}</p>` +
-          `<p class="notice-card-time" style="margin:2px 0 0">${fmtDate(r.event_date)}${r.memo ? ' · ' + esc(r.memo) : ''}</p>`;
+          `<p class="notice-card-time" style="margin:2px 0 0">${fmtDate(r.event_date)}${r.memo ? ' · ' + esc(r.memo) : ''}</p>` +
+          (safeLink ? `<a class="tlink" href="${encodeURI(safeLink)}" target="_blank" rel="noopener">바로가기 ↗</a>` : '');
         listEl.appendChild(card);
       });
       window.lucide?.createIcons();
@@ -188,6 +195,25 @@
           mine.forEach(r => { if (!seen.has(r.title + '|' + r.event_date)) all.push(r); });
         }
       }
+      // [TASKS v2 Step 4] 할 일(tasks) 병합 — 홈(index.html)과 동일 규칙(audience 가시성). 마감일 있는 것만(달력 특성상).
+      //   홈과 일정 화면의 목록 불일치 해소. 체크 버튼은 홈 전용(행동 화면 일원화).
+      try {
+        const aud = profile.target_type === 'company' ? ['기업', '전체'] : ['매칭학생', '전체'];
+        const { data: tasks, error: terr } = await supabase.from('tasks')
+          .select('title,kind,link,memo,due_date')
+          .in('audience', aud).eq('published', true).eq('center_id', cid).not('due_date', 'is', null)
+          .gte('due_date', fromStr)
+          .order('due_date', { ascending: true });
+        if (!terr && Array.isArray(tasks)) {
+          const seen = new Set(all.map(r => r.title + '|' + r.event_date));
+          tasks.forEach(t => {
+            if (!seen.has(t.title + '|' + t.due_date)) {
+              all.push({ title: t.title, event_date: t.due_date, kind: t.kind || '할 일', memo: t.memo, link: t.link, is_task: true });
+              seen.add(t.title + '|' + t.due_date);
+            }
+          });
+        }
+      } catch (_) {}
       all.sort((a, b) => (a.event_date < b.event_date ? -1 : a.event_date > b.event_date ? 1 : 0));
       loadedFrom = fromStr;
       return true;
