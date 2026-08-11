@@ -9,6 +9,12 @@
   <link rel="apple-touch-icon" href="./icons/icon-192.png" />
   <link rel="stylesheet" href="./styles.css" />
   <script src="./config.js"></script>
+  <style>
+    /* [TASKS v2] 홈 할 일 완료 체크 버튼 */
+    .task-chk{flex:none;font:inherit;font-size:12px;font-weight:700;padding:6px 10px;border-radius:8px;border:1.5px solid var(--blue-600);background:transparent;color:var(--blue-600);cursor:pointer;white-space:nowrap}
+    .task-chk.done{border-color:var(--success-500);color:var(--success-500);background:var(--success-50)}
+    .task-chk:disabled{opacity:.5;cursor:default}
+  </style>
 </head>
 <body>
   <!-- [2a] 센터 선택 — 활성 센터 2개 이상 + 미선택 시에만 표시(단일 센터면 안 뜸 = 현재 동작 그대로) -->
@@ -501,27 +507,41 @@
         } catch (_) {}
       }
       // 기존 '할 일'(tasks) 합치기 — 마감일 있으면 일정으로(달력 점+목록), 마감 미정은 목록에 '미정'으로.
-      //   audience(기업/매칭학생/전체)로 가시성 결정. overdue(지난 마감)는 제외(기존 동작 보존).
+      //   audience(기업/매칭학생/전체)로 가시성 결정. 지난 마감은 7일까지 '지남 D+n'으로 노출(놓친 마감 인지 — TASKS v2 Q2).
       let undated = [];
+      const weekAgo = new Date(now); weekAgo.setDate(weekAgo.getDate() - 7);
+      const weekAgoStr = `${weekAgo.getFullYear()}-${pad(weekAgo.getMonth() + 1)}-${pad(weekAgo.getDate())}`;
       try {
         const aud = prof.target_type === 'company' ? ['기업', '전체'] : ['매칭학생', '전체'];
         const { data: tasks, error: terr } = await supabase.from('tasks')
-          .select('title,kind,link,memo,due_date')
+          .select('id,title,kind,link,memo,due_date')
           .in('audience', aud).eq('published', true).eq('center_id', cid)
           .order('due_date', { ascending: true });
         if (!terr && Array.isArray(tasks)) {
           const seen = new Set(all.map(x => x.title + '|' + x.event_date));
           tasks.forEach(t => {
             if (t.due_date) {
-              if (t.due_date >= todayStr && !seen.has(t.title + '|' + t.due_date)) {
-                all.push({ title: t.title, event_date: t.due_date, kind: t.kind || '할 일', memo: t.memo, link: t.link });
+              if (t.due_date >= weekAgoStr && !seen.has(t.title + '|' + t.due_date)) {
+                all.push({ title: t.title, event_date: t.due_date, kind: t.kind || '할 일', memo: t.memo, link: t.link, task_id: t.id });
                 seen.add(t.title + '|' + t.due_date);
               }
-            } else undated.push(t);
+            } else undated.push({ title: t.title, memo: t.memo, link: t.link, task_id: t.id });
           });
         }
       } catch (_) {}
       all.sort((a, b) => (a.event_date < b.event_date ? -1 : a.event_date > b.event_date ? 1 : 0));
+      // [TASKS v2] 내 완료 체크 상태(my_task_checks, sql/40) — 미배포·무토큰·기업담당자면 체크 UI 없이 기존 표시(회귀 0)
+      let myChecks = new Set(), checksOn = false;
+      const chkIds = all.concat(undated).filter(r => r.task_id).map(r => r.task_id);
+      if (prof.token && prof.target_type !== 'company' && chkIds.length) {
+        try {
+          const r = await supabase.rpc('my_task_checks', { p_token: prof.token, p_task_ids: chkIds });
+          if (!r.error && Array.isArray(r.data)) {
+            r.data.forEach(x => { const v = typeof x === 'string' ? x : (x && (x.my_task_checks || x.task_id)); if (v) myChecks.add(v); });
+            checksOn = true;
+          }
+        } catch (_) {}
+      }
 
       const esc = (s) => { const e = document.createElement('div'); e.textContent = s || ''; return e.innerHTML; };
       const dday = (dateStr) => {
@@ -552,10 +572,23 @@
         const safeLink = (r.link && /^https?:\/\//i.test(r.link)) ? r.link : null;
         const link = safeLink ? `<a class="tlink" href="${encodeURI(safeLink)}" target="_blank" rel="noopener">바로가기 ↗</a>` : '';
         const sub = r.event_date ? fmtDate(r.event_date) : '마감 미정';
-        return `<div class="todo-item"><div style="flex:1"><div class="tt">${esc(r.title)}</div><div class="td">${sub}${r.memo ? ' · ' + esc(r.memo) : ''}</div>${link}</div>${badge}</div>`;
+        // [TASKS v2] 할 일 행에만 완료 체크 버튼 — 체크는 참고용 셀프 기록(공식 확정은 고용24)
+        const done = checksOn && r.task_id && myChecks.has(r.task_id);
+        const chk = (checksOn && r.task_id)
+          ? (done
+            ? `<button type="button" class="task-chk done" data-task="${r.task_id}" data-done="1" aria-label="완료 해제">✓ 완료</button>`
+            : `<button type="button" class="task-chk" data-task="${r.task_id}" aria-label="완료 체크">완료 체크</button>`)
+          : '';
+        return `<div class="todo-item"><div style="flex:1"><div class="tt"${done ? ' style="text-decoration:line-through;color:var(--text-muted)"' : ''}>${esc(r.title)}</div><div class="td">${sub}${r.memo ? ' · ' + esc(r.memo) : ''}</div>${link}</div>${chk}${badge}</div>`;
       };
-      const datedRows = all.filter(r => r.event_date >= todayStr).slice(0, 4)
-        .map(r => { const dd = dday(r.event_date); return rowHtml(r, `<span class="dday ${dd.cls}">${dd.label}</span>`); }).join('');
+      const datedRows = all.filter(r => r.event_date >= todayStr || (r.task_id && r.event_date >= weekAgoStr)).slice(0, 4)
+        .map(r => {
+          if (r.task_id && r.event_date < todayStr) {   // 놓친 마감 — 7일까지 노출(Q2)
+            const n = Math.round((new Date(todayStr + 'T00:00:00') - new Date(r.event_date + 'T00:00:00')) / 86400000);
+            return rowHtml(r, `<span class="dday urgent">지남 D+${n}</span>`);
+          }
+          const dd = dday(r.event_date); return rowHtml(r, `<span class="dday ${dd.cls}">${dd.label}</span>`);
+        }).join('');
       const undatedRows = undated.slice(0, 2).map(t => rowHtml(t, `<span class="dday muted">미정</span>`)).join('');
       const listHtml = (datedRows + undatedRows) || `<p class="note" style="margin:10px 0 0">예정된 일정이 없어요.</p>`;
 
@@ -569,6 +602,17 @@
           `<a href="./calendar.html" style="display:inline-flex;align-items:center;gap:4px;font-size:12.5px;font-weight:700;color:var(--link);margin-top:10px;text-decoration:none">전체 일정 보기 <i data-lucide="chevron-right" style="width:14px;height:14px"></i></a>` +
         `</div>`;
       window.lucide?.createIcons();
+      // [TASKS v2] 완료 체크·해제 — 처리 후 재렌더로 상태 동기화. 마감 지난 할 일은 해제 불가(서버 게이트, Q3)
+      if (checksOn) mount.querySelectorAll('.task-chk').forEach(b => b.addEventListener('click', async () => {
+        b.disabled = true;
+        try {
+          const { data: res, error } = await supabase.rpc(b.dataset.done === '1' ? 'uncheck_task' : 'complete_task', { p_task_id: b.dataset.task, p_token: prof.token });
+          if (error) throw error;
+          if (res && res.ok === false && res.reason === 'locked') alert('마감이 지난 할 일은 완료 해제할 수 없어요. 정정이 필요하면 센터에 문의해주세요.');
+          else if (res && res.ok === false) alert('처리하지 못했어요. 잠시 후 다시 시도해주세요.');
+        } catch (_) { alert('연결이 불안정해요. 잠시 후 다시 시도해주세요.'); }
+        renderSchedule(prof);
+      }));
     }
 
     // 기업 드롭다운만 노션 동기화(companies)에서 채움 (직무는 매칭학생 확인 후 '본인 직무'만 동적 노출)
