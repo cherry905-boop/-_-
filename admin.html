@@ -25,6 +25,9 @@
     #sv-report{overflow-x:auto}
     @media(max-width:820px){.adm-2col{grid-template-columns:1fr}}
     @media print{ body *{visibility:hidden} #sv-report,#sv-report *{visibility:visible} #sv-report{position:absolute;left:0;top:0;width:100%} .adm-header,.adm-nav,.btn,.mju-btn{display:none!important} }
+    /* [UX] 표 안 영구삭제 버튼을 복사·메일·수정과 시각 분리 — 오클릭 방지 */
+    .phone-btn.phone-btn--danger{color:var(--coral-600);background:transparent;border:1px solid var(--coral-300)}
+    .phone-btn.phone-btn--danger:hover{background:var(--coral-300)}
   </style>
 </head>
 <body class="adm">
@@ -93,6 +96,16 @@
           <button type="button" class="stat-cell" data-go="consult" title="상담 탭으로"><div class="sk">미답변 상담</div><div class="sv" id="d-consult">–</div></button>
           <button type="button" class="stat-cell warn" data-go="calendar" title="일정 탭으로"><div class="sk">마감 임박 일정 (D-3 이내)</div><div class="sv" id="d-due3">–</div></button>
           <button type="button" class="stat-cell" data-go="notice" title="공지 탭 발송 기록으로"><div class="sk">오늘 발송</div><div class="sv" id="d-sent">–</div></button>
+        </div>
+        <!-- [medium-1] 이달의 확인 업무 — 학생 앱 완료체크(sql/40) 진행률 + 미완료자 독촉 동선 -->
+        <div class="card" id="d-tasks-card">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px;flex-wrap:wrap">
+            <p class="ph-card-title" style="margin:0">이달의 확인 업무</p>
+            <span class="note">학생 앱 완료체크 기준 — 셀프체크라 참고용이에요</span>
+            <span style="margin-left:auto"><button class="mju-btn mju-btn--secondary mju-btn--sm" id="d-tp-refresh">새로고침</button></span>
+          </div>
+          <div class="status" id="d-tp-status"></div>
+          <div id="d-tp-list"><p class="note">불러오는 중...</p></div>
         </div>
         <div class="card">
           <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px">
@@ -205,6 +218,7 @@
             <input type="date" id="c-date" />
             <label for="c-kind">종류</label>
             <select id="c-kind" class="ph-select"><option>외부평가</option><option>마감</option><option>OT</option><option>특강</option><option>행사</option><option selected>기타</option></select>
+            <p class="note" style="margin:4px 0 0">요약 탭 'D-3 마감 임박' 카드에는 종류가 <b>마감</b>인 일정만 집계돼요.</p>
             <label>대상</label>
             <div id="c-tgt"></div>
             <label for="c-memo">메모 (선택)</label>
@@ -249,7 +263,7 @@
           <label id="sv-sem-label" for="sv-sem">학기</label>
           <select id="sv-sem" class="ph-select"></select>
           <div style="display:flex;gap:8px;margin-top:14px">
-            <button class="mju-btn mju-btn--full" id="sv-refresh">집계 보기</button>
+            <button class="mju-btn mju-btn--full" id="sv-refresh">새로고침</button>
             <button class="mju-btn mju-btn--secondary mju-btn--full" id="sv-print"><i data-lucide="file-text"></i> PDF로 저장(인쇄)</button>
           </div>
         </div>
@@ -270,7 +284,7 @@
           <div class="status" id="ev-status"></div>
         </div>
         <div class="card" id="sv-ev-list" style="display:none"></div>
-        <div class="card" id="sv-report"><p class="note">'집계 보기'를 눌러주세요.</p></div>
+        <div class="card" id="sv-report"><p class="note">집계를 불러오는 중...</p></div>
         <div class="card" id="sv-raw" style="display:none"></div>
       </div>
 
@@ -293,6 +307,7 @@
           <div class="selbar" id="rg-selbar" style="display:none">
             <b id="rg-selcount">선택 0명</b>
             <button class="mju-btn mju-btn--gold mju-btn--sm" id="rg-notify"><i data-lucide="send"></i> 개인 공지</button>
+            <button class="mju-btn mju-btn--secondary mju-btn--sm" id="rg-bissue"><i data-lucide="ticket"></i> 코드 일괄 발급</button>
             <button class="mju-btn mju-btn--secondary mju-btn--sm" id="rg-bcohort"><i data-lucide="users"></i> 기수 변경</button>
             <button class="mju-btn mju-btn--secondary mju-btn--sm" id="rg-bstatus"><i data-lucide="tag"></i> 상태 변경</button>
             <button class="mju-btn mju-btn--coral mju-btn--sm" id="rg-bdelete"><i data-lucide="trash-2"></i> 삭제</button>
@@ -657,7 +672,7 @@
       library: () => lLoad(),
       calendar: () => cLoad(),
       consult: () => clLoad(),
-      survey: () => svEvLoadList(),
+      survey: () => { svEvLoadList(); svDispatch(); },   // [UX] 첫 진입도 빈 화면 없이 마지막 세그·학기 기준 자동 집계(세그 전환과 동일 동작)
       // 인라인 편집기(.le-save)가 열려 있으면 표 재조회를 건너뜀 — 탭 전환만으로 입력이 날아가지 않게
       members: () => { if (!document.querySelector('#rg-table .le-save')) regLoad(); uvLoad(); },
       recruit: () => rcLoad(),
@@ -1039,8 +1054,11 @@
       const missed = Array.isArray(d.missed) ? d.missed : [];
       if (!hashes.length) { setStatus(statusEl2, '선택 인원 중 아무도 받을 수 없어요(미가입이거나 알림 미설정). 먼저 앱 가입·알림을 안내해주세요.', 'error'); return null; }
       if (missed.length) {
-        const names = missed.map(m => m.name).filter(Boolean).slice(0, 5).join(', ');
-        if (!confirm(`${missed.length}명은 아직 못 받아요(미가입/알림 꺼짐): ${names}${missed.length > 5 ? ' 외' : ''}\n나머지 ${hashes.length}명에게만 전달할까요?`)) return null;
+        const allNames = missed.map(m => m.name).filter(Boolean);
+        const names = allNames.slice(0, 5).join(', ');
+        if (!confirm(`${missed.length}명은 아직 못 받아요(미가입/알림 꺼짐): ${names}${missed.length > 5 ? ' 외' : ''}\n확인 시 못 받는 사람 이름 목록을 복사해드려요(메일·문자 재안내용).\n나머지 ${hashes.length}명에게만 전달할까요?`)) return null;
+        // 미도달자 '이름만' 클립보드 복사 — 지메일·문자 재안내(‼️)에 바로 붙여넣기. 연락처는 PII 최소화 원칙으로 제외.
+        try { await navigator.clipboard.writeText(allNames.join('\n')); setStatus(statusEl2, `전달 불가 ${missed.length}명 이름을 복사했어요 — 재안내에 붙여넣으세요.`, 'info'); } catch (_) {}
       }
       return hashes;
     }
@@ -1212,7 +1230,7 @@
       if (!poPicker) poPicker = buildPicker('po-tgt', '전체 공개', '가입자 모두', { noPeople: true });
       const el = $('po-list');
       const { data, error } = await supabase.from('polls').select('id,question,options,multi,results_public,open,close_at,created_at').order('created_at', { ascending: false });
-      if (error) { el.innerHTML = '<p class="note">' + (tblMissing(error.message) ? '투표 기능이 아직 준비되지 않았어요 — 시스템 담당자에게 서버 설정(17 polls) 적용을 요청해주세요.' : '오류: ' + esc(error.message)) + '</p>'; return; }
+      if (error) { el.innerHTML = tblMissing(error.message) ? featureOff('투표(서버 설정 17 polls) · ' + (error.message || '')) : '<p class="note">오류: ' + esc(error.message) + '</p>'; return; }
       const rows = data || [];
       el.innerHTML = rows.length ? '' : '<p class="note">아직 투표가 없어요.</p>';
       for (const p of rows) {
@@ -1710,6 +1728,7 @@
       const stuOnly = regSeg === 'student';
       if ($('rg-bcohort')) $('rg-bcohort').style.display = stuOnly ? '' : 'none';
       if ($('rg-notify')) $('rg-notify').style.display = stuOnly ? '' : 'none';
+      if ($('rg-bissue')) $('rg-bissue').style.display = stuOnly ? '' : 'none';
       $('rg-selcount').textContent = '선택 ' + n + '명';
     }
     // 학생 1명 코드 발급 (이미 있으면 기존 행 갱신 — 같은 학생에게 행이 쌓이지 않게)
@@ -1774,7 +1793,7 @@
           cb.querySelector('input').addEventListener('change', e => { e.target.checked ? regSel.add(r.id) : regSel.delete(r.id); tr.className = e.target.checked ? 'on' : ''; regSelBar(); });
           tr.appendChild(cb);
         }
-        const signed = r.signed ? '<span class="mju-badge mju-badge--success">가입</span>' : '<span class="note">미가입</span>';
+        const signed = r.signed ? '<span class="mju-badge mju-badge--success">가입</span>' : '<span class="mju-badge mju-badge--neutral">미가입</span>';
         const vals = isStu
           ? [esc(r.name || ''), esc(r.manager || '-'), esc(r.job_key || '-'), esc(r.company || '-'), esc(r.cohort || '-'), esc(r.status || '-'), signed]
           : regSeg === 'applicant'
@@ -1847,8 +1866,8 @@
           }
           // '명단 외' 행(노션 명단에 없는 가입 기록, id=registrations) — 삭제 가능
           if (!String(r.id).startsWith('cc:')) {
-            const db = document.createElement('button'); db.type = 'button'; db.className = 'phone-btn';
-            db.style.marginLeft = '6px'; db.title = '이 가입 기록 삭제';
+            const db = document.createElement('button'); db.type = 'button'; db.className = 'phone-btn phone-btn--danger';
+            db.style.marginLeft = '6px'; db.title = '이 가입 기록 삭제'; db.setAttribute('aria-label', '가입 기록 삭제');
             db.innerHTML = '<i data-lucide="trash-2"></i>';
             db.addEventListener('click', async () => {
               if (!confirm(`'${r.name || '(이름 없음)'} / ${r.company || '-'}' 가입 기록을 삭제할까요?\n앱 가입 행만 지워지고 노션 명단에는 영향이 없어요.`)) return;
@@ -1870,8 +1889,8 @@
             });
             tdc.appendChild(db);
           } else if (r.ccId) {
-            const db2 = document.createElement('button'); db2.type = 'button'; db2.className = 'phone-btn';
-            db2.style.marginLeft = '6px'; db2.title = '명단에서 이 담당자 삭제';
+            const db2 = document.createElement('button'); db2.type = 'button'; db2.className = 'phone-btn phone-btn--danger';
+            db2.style.marginLeft = '6px'; db2.title = '명단에서 이 담당자 삭제'; db2.setAttribute('aria-label', '담당자 명단에서 삭제');
             db2.innerHTML = '<i data-lucide="trash-2"></i>';
             db2.addEventListener('click', async () => {
               if (!confirm(`'${r.name || '(이름 없음)'} / ${r.company || '-'}' 기업담당자를 명단에서 삭제할까요?\n되돌릴 수 없어요(노션 동기화 시 재추가될 수 있음).`)) return;
@@ -1887,7 +1906,7 @@
         }
         if (regSeg === 'applicant') {
           const tdd = document.createElement('td');
-          const db = document.createElement('button'); db.type = 'button'; db.className = 'phone-btn'; db.title = '지원자 기록 삭제'; db.innerHTML = '<i data-lucide="trash-2"></i>';
+          const db = document.createElement('button'); db.type = 'button'; db.className = 'phone-btn phone-btn--danger'; db.title = '지원자 기록 삭제'; db.setAttribute('aria-label', '지원자 기록 삭제'); db.innerHTML = '<i data-lucide="trash-2"></i>';
           db.addEventListener('click', async () => {
             if (!confirm(`'${r.name || '(이름 없음)'}' 지원자 기록을 삭제할까요? 되돌릴 수 없어요.`)) return;
             db.disabled = true;
@@ -1949,8 +1968,8 @@
         });
         tdc.appendChild(editBtn);
         if (r.dbId) {
-          const sdel = document.createElement('button'); sdel.type = 'button'; sdel.className = 'phone-btn';
-          sdel.style.marginLeft = '4px'; sdel.title = '명단에서 학생 영구 삭제'; sdel.innerHTML = '<i data-lucide="trash-2"></i>';
+          const sdel = document.createElement('button'); sdel.type = 'button'; sdel.className = 'phone-btn phone-btn--danger';
+          sdel.style.marginLeft = '4px'; sdel.title = '명단에서 학생 영구 삭제'; sdel.setAttribute('aria-label', '학생 명단 영구 삭제'); sdel.innerHTML = '<i data-lucide="trash-2"></i>';
           sdel.addEventListener('click', async () => {
             if (!confirm(`'${r.name || '(이름 없음)'}' 학생을 명단에서 영구 삭제할까요?\n되돌릴 수 없어요. (초대코드·앱 가입과 별개로 명단 행이 삭제됩니다)`)) return;
             sdel.disabled = true;
@@ -1977,7 +1996,9 @@
       const all = $('rg-all'); if (all) all.addEventListener('change', e => { rows.forEach(r => e.target.checked ? regSel.add(r.id) : regSel.delete(r.id)); regRender(); });
       regSelBar();
     }
-    ['rg-search', 'rg-fmanager', 'rg-fjob', 'rg-ftype', 'rg-fstatus', 'rg-fsigned', 'rg-fcohort'].forEach(id => { const e = $(id); if (e) e.addEventListener('input', regRender); });
+    // 검색 입력만 디바운스(200ms) — 키 입력마다 표 전체 재생성 방지. 셀렉트류는 즉시 반영(1164행 목록 검색과 동일 패턴).
+    const regRenderDebounced = debounce(regRender, 200);
+    ['rg-search', 'rg-fmanager', 'rg-fjob', 'rg-ftype', 'rg-fstatus', 'rg-fsigned', 'rg-fcohort'].forEach(id => { const e = $(id); if (e) e.addEventListener('input', id === 'rg-search' ? regRenderDebounced : regRender); });
     $('rg-refresh').addEventListener('click', regLoad);
     $('rg-clearsel').addEventListener('click', () => { regSel.clear(); regRender(); });
     // [정합성] 졸업 = 기수 일괄 이동(graduate_cohort RPC, 센터 스코프). 데이터 보존, 선택 시 status='수료'.
@@ -2056,6 +2077,22 @@
       setStatus($('rg-status'), `✅ ${ok}명 상태 → ${st}`, 'ok'); regLoad();
     });
     // 선택한 사람에게 개인 공지(personal·비공개 수신자)
+    // [UX] 초대코드 일괄 발급 — 선택 인원 중 코드 없는 학생만 순차 발급 후 1회 재렌더 (새 기수 N명 = 클릭 N회 → 1회)
+    $('rg-bissue')?.addEventListener('click', async () => {
+      const targets = regCache.filter(r => regSel.has(r.id) && !(codeMap[(r.name || '') + '|' + (r.phone || '')] || {}).code);
+      if (!targets.length) { setStatus($('rg-status'), '선택 인원 모두 이미 초대코드가 있어요.', 'ok'); return; }
+      if (!confirm(`선택 ${regSel.size}명 중 코드가 없는 ${targets.length}명에게 초대코드를 발급할까요?`)) return;
+      const btn = $('rg-bissue'); btn.disabled = true;
+      let ok = 0, fail = 0;
+      for (const r of targets) {
+        try { await issueCode(r.name, r.phone || null); ok++; } catch (_) { fail++; }
+        setStatus($('rg-status'), `코드 발급 중… ${ok + fail}/${targets.length}`, 'info');
+      }
+      btn.disabled = false;
+      logAction('코드일괄발급', ok + '명');
+      setStatus($('rg-status'), fail ? `⚠️ ${ok}명 발급 완료, ${fail}명 실패 — 잠시 후 다시 시도해주세요.` : `✅ ${ok}명에게 초대코드를 발급했어요.`, fail ? 'error' : 'ok');
+      regRender();
+    });
     $('rg-notify').addEventListener('click', () => {
       if (!regSel.size) return;
       $('pv-n').textContent = regSel.size; $('pv-title').value = ''; $('pv-body').value = '';
@@ -2184,7 +2221,7 @@
       let q = supabase.from('company_survey_responses').select('id,round,company,answers,comment,created_at').eq('survey_key', svSeg);
       if (round) q = q.eq('round', round);
       const { data, error } = await q.order('created_at', { ascending: false });
-      if (error) { rep.innerHTML = '<p class="note">' + (tblMissing(error.message) ? '기업 설문 기능이 아직 준비되지 않았어요 — 시스템 담당자에게 서버 설정(10 company_survey) 적용을 요청해주세요.' : '오류: ' + esc(error.message)) + '</p>'; raw.style.display = 'none'; return; }
+      if (error) { rep.innerHTML = tblMissing(error.message) ? featureOff('기업 설문(서버 설정 10 company_survey) · ' + (error.message || '')) : '<p class="note">오류: ' + esc(error.message) + '</p>'; raw.style.display = 'none'; return; }
       const rows = data || [];
       if (!rows.length) { rep.innerHTML = '<p class="note">응답이 없습니다.</p>'; raw.style.display = 'none'; return; }
       let html = `<h2 style="margin-bottom:4px">${esc(def.title)} 집계</h2>` +
@@ -2208,7 +2245,8 @@
       rep.innerHTML = html;
       // 응답 원자료 (삭제용 — 인쇄에는 안 들어감)
       raw.style.display = 'block';
-      raw.innerHTML = '<p class="ph-card-title">응답 목록 (테스트 정리용)</p>';
+      // [UX] 정식 제출 응답 — '테스트 정리용' 오신호 제거, 기본 접힘으로 보고 흐름에서 삭제 버튼 숨김
+      raw.innerHTML = '<details><summary class="ph-card-title" style="cursor:pointer">응답 원자료 관리 <span class="note">— 정식 제출 응답입니다. 삭제하면 집계 수치가 바뀝니다</span></summary><div class="raw-list"></div></details>';
       rows.forEach(r => {
         const row = document.createElement('div'); row.style.cssText = 'padding:8px 0;border-bottom:1px solid var(--gray-100);display:flex;justify-content:space-between;gap:8px;align-items:center;font-size:13.5px';
         row.innerHTML = `<div style="min-width:0"><b>${esc(r.company || '(미지정)')}</b> <span class="note">${esc(r.round || '-')} · ${new Date(r.created_at).toLocaleString('ko-KR')}</span></div>`;
@@ -2217,8 +2255,8 @@
           if (derr) throw derr;
           if (!del || !del.length) throw new Error('row-level security');
           logAction('기업설문응답삭제', (r.company || '') + ' · ' + svSeg); svCoLoad();
-        }, (r.company || '미지정') + ' 응답 1건'));
-        raw.appendChild(row);
+        }, (r.company || '미지정') + ' 응답 1건 — 정식 응답이라 삭제하면 집계 수치가 바뀝니다'));
+        (raw.querySelector('.raw-list') || raw).appendChild(row);
       });
     }
     async function svLoad() {
@@ -2297,7 +2335,7 @@
       const { data, error } = await supabase.from('surveys').select('id,title,open,created_at,questions').order('created_at', { ascending: false });
       if (error) {
         evSurveys = []; svFillSem();
-        list.innerHTML = '<p class="note">' + (tblMissing(error.message) ? '행사 설문 기능이 아직 준비되지 않았어요 — 시스템 담당자에게 서버 설정(16 event_surveys) 적용을 요청해주세요.' : '오류: ' + esc(error.message)) + '</p>';
+        list.innerHTML = tblMissing(error.message) ? featureOff('행사 설문(서버 설정 16 event_surveys) · ' + (error.message || '')) : '<p class="note">오류: ' + esc(error.message) + '</p>';
         return;
       }
       evSurveys = data || []; svFillSem();
@@ -2371,7 +2409,7 @@
       const def = evSurveys.find(s => s.id === id);
       if (!def) { rep.innerHTML = '<p class="note">집계할 설문을 선택하세요. (행사 설문이 없으면 먼저 발행하세요)</p>'; raw.style.display = 'none'; return; }
       const { data, error } = await supabase.from('survey_answers').select('id,answers,comment,job_key,created_at').eq('survey_id', id).order('created_at', { ascending: false });
-      if (error) { rep.innerHTML = '<p class="note">' + (tblMissing(error.message) ? '행사 설문 기능이 아직 준비되지 않았어요 — 시스템 담당자에게 서버 설정(16 event_surveys) 적용을 요청해주세요.' : '오류: ' + esc(error.message)) + '</p>'; raw.style.display = 'none'; return; }
+      if (error) { rep.innerHTML = tblMissing(error.message) ? featureOff('행사 설문 집계(서버 설정 16 event_surveys) · ' + (error.message || '')) : '<p class="note">오류: ' + esc(error.message) + '</p>'; raw.style.display = 'none'; return; }
       const rows = data || [];
       if (!rows.length) { rep.innerHTML = '<p class="note">응답이 없습니다.</p>'; raw.style.display = 'none'; return; }
       let html = `<h2 style="margin-bottom:4px">${esc(def.title)} 집계</h2>` +
@@ -2385,7 +2423,8 @@
       if (comments) html += `<h2 style="margin:18px 0 6px;font-size:15px">의견</h2><ul style="padding-left:18px;margin:0">${comments}</ul>`;
       rep.innerHTML = html;
       raw.style.display = 'block';
-      raw.innerHTML = '<p class="ph-card-title">응답 목록 (테스트 정리용)</p>';
+      // [UX] 정식 제출 응답 — '테스트 정리용' 오신호 제거, 기본 접힘으로 보고 흐름에서 삭제 버튼 숨김
+      raw.innerHTML = '<details><summary class="ph-card-title" style="cursor:pointer">응답 원자료 관리 <span class="note">— 정식 제출 응답입니다. 삭제하면 집계 수치가 바뀝니다</span></summary><div class="raw-list"></div></details>';
       rows.forEach(r => {
         const row = document.createElement('div'); row.style.cssText = 'padding:8px 0;border-bottom:1px solid var(--gray-100);display:flex;justify-content:space-between;gap:8px;align-items:center;font-size:13.5px';
         row.innerHTML = `<div style="min-width:0"><b>${esc(r.job_key || '(직무 미지정)')}</b> <span class="note">${new Date(r.created_at).toLocaleString('ko-KR')}</span></div>`;
@@ -2394,8 +2433,8 @@
           if (derr) throw derr;
           if (!del || !del.length) throw new Error('row-level security');
           logAction('설문응답삭제', def.title); svEventLoad();
-        }, (r.job_key || '직무 미지정') + ' 응답 1건'));
-        raw.appendChild(row);
+        }, (r.job_key || '직무 미지정') + ' 응답 1건 — 정식 응답이라 삭제하면 집계 수치가 바뀝니다'));
+        (raw.querySelector('.raw-list') || raw).appendChild(row);
       });
     }
 
@@ -2438,10 +2477,106 @@
         const { data: lg } = await supabase.from('admin_logs').select('actor,action,detail,created_at').order('created_at', { ascending: false }).limit(8);
         $('d-logs').innerHTML = (lg && lg.length) ? lg.map(l => `<div style="padding:6px 0;border-bottom:1px solid var(--gray-100);font-size:13px"><b>${esc(l.action)}</b> ${esc(l.detail || '')} <span class="note">· ${new Date(l.created_at).toLocaleString('ko-KR')}</span></div>`).join('') : '<p class="note">기록 없음</p>';
       } catch (_) { $('d-logs').innerHTML = ''; }
+      dashTasksLoad();   // [medium-1] 이달의 확인 업무 — 지표와 분리해 비동기 로드(진행률 RPC가 느려도 요약 지표는 먼저 뜸)
     }
+
+    // ===== [medium-1] 이달의 확인 업무 — tasks 완료체크(sql/40 admin_task_progress) 진행률·미완료자 독촉 =====
+    // 동선: 진행률 바 → [미완료 N명 — 독촉 공지] → 가입자 regSel 프리필 → 기존 개인 공지 모달(pv) 재사용 → 사람이 확인 후 발송.
+    // 동명이인은 이름 매칭이 모호하므로 자동 선택에서 제외하고 안내만(오발송 방지 — 완전 자동화 금지 원칙).
+    async function dashTasksLoad() {
+      const list = $('d-tp-list');
+      if (!list) return;
+      list.innerHTML = '<p class="note">불러오는 중...</p>'; setStatus($('d-tp-status'), '', 'info');
+      // 창: 지난 7일(놓친 마감 포함) ~ 앞으로 31일, 마감 임박순 6건
+      const { data: tasks, error } = await supabase.from('tasks')
+        .select('id,title,kind,due_date,audience,published')
+        .eq('published', true)
+        .gte('due_date', ymdLocal(-7)).lte('due_date', ymdLocal(31))
+        .order('due_date', { ascending: true }).limit(6);
+      if (error) { list.innerHTML = '<p class="note">할 일 목록을 불러오지 못했어요.</p>'; return; }
+      const stu = (tasks || []).filter(t => t.audience !== '기업');
+      const coN = (tasks || []).length - stu.length;
+      if (!stu.length) {
+        list.innerHTML = '<p class="note">이번 달 확인할 할 일이 없어요 — 일정 탭에서 할 일을 등록하면 여기에 진행률이 표시됩니다.' + (coN ? ' (기업 대상 ' + coN + '건은 기업 단위 체크 적용 후 표시)' : '') + '</p>';
+        return;
+      }
+      list.innerHTML = '';
+      for (const t of stu) {
+        const box = document.createElement('div');
+        box.style.cssText = 'padding:10px 0;border-bottom:1px solid var(--gray-100)';
+        const dd = t.due_date ? Math.round((new Date(t.due_date) - new Date(ymdLocal(0))) / 86400000) : null;
+        const ddTxt = dd === null ? '' : dd < 0 ? `<span class="mju-badge mju-badge--coral">지남 D+${-dd}</span>` : dd === 0 ? '<span class="mju-badge mju-badge--coral">오늘 마감</span>' : `<span class="mju-badge ${dd <= 3 ? 'mju-badge--gold' : 'mju-badge--sky'}">D-${dd}</span>`;
+        box.innerHTML = `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b style="font-size:14px">${esc(t.title)}</b> ${ddTxt} <span class="note">${esc(t.due_date || '')}</span><span style="margin-left:auto" class="note tp-prog">집계 중…</span></div>`;
+        list.appendChild(box);
+        try {
+          const { data: p, error: pe } = await supabase.rpc('admin_task_progress', { p_task_id: t.id });
+          const prog = box.querySelector('.tp-prog');
+          if (pe) { prog.textContent = /function|does not exist|schema cache|PGRST202|42883/i.test(pe.message || '') ? '서버 설정(sql/40) 적용 후 표시돼요' : '집계 실패 — 새로고침해 보세요'; continue; }
+          if (!p || p.ok !== true) { prog.textContent = '집계 불가'; continue; }
+          prog.textContent = '';
+          const done = p.done || 0, total = p.total || 0;
+          const pending = Array.isArray(p.pending_names) ? p.pending_names : [];
+          const unknown = Array.isArray(p.unknown_names) ? p.unknown_names : [];
+          const pct = total ? Math.round(done / total * 100) : 0;
+          const bar = document.createElement('div');
+          bar.style.cssText = 'display:flex;align-items:center;gap:10px;margin-top:8px';
+          bar.innerHTML = `<div style="flex:1;height:8px;border-radius:4px;background:var(--gray-200);overflow:hidden"><div style="width:${pct}%;height:100%;background:var(--success-500)"></div></div><b style="font-size:13px;white-space:nowrap">${done}/${total} 완료</b>`;
+          box.appendChild(bar);
+          if (pending.length || unknown.length) {
+            const act = document.createElement('div');
+            act.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px';
+            if (pending.length) {
+              const pb = document.createElement('button'); pb.type = 'button'; pb.className = 'mju-btn mju-btn--gold mju-btn--sm';
+              pb.innerHTML = `<i data-lucide="send"></i> 미완료 ${pending.length}명 — 독촉 공지`;
+              pb.addEventListener('click', () => tpNudge(t, pending));
+              act.appendChild(pb);
+              const cp = document.createElement('button'); cp.type = 'button'; cp.className = 'phone-btn'; cp.textContent = '이름 복사';
+              cp.addEventListener('click', async () => { try { await navigator.clipboard.writeText(pending.join('\n')); cp.textContent = '복사됨'; setTimeout(() => { cp.textContent = '이름 복사'; }, 1200); } catch (_) {} });
+              act.appendChild(cp);
+            }
+            if (unknown.length) { const u = document.createElement('span'); u.className = 'note'; u.textContent = `미가입 ${unknown.length}명 — 앱 설치 안내 필요`; act.appendChild(u); }
+            box.appendChild(act);
+          }
+          if (window.lucide) window.lucide.createIcons();
+        } catch (_) { const prog = box.querySelector('.tp-prog'); if (prog) prog.textContent = '집계 실패'; }
+      }
+      if (coN) { const n = document.createElement('p'); n.className = 'note'; n.style.margin = '8px 0 0'; n.textContent = '기업 대상 할 일 ' + coN + '건은 기업 단위 체크(sql/41) 적용 후 여기에 표시됩니다.'; list.appendChild(n); }
+    }
+    // 미완료자 독촉 — regCache(가입자 명단)에서 이름 매칭 → regSel 프리필 → 기존 개인 공지 모달 재사용
+    function tpNudge(task, names) {
+      const pool = regCache.filter(r => (r.target_type || 'student') === 'student');
+      const picked = [], dup = [], miss = [];
+      names.forEach(nm => {
+        const hits = pool.filter(r => (r.name || '').trim() === String(nm).trim());
+        if (hits.length === 1) picked.push(hits[0].id);
+        else if (hits.length > 1) dup.push(nm);
+        else miss.push(nm);
+      });
+      if (!picked.length) { setStatus($('d-tp-status'), '가입자 명단에서 이름을 찾지 못했어요 — 가입자 탭에서 [새로고침] 후 다시 시도해주세요.', 'error'); return; }
+      regSel.clear(); picked.forEach(id => regSel.add(id));
+      let note = '';
+      if (dup.length) note += `동명이인 ${dup.length}명(${dup.slice(0, 3).join(', ')}${dup.length > 3 ? ' 외' : ''})은 자동 선택에서 제외했어요 — 가입자 탭에서 직접 선택하세요. `;
+      if (miss.length) note += `명단 미매칭 ${miss.length}명은 제외됐어요.`;
+      $('pv-title').value = '[확인 요청] ' + (task.title || '');
+      $('pv-body').value = `'${task.title}' 마감(${task.due_date || '기한 확인'})까지 완료 확인이 필요해요. 앱 홈에서 완료 체크를 눌러주세요. 이미 처리하셨다면 체크만 부탁드려요.`;
+      setStatus($('pv-status'), `미완료 ${picked.length}명 선택됨. ${note}`.trim(), note ? 'error' : 'info');
+      openModal('pv-veil');
+    }
+    $('d-tp-refresh')?.addEventListener('click', dashTasksLoad);
 
     // ===== 모집 콘텐츠 (공고·사례·QnA) =====
     const tblMissing = (m) => /relation|does not exist|schema cache/i.test(m || '');
+    // [UX] 기능 미준비(마이그레이션 미적용)는 '데이터 없음'과 구분되는 경고 알럿으로.
+    //      내부 코드·에러 원문은 화면에서 숨기고 [점검 요청 내용 복사]로만 전달(실무자는 붙여넣기만).
+    const featureOff = (detail) => {
+      const id = 'fo-' + Math.random().toString(36).slice(2, 8);
+      setTimeout(() => {
+        const b = document.getElementById(id);
+        if (b) b.addEventListener('click', async () => { try { await navigator.clipboard.writeText('[관리자 콘솔 점검 요청] ' + detail + ' · ' + new Date().toLocaleString('ko-KR')); b.textContent = '복사됨 — 담당자에게 붙여넣어 전달하세요'; } catch (_) {} });
+        if (window.lucide) window.lucide.createIcons();
+      }, 0);
+      return '<div class="mju-alert mju-alert--warning"><span class="mju-alert__icon"><i data-lucide="alert-triangle"></i></span><div class="mju-alert__body"><div class="mju-alert__title">이 기능은 아직 켜져 있지 않아요</div><div class="mju-alert__text">시스템 담당자에게 점검을 요청해주세요. <button type="button" class="mju-btn mju-btn--sm" id="' + id + '" style="margin-top:6px">점검 요청 내용 복사</button></div></div></div>';
+    };
     async function fillRecruitPickers() {
       const [js, cos] = [await loadJobs(), await loadCompanies()];
       ['jp-job', 'sc-job'].forEach(id => {
@@ -2699,6 +2834,13 @@
             : '✅ ' + co + ' 저장' + (pushFail ? '.' + PUSH_FAIL_MSG : (ntf.querySelector('input').checked ? ' + 알림 발행' : '')), (error || pushFail) ? 'error' : 'ok');
           if (!error) logAction('단계변경', co + ' → ' + sel.value);
         });
+        // [UX] 단계 변경 즉시 자동 저장(알림 발행은 제외) — 좁은 화면에서 [저장]이 가로 스크롤 뒤에 숨어 변경이 유실되는 사고 방지
+        sel.addEventListener('change', async () => {
+          const { error } = await supabase.from('company_stages').upsert({ company: co, stage_key: sel.value, memo: memo.value.trim() || null, updated_at: new Date().toISOString() });
+          if (error) { setStatus($('st-status'), '자동 저장 실패: ' + error.message + ' — [저장] 버튼으로 다시 시도해주세요.', 'error'); return; }
+          logAction('단계변경', co + ' → ' + sel.value);
+          setStatus($('st-status'), '✅ ' + co + ' 단계 자동 저장됨 (기업에 알림을 보내려면 [알림] 체크 후 [저장])', 'ok');
+        });
         const hrdInfo = stHrdMap[normCo(co)];
         const hrdTd = document.createElement('td');
         hrdTd.innerHTML = (hrdInfo && hrdInfo.mgr) ? esc(hrdInfo.mgr) : '<span class="note">-</span>';
@@ -2937,11 +3079,13 @@
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
         let hint = error.message;
-        if (/invalid login credentials/i.test(error.message)) hint = '이메일/비밀번호 또는 계정 "Auto Confirm" 여부를 확인하세요.';
+        if (/invalid login credentials/i.test(error.message)) hint = '이메일 또는 비밀번호가 맞지 않아요. 계속 안 되면 시스템 담당자에게 계정 확인을 요청하세요.';
         setStatus($('loginStatus'), '로그인 실패: ' + hint, 'error'); return;
       }
       refresh();
     });
+    // Enter로 로그인 — form 태그 없는 input+button 구조라 keydown을 직접 처리
+    ['email', 'pw'].forEach(id => $(id).addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); $('loginBtn').click(); } }));
     $('logout').addEventListener('click', async () => { await supabase.auth.signOut(); refresh(); });
     $('noperm-logout')?.addEventListener('click', async () => { await supabase.auth.signOut(); refresh(); });
     // [4단계] 센터 개설·관리자 발급 — 직접 INSERT 없이 RPC만(서버가 is_super_admin 가드).
