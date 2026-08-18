@@ -82,9 +82,8 @@
         <button class="adm-nav-item" data-tab="recruit"><i data-lucide="briefcase"></i>모집·FAQ</button>
         <div class="adm-nav-sep"></div>
         <button class="adm-nav-item" data-tab="members"><i data-lucide="users"></i>가입자</button>
-        <button class="adm-nav-item" data-tab="stages"><i data-lucide="building-2"></i>기업 관리</button>
+        <!-- (파일럿) '기업 관리'·'센터' 탭 숨김 — 복원 시 이 자리에 nav 버튼과 TAB_KEYS의 'stages','centers'를 되살리면 됨 -->
         <button class="adm-nav-item" data-tab="survey"><i data-lucide="clipboard-list"></i>만족도</button>
-        <button class="adm-nav-item" data-tab="centers" style="display:none"><i data-lucide="building-2"></i>센터</button>
       </nav>
 
       <main class="adm-main">
@@ -689,7 +688,7 @@
 
     // 탭 전환 — location.hash 기록·복원(새로고침·뒤로가기·링크 공유에도 탭 유지) + 활성화 시 해당 탭 재조회
     // ⚠️ 'onboard'는 단독 탭이 아니지만 제거 금지 — #onboard 해시 호환(showTab 재매핑)과 sec-onboard 끄기(display 루프)가 이 항목에 의존
-    const TAB_KEYS = ['dash', 'notice', 'vote', 'library', 'calendar', 'consult', 'survey', 'members', 'onboard', 'recruit', 'stages', 'centers'];
+    const TAB_KEYS = ['dash', 'notice', 'vote', 'library', 'calendar', 'consult', 'survey', 'members', 'onboard', 'recruit']; // (파일럿) 'stages','centers' 탭 제거 — 섹션·로직은 보존, 키만 빼서 진입 차단
     // 탭별 로더 — 아침에 켜둔 콘솔이 로그인 시점 스냅샷에 고정되지 않게, 탭을 열 때마다 새로 조회
     const TAB_LOAD = {
       dash: () => dashLoad(),
