@@ -96,6 +96,15 @@
           <button type="button" class="stat-cell warn" data-go="calendar" title="일정 탭으로"><div class="sk">마감 임박 일정 (D-3 이내)</div><div class="sv" id="d-due3">–</div></button>
           <button type="button" class="stat-cell" data-go="notice" title="공지 탭 발송 기록으로"><div class="sk">오늘 발송</div><div class="sv" id="d-sent">–</div></button>
         </div>
+        <!-- 노션 「OJT 월별 — 학생」 실적 → 앱 '내 출석 진도' 카드(sql/42) 반영 — 서버 함수 sync-attendance -->
+        <div class="card" id="d-attn-card">
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <p class="ph-card-title" style="margin:0">학생 출석진도 반영</p>
+            <span class="note">노션 학생월 DB의 예정·실적 시수를 앱 '내 출석 진도' 카드로 보내요 — 노션 입력 후 한 번씩</span>
+            <span style="margin-left:auto"><button class="mju-btn mju-btn--secondary mju-btn--sm" id="d-attn-sync">노션 출석진도 반영</button></span>
+          </div>
+          <p class="note" id="d-attn-status" style="margin:6px 0 0"></p>
+        </div>
         <!-- [medium-1] 이달의 확인 업무 — 학생 앱 완료체크(sql/40) 진행률 + 미완료자 독촉 동선 -->
         <div class="card" id="d-tasks-card">
           <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px;flex-wrap:wrap">
@@ -3176,6 +3185,36 @@
       $('ac-name').value = ''; $('ac-mgr').value = ''; $('ac-phone').value = ''; $('ac-email').value = '';
       stLoad();   // 기업 관리 탭에 바로 반영
     });
+
+    // ===== 노션 출석진도 반영 — 노션 「OJT 월별 — 학생」 → attendance_monthly(sql/42) =====
+    // 노션 토큰은 서버 함수(sync-attendance) secret 에만 있고, upsert 는 호출자 권한의 RPC 로 수행.
+    (() => {
+      const btn = $('d-attn-sync'); if (!btn) return;
+      btn.addEventListener('click', async () => {
+        const st = $('d-attn-status');
+        btn.disabled = true; st.textContent = '노션에서 불러와 반영하는 중…';
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!session) { st.textContent = '로그인이 필요해요.'; btn.disabled = false; return; }
+          const res = await fetch(window.APP_CONFIG.SUPABASE_URL + '/functions/v1/sync-attendance', {
+            method: 'POST',
+            headers: { Authorization: 'Bearer ' + session.access_token, apikey: window.APP_CONFIG.SUPABASE_ANON_KEY },
+          });
+          const out = await res.json().catch(() => ({}));
+          if (!res.ok || !out.ok) {
+            st.textContent = out.error === 'no_notion_token'
+              ? '서버에 NOTION_TOKEN 시크릿이 아직 없어요 — 함수 설정(sync-attendance)을 확인해주세요.'
+              : (String(out.error || '').includes('not_admin') ? '관리자 계정으로만 반영할 수 있어요.'
+                : '반영 실패: ' + (out.error || res.status));
+          } else {
+            st.textContent = '완료 — 노션 ' + out.notion_rows + '행 → 신규 ' + out.inserted + ' · 갱신 ' + out.updated
+              + (out.skipped ? ' · 건너뜀 ' + out.skipped : '') + ' (' + new Date().toLocaleTimeString('ko-KR') + ')';
+            try { logAction('출석진도 반영', '노션 ' + out.notion_rows + '행'); } catch (_) {}
+          }
+        } catch (e) { st.textContent = '반영 실패: ' + ((e && e.message) || e); }
+        btn.disabled = false;
+      });
+    })();
 
     // [4단계] 역할 게이팅 — super 전용 '센터' 탭 가시성. (데이터 경계는 RLS(sql/21)가 강제; UI는 편의.)
     function applyRoleUI() {
