@@ -1,7 +1,7 @@
 -- =====================================================================
 -- 43_beacon_reminder.sql — 매일 아침 진도 100% 미만 학생에게 '비콘 체크' 개인 알림
 -- 멱등. 전제: pg_cron·pg_net 확장, attendance_monthly(sql/42), 개인 공지 인프라(sql/07).
---  · 매일 08:30 KST(23:30 UTC) pg_cron 실행 → 이번 달 실적<예정 학생에게
+--  · 평일(월~금 KST) 08:30 pg_cron 실행 — UTC 일~목 23:30 → 이번 달 실적<예정 학생에게
 --    target_scope='personal' 공지 + notice_recipients(본인 수치 포함) 생성.
 --  · 어제 자동 알림은 삭제 후 재생성(공지함 누적 방지). created_by='auto:beacon' 태그.
 --  · 발송은 기존 푸시 발송기(pushed=false 스캔)가 처리, pg_net 으로 킥.
@@ -63,4 +63,4 @@ end $$;
 revoke all on function public.send_beacon_reminders() from public, anon, authenticated;
 
 select cron.unschedule(jobid) from cron.job where jobname = 'beacon-reminder-daily';
-select cron.schedule('beacon-reminder-daily', '30 23 * * *', $$select public.send_beacon_reminders()$$);
+select cron.schedule('beacon-reminder-daily', '30 23 * * 0-4', $$select public.send_beacon_reminders()$$);
