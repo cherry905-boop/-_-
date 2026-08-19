@@ -306,26 +306,10 @@ if ('serviceWorker' in navigator) {
     if (!document.querySelector('.ph-body')) return;
     if (document.querySelector('.tabbar')) return;
     const page = location.pathname.split('/').pop() || 'index.html';
-    // 지원자(매칭 전)와 모집 경로로 들어온 비가입 방문자는 모집 중심 탭, 학생·기업담당자는 운영 탭
-    // (모집 페이지 방문 시 세션에 진입 맥락을 기억해, 홈으로 이동해도 탭이 뒤바뀌지 않게)
+    // (학생 전용 전환) 지원자·모집 탭 폐지 — 가입된 학생 기기에만 운영 탭 표시
     const prof = getProfile();
-    const RECRUIT_PAGES = ['intro.html', 'companies.html', 'cases.html', 'faq.html', 'qna.html'];
-    let recruitEntry = false;
-    try {
-      if (prof.name) sessionStorage.removeItem('ilhak_entry');
-      else if (RECRUIT_PAGES.includes(page)) { sessionStorage.setItem('ilhak_entry', 'recruit'); recruitEntry = true; }
-      else recruitEntry = sessionStorage.getItem('ilhak_entry') === 'recruit';
-    } catch (_) {}
-    const isApplicant = prof.target_type === 'applicant' || (!prof.name && (RECRUIT_PAGES.includes(page) || recruitEntry));
-    // 미가입 기기(모집 맥락도 아님)에는 탭바를 숨김 — 가입 화면에서 운영 탭이 먼저 보이지 않게
-    if (!prof.name && !isApplicant) return;
-    const items = isApplicant ? [
-      ['index.html', 'home', '홈'],
-      ['companies.html', 'building', '모집기업'],
-      ['cases.html', 'sparkles', '사례'],
-      ['faq.html', 'circle-help', 'FAQ'],
-      ['intro.html', 'book-open', '제도소개'],
-    ] : [
+    if (!prof.name || prof.target_type === 'applicant') return;
+    const items = [
       ['index.html', 'home', '홈'],
       ['notice.html', 'megaphone', '공지'],
       ['library.html', 'folder', '자료'],

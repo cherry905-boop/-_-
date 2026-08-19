@@ -79,7 +79,7 @@
         <div class="adm-nav-sep"></div>
         <button class="adm-nav-item" data-tab="library"><i data-lucide="folder"></i>자료</button>
         <button class="adm-nav-item" data-tab="calendar"><i data-lucide="calendar-days"></i>일정</button>
-        <button class="adm-nav-item" data-tab="recruit"><i data-lucide="briefcase"></i>모집·FAQ</button>
+        <button class="adm-nav-item" data-tab="recruit"><i data-lucide="circle-help"></i>FAQ</button>
         <div class="adm-nav-sep"></div>
         <button class="adm-nav-item" data-tab="members"><i data-lucide="users"></i>가입자</button>
         <!-- (파일럿) '기업 관리'·'센터' 탭 숨김 — 복원 시 이 자리에 nav 버튼과 TAB_KEYS의 'stages','centers'를 되살리면 됨 -->
@@ -362,11 +362,11 @@
       <div class="tabsec" id="sec-onboard" style="display:none">
         <div class="card">
           <p class="ph-card-title">명단 일괄등록 (CSV)</p>
-          <p class="ph-note" style="margin-bottom:6px">학생/기업 명단을 CSV로 올려요. 첫 줄=머리글(예: 이름,학번,휴대폰…). center_id 는 서버가 자동으로 채워요.</p>
+          <p class="ph-note" style="margin-bottom:6px">학생 명단을 CSV로 올려요. 첫 줄=머리글(예: 이름,학번,휴대폰…). center_id 는 서버가 자동으로 채워요.</p>
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:6px">
+            <!-- (학생 전용 전환) 기업 명단 옵션 제거 — 복원 시 <option value="company">기업 명단</option> 되살리기 -->
             <select id="bulk-type" aria-label="명단 종류">
               <option value="student">학생 명단</option>
-              <option value="company">기업 명단</option>
             </select>
             <button class="mju-btn mju-btn--secondary mju-btn--sm" id="bulk-template" type="button">템플릿 받기</button>
             <input type="file" id="bulk-file" aria-label="CSV 파일 선택" accept=".csv,text/csv" />
@@ -391,7 +391,8 @@
           </div>
           <div class="status" id="as-status"></div>
         </div>
-        <div class="card">
+        <!-- (학생 전용 전환) 기업 추가 카드 숨김 — 기업담당자 가입 폐지. 복원 시 display 제거 -->
+        <div class="card" style="display:none">
           <p class="ph-card-title">기업 1개 추가 (단발 지정)</p>
           <p class="ph-note" style="margin-bottom:6px">학습기업이 새로 지정될 때 한 곳씩 추가하고 기업 초대코드를 바로 발급해요(HRD담당자 정보는 선택).</p>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -424,7 +425,8 @@
         <h2 class="adm-h2">모집 콘텐츠 <span class="hint">채용공고·선배사례·FAQ — 공개 페이지(모집기업/사례/자주 묻는 질문)에 노출됩니다</span></h2>
         <div class="adm-2col">
           <div style="display:flex;flex-direction:column;gap:18px">
-            <div class="card">
+            <!-- (학생 전용 전환) 모집 기능 폐지 — 채용공고·선배사례 카드 숨김. 복원 시 display 제거 -->
+            <div class="card" style="display:none">
               <p class="ph-card-title">채용공고 등록</p>
               <label for="jp-company">기업명 <span class="req">*</span></label>
               <input type="text" id="jp-company" list="co-datalist" placeholder="기업명 (목록에서 선택 또는 직접 입력)" />
@@ -445,7 +447,7 @@
               <button class="mju-btn mju-btn--full" id="jp-add" style="margin-top:12px">공고 발행</button>
               <div class="status" id="jp-status"></div>
             </div>
-            <div class="card">
+            <div class="card" style="display:none">
               <p class="ph-card-title">선배 사례 등록</p>
               <label for="sc-title">제목 <span class="req">*</span></label>
               <input type="text" id="sc-title" placeholder="예: 반도체장비 기구설계로 입사까지" />
@@ -2284,7 +2286,8 @@
     let evSurveys = [];                       // 행사 설문 목록 캐시 (sv-sem 선택지 공유)
     function svSegRender() {
       const seg = $('sv-seg'); seg.innerHTML = ''; seg.style.display = 'flex';
-      [['event', '행사 설문'], ['student', '학생 학기설문'], ['teacher', '기업현장교사'], ['hrd', 'HRD담당자']].forEach(([k, label]) => {
+      // (학생 전용 전환) 기업 설문 세그먼트 폐지 — 복원 시 ['teacher','기업현장교사'],['hrd','HRD담당자'] 되살리기
+      [['event', '행사 설문'], ['student', '학생 학기설문']].forEach(([k, label]) => {
         const b = document.createElement('button'); b.type = 'button';
         b.className = 'chip' + (svSeg === k ? ' on' : '');
         b.setAttribute('aria-pressed', svSeg === k ? 'true' : 'false');
