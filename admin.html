@@ -74,7 +74,6 @@
         <button class="adm-nav-item act" data-tab="dash" aria-current="page"><i data-lucide="layout-dashboard"></i>요약</button>
         <div class="adm-nav-sep"></div>
         <button class="adm-nav-item" data-tab="notice"><i data-lucide="megaphone"></i>공지</button>
-        <button class="adm-nav-item" data-tab="vote"><i data-lucide="vote"></i>투표</button>
         <button class="adm-nav-item" data-tab="consult"><i data-lucide="message-circle"></i>상담</button>
         <div class="adm-nav-sep"></div>
         <button class="adm-nav-item" data-tab="library"><i data-lucide="folder"></i>자료</button>
@@ -699,7 +698,7 @@
 
     // 탭 전환 — location.hash 기록·복원(새로고침·뒤로가기·링크 공유에도 탭 유지) + 활성화 시 해당 탭 재조회
     // ⚠️ 'onboard'는 단독 탭이 아니지만 제거 금지 — #onboard 해시 호환(showTab 재매핑)과 sec-onboard 끄기(display 루프)가 이 항목에 의존
-    const TAB_KEYS = ['dash', 'notice', 'vote', 'library', 'calendar', 'consult', 'survey', 'members', 'onboard', 'recruit']; // (파일럿) 'stages','centers' 탭 제거 — 섹션·로직은 보존, 키만 빼서 진입 차단
+    const TAB_KEYS = ['dash', 'notice', 'library', 'calendar', 'consult', 'survey', 'members', 'onboard', 'recruit']; // (파일럿) 'stages','centers','vote' 탭 제거 — 섹션·로직은 보존, 키만 빼서 진입 차단
     // 탭별 로더 — 아침에 켜둔 콘솔이 로그인 시점 스냅샷에 고정되지 않게, 탭을 열 때마다 새로 조회
     const TAB_LOAD = {
       dash: () => dashLoad(),
