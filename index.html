@@ -185,16 +185,18 @@
             <input type="text" id="dept" placeholder="예: 컴퓨터공학과" />
           </div>
 
-          <!-- 개인정보 동의 (대상에 따라 항목·보유기간이 바뀜) -->
+          <!-- 개인정보 동의 — 안내는 접힘(법정 고지 유지), 필수 동의 2건은 항상 노출 -->
           <div class="consent">
-            <b>개인정보 수집·이용 안내</b>
-            <ul style="margin:8px 0 10px;padding-left:16px">
-              <li id="c-items">수집 항목: 이름, 휴대폰 번호, 대상 구분 (+직무/기업/유형 등 선택 항목)</li>
-              <li id="c-purpose">이용 목적: 일학습병행 공지·자료·상담 등 운영 안내</li>
-              <li>보유 기간: <span id="c-retention">훈련 종료 후 3년</span></li>
-              <li>동의를 거부할 수 있으며, 거부 시 앱 가입이 제한됩니다.</li>
-            </ul>
-            <a href="./privacy.html" target="_blank">개인정보 처리방침 전문 보기</a>
+            <details>
+              <summary style="cursor:pointer;list-style-position:inside"><b>개인정보 수집·이용 안내</b> <span class="note">(눌러서 펼치기)</span></summary>
+              <ul style="margin:8px 0 10px;padding-left:16px">
+                <li id="c-items">수집 항목: 이름, 휴대폰 번호, 직무·소속기업 (초대코드로 명단에서 자동 확인)</li>
+                <li id="c-purpose">이용 목적: 일학습병행 공지·자료·상담 등 운영 안내</li>
+                <li>보유 기간: <span id="c-retention">훈련 종료 후 3년</span></li>
+                <li>동의를 거부할 수 있으며, 거부 시 앱 가입이 제한됩니다.</li>
+              </ul>
+              <a href="./privacy.html" target="_blank">개인정보 처리방침 전문 보기</a>
+            </details>
             <div class="row">
               <input type="checkbox" id="c1" />
               <label for="c1">(필수) 위 개인정보 수집·이용에 동의합니다.</label>
@@ -204,6 +206,7 @@
               <label for="c2">(필수) 데이터 보관을 위한 국외 이전(<span id="c-transfer">해외 클라우드</span>)에 동의합니다.</label>
             </div>
           </div>
+          <!-- ⚠️ 동의 2건·처리방침 링크는 개인정보보호법상 처리 근거 — 제거 금지 (2026-08-19 접힘 처리만 적용) -->
 
           <button class="btn" id="submit" type="submit">가입하기</button>
           <div class="status" id="status"></div>
@@ -742,7 +745,7 @@
         purpose.textContent = '이용 목적: 채용공고·일학습병행 모집 안내 알림 발송';
         ret.textContent = cfg.PRIVACY_RETENTION_APPLICANT || '해당 학년도 모집 종료 후 6개월';
       } else {
-        items.textContent = '수집 항목: 이름, 휴대폰 번호, 대상 구분 (+직무/기업/유형 등 선택 항목)';
+        items.textContent = '수집 항목: 이름, 휴대폰 번호, 직무·소속기업 (초대코드로 명단에서 자동 확인)';
         purpose.textContent = '이용 목적: 일학습병행 공지·자료·상담 등 운영 안내';
         ret.textContent = cfg.PRIVACY_RETENTION || '훈련 종료 후 3년';
       }
