@@ -3143,9 +3143,11 @@
     $('as-add')?.addEventListener('click', async () => {
       const name = $('as-name').value.trim();
       if (!name) { setStatus($('as-status'), '이름을 입력하세요.', 'error'); return; }
-      const row = { name };
+      // 휴대폰 필수 — 코드 가입이 '이름+휴대폰' 명단 대조라, 폰 없이 추가하면 코드가 있어도 가입이 막힘 (2026-08-19 실사고)
+      const ph = $('as-phone').value.trim();
+      if (ph.replace(/\D/g, '').length < 10) { setStatus($('as-status'), '휴대폰 번호를 입력하세요 (없으면 학생이 코드로 가입할 수 없어요).', 'error'); return; }
+      const row = { name, phone: ph };
       const no = $('as-no').value.trim(); if (no) row.student_no = no;
-      const ph = $('as-phone').value.trim(); if (ph) row.phone = ph;
       const job = $('as-job').value; if (job) row.job_keys = [job];
       const co = $('as-company').value; if (co) row.company = co;
       const coh = $('as-cohort').value.trim(); if (coh) row.cohort = coh;
