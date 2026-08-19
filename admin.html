@@ -466,7 +466,7 @@
               <p class="ph-card-title">FAQ 등록 (직접 작성)</p>
               <p class="note">상담 탭에서 '사례로 공개'를 눌러도 여기로 들어옵니다. 식별 정보는 꼭 지워주세요.</p>
               <label for="qa-aud">대상</label>
-              <select id="qa-aud" class="ph-select"><option value="all">전체</option><option value="applicant">지원자</option><option value="student">학생</option><option value="company">기업담당자</option></select>
+              <select id="qa-aud" class="ph-select"><option value="all">전체</option><option value="student">학생</option></select>
               <label for="qa-cat">카테고리</label>
               <input type="text" id="qa-cat" placeholder="예: 지원·면접 / 가입·알림 / 서류·마감 / 수당" />
               <label for="qa-q">질문 <span class="req">*</span></label>
@@ -549,7 +549,7 @@
         <h3 id="qv-h">FAQ 사례로 공개</h3>
         <p style="margin:0 0 10px">이름·기업명 등 <b>식별 정보를 지우고(익명화)</b> 공개하세요. 공개 후에도 모집 탭에서 내릴 수 있어요.</p>
         <label style="font-size:13px;font-weight:700" for="qv-aud">대상</label>
-        <select id="qv-aud" class="ph-select" style="margin:4px 0 10px"><option value="all">전체</option><option value="applicant">지원자</option><option value="student">학생</option><option value="company">기업담당자</option></select>
+        <select id="qv-aud" class="ph-select" style="margin:4px 0 10px"><option value="all">전체</option><option value="student">학생</option></select>
         <label style="font-size:13px;font-weight:700" for="qv-cat">카테고리</label>
         <input type="text" id="qv-cat" placeholder="예: 지원·면접 / 수당 / 서류·마감" style="width:100%;margin:4px 0 10px;padding:10px 12px;border:1px solid var(--line);border-radius:9px" />
         <label style="font-size:13px;font-weight:700" for="qv-q">질문 (익명화)</label>
@@ -2799,12 +2799,10 @@
       ['qa-cat', 'qa-q', 'qa-a'].forEach(id => { $(id).value = ''; });
       rcLoad();
     });
-    // 등록된 콘텐츠 목록 — 공고/사례/QnA 묶어서 + 내리기 토글
+    // 등록된 콘텐츠 목록 — (학생 전용 전환) FAQ만. 복원 시 채용공고·선배 사례 항목 되살리기
     async function rcLoad() {
       const el = $('rc-list'); el.innerHTML = '';
       const groups = [
-        ['채용공고', 'job_postings', r => `${r.company} — ${r.title}`, 'jp'],
-        ['선배 사례', 'success_cases', r => r.title, 'sc'],
         ['FAQ', 'qna_posts', r => r.question, 'qa'],
       ];
       for (const [label, table, fmt] of groups) {
