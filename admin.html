@@ -81,6 +81,7 @@
         <button class="adm-nav-item" data-tab="recruit"><i data-lucide="circle-help"></i>FAQ</button>
         <div class="adm-nav-sep"></div>
         <button class="adm-nav-item" data-tab="members"><i data-lucide="users"></i>가입자</button>
+        <button class="adm-nav-item" data-tab="attn"><i data-lucide="gauge"></i>진도</button>
         <!-- (파일럿) '기업 관리'·'센터' 탭 숨김 — 복원 시 이 자리에 nav 버튼과 TAB_KEYS의 'stages','centers'를 되살리면 됨 -->
         <button class="adm-nav-item" data-tab="survey"><i data-lucide="clipboard-list"></i>만족도</button>
       </nav>
@@ -158,6 +159,19 @@
       </div>
 
       <!-- 투표 (공지에서 분리) -->
+      <!-- 진도 탭 — 학생별 월 출석 진행 현황 (attendance_monthly, sql/42) -->
+      <div class="tabsec" id="sec-attn" style="display:none">
+        <div class="card">
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <p class="ph-card-title" style="margin:0">학생 출석 진도</p>
+            <span class="note">노션 실적 기준 — 갱신은 요약 탭 [노션 출석진도 반영]</span>
+            <span style="margin-left:auto"><button class="mju-btn mju-btn--secondary mju-btn--sm" id="at-refresh">새로고침</button></span>
+          </div>
+          <div class="filter-chips" id="at-months" style="margin:10px 0 6px"></div>
+          <div id="at-sum" style="display:flex;gap:14px;flex-wrap:wrap;margin:4px 0 10px"></div>
+          <div id="at-list"></div>
+        </div>
+      </div>
       <div class="tabsec" id="sec-vote" style="display:none">
         <h2 class="adm-h2">투표</h2>
         <div class="adm-2col">
@@ -698,7 +712,7 @@
 
     // 탭 전환 — location.hash 기록·복원(새로고침·뒤로가기·링크 공유에도 탭 유지) + 활성화 시 해당 탭 재조회
     // ⚠️ 'onboard'는 단독 탭이 아니지만 제거 금지 — #onboard 해시 호환(showTab 재매핑)과 sec-onboard 끄기(display 루프)가 이 항목에 의존
-    const TAB_KEYS = ['dash', 'notice', 'library', 'calendar', 'consult', 'survey', 'members', 'onboard', 'recruit']; // (파일럿) 'stages','centers','vote' 탭 제거 — 섹션·로직은 보존, 키만 빼서 진입 차단
+    const TAB_KEYS = ['dash', 'notice', 'library', 'calendar', 'consult', 'survey', 'members', 'attn', 'onboard', 'recruit']; // (파일럿) 'stages','centers','vote' 탭 제거 — 섹션·로직은 보존, 키만 빼서 진입 차단
     // 탭별 로더 — 아침에 켜둔 콘솔이 로그인 시점 스냅샷에 고정되지 않게, 탭을 열 때마다 새로 조회
     const TAB_LOAD = {
       dash: () => dashLoad(),
@@ -710,6 +724,7 @@
       survey: () => { svEvLoadList(); svDispatch(); },   // [UX] 첫 진입도 빈 화면 없이 마지막 세그·학기 기준 자동 집계(세그 전환과 동일 동작)
       // 인라인 편집기(.le-save)가 열려 있으면 표 재조회를 건너뜀 — 탭 전환만으로 입력이 날아가지 않게
       members: () => { if (!document.querySelector('#rg-table .le-save')) regLoad(); uvLoad(); },
+      attn: () => attnLoad(),
       recruit: () => rcLoad(),
       stages: () => stLoad(),
     };
@@ -3197,6 +3212,85 @@
       $('ac-name').value = ''; $('ac-mgr').value = ''; $('ac-phone').value = ''; $('ac-email').value = '';
       stLoad();   // 기업 관리 탭에 바로 반영
     });
+
+    // ===== 진도 탭 — 학생별 월 출석 진행 현황 (attendance_monthly 직조회, 관리자 RLS) =====
+    let attnMonth = null, attnCache = null, attnComp = {};
+    async function attnLoad(force) {
+      const list = $('at-list'); if (!list) return;
+      if (!attnCache || force) {
+        list.innerHTML = '<p class="note">불러오는 중…</p>';
+        try {
+          const [a, s] = await Promise.all([
+            supabase.from('attendance_monthly').select('name,month,planned_hours,actual_hours,units,updated_at').order('month'),
+            supabase.from('students').select('name,company'),
+          ]);
+          if (a.error) { list.innerHTML = '<p class="note">조회 권한이 아직 없어요 — 서버 설정(sql/42) 적용을 확인해주세요.</p>'; return; }
+          attnCache = a.data || [];
+          attnComp = {};
+          (s.data || []).forEach(x => { attnComp[(x.name || '').replace(/\s+/g, '')] = x.company || ''; });
+        } catch (_) { list.innerHTML = '<p class="note">조회에 실패했어요 — 새로고침해 보세요.</p>'; return; }
+      }
+      const months = [...new Set(attnCache.map(r => String(r.month).slice(0, 7)))].sort();
+      const nowYm = new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0');
+      if (!attnMonth || !months.includes(attnMonth)) attnMonth = months.includes(nowYm) ? nowYm : months[months.length - 1];
+      // 월 선택 칩
+      const chips = $('at-months'); chips.innerHTML = '';
+      months.forEach(m => {
+        const b = document.createElement('button'); b.type = 'button';
+        b.className = 'chip' + (attnMonth === m ? ' on' : '');
+        b.textContent = Number(m.slice(5)) + '월';
+        b.addEventListener('click', () => { attnMonth = m; attnLoad(); });
+        chips.appendChild(b);
+      });
+      // 선택 월 행 구성
+      const mrows = attnCache.filter(r => String(r.month).slice(0, 7) === attnMonth && Number(r.planned_hours) > 0)
+        .map(r => ({ name: r.name, company: attnComp[(r.name || '').replace(/\s+/g, '')] || '-',
+                     planned: Number(r.planned_hours), actual: r.actual_hours == null ? null : Number(r.actual_hours),
+                     units: r.units || '', upd: r.updated_at }));
+      // 페이스: 이번 달=경과일 비율, 지난달=100%, 미래달=없음
+      const today = new Date(); const isCur = attnMonth === nowYm; const isPast = attnMonth < nowYm;
+      const dim = new Date(Number(attnMonth.slice(0, 4)), Number(attnMonth.slice(5)), 0).getDate();
+      const pace = isCur ? Math.round(today.getDate() / dim * 100) : (isPast ? 100 : null);
+      const pct = r => r.actual == null ? null : Math.min(100, Math.round(r.actual / r.planned * 100));
+      const stateOf = r => { const p = pct(r);
+        if (p == null) return ['집계 전', 'var(--text-muted)', '#d3d1c7'];
+        if (p >= 100) return ['완료', '#0F6E56', '#1baf7a'];
+        if (pace != null && p < pace - 15) return ['미달', '#993C1D', '#eb6834'];
+        return ['진행', '#185FA5', '#2a78d6']; };
+      // 요약
+      const withA = mrows.filter(r => r.actual != null);
+      const sumP = withA.reduce((s, r) => s + r.planned, 0), sumA = withA.reduce((s, r) => s + r.actual, 0);
+      const nDone = mrows.filter(r => pct(r) >= 100).length;
+      const nLag = mrows.filter(r => { const p = pct(r); return p != null && pace != null && p < pace - 15 && p < 100; }).length;
+      $('at-sum').innerHTML =
+        `<span class="note"><b style="font-size:16px;color:var(--text-primary)">${sumP ? Math.round(sumA / sumP * 100) : 0}%</b> 전체 달성률(시수)</span>` +
+        `<span class="note"><b style="font-size:16px;color:#0F6E56">${nDone}</b>명 완료</span>` +
+        `<span class="note"><b style="font-size:16px;color:#993C1D">${nLag}</b>명 페이스 미달</span>` +
+        (pace != null && isCur ? `<span class="note">월 경과 ${pace}%</span>` : '') +
+        (withA.length < mrows.length ? `<span class="note">${mrows.length - withA.length}명 집계 전</span>` : '');
+      // 목록 — 미달·저조 순 정렬 (집계 전은 맨 아래)
+      mrows.sort((x, y) => { const a = pct(x), b = pct(y); if (a == null) return 1; if (b == null) return -1; return a - b; });
+      list.innerHTML = '';
+      mrows.forEach(r => {
+        const p = pct(r); const [label, tcol, bcol] = stateOf(r);
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--gray-100)';
+        const nm = document.createElement('div'); nm.style.cssText = 'flex:0 0 190px;min-width:0';
+        nm.innerHTML = `<b>${esc(r.name)}</b> <span class="note">${esc(r.company)}</span>` +
+          (r.units ? `<br/><span class="note" style="font-size:12px">${esc(r.units)}</span>` : '');
+        const barWrap = document.createElement('div'); barWrap.style.cssText = 'flex:1;min-width:120px';
+        barWrap.innerHTML = `<div style="height:9px;border-radius:5px;background:var(--gray-100);overflow:hidden">` +
+          `<div style="height:100%;width:${p == null ? 0 : p}%;background:${bcol}"></div></div>`;
+        const val = document.createElement('div'); val.style.cssText = 'flex:0 0 150px;text-align:right;white-space:nowrap';
+        val.innerHTML = p == null
+          ? `<span class="note">예정 ${r.planned}h · 집계 전</span>`
+          : `<b style="color:${tcol}">${p}%</b> <span class="note">${r.actual}h/${r.planned}h</span> <span class="mju-badge" style="color:${tcol}">${label}</span>`;
+        row.appendChild(nm); row.appendChild(barWrap); row.appendChild(val);
+        list.appendChild(row);
+      });
+      if (!mrows.length) list.innerHTML = '<p class="note">이 달 데이터가 없어요.</p>';
+    }
+    $('at-refresh')?.addEventListener('click', () => { attnCache = null; attnLoad(true); });
 
     // ===== 노션 출석진도 반영 — 노션 「OJT 월별 — 학생」 → attendance_monthly(sql/42) =====
     // 노션 토큰은 서버 함수(sync-attendance) secret 에만 있고, upsert 는 호출자 권한의 RPC 로 수행.
