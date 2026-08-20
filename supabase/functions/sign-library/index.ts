@@ -62,6 +62,12 @@ Deno.serve(async (req) => {
   if (token) {
     const { data: t } = await admin.from("push_tokens").select("center_id").eq("device_key", token).maybeSingle();
     entitledCenter = t?.center_id ?? null;
+    // 폴백(sql/45): 알림을 안 켠 기기는 push_tokens 에 없다 — 서명토큰을 명단과 직접 대조.
+    // (iOS 설치앱 복원 프로필 = 코드 없음·토큰만 → 이 폴백이 없으면 자료 다운로드 전면 불가)
+    if (!entitledCenter) {
+      const { data: c } = await admin.rpc("resolve_token_center", { p_token: token });
+      entitledCenter = (c as string | null) ?? null;
+    }
   }
   if (!entitledCenter && code) {
     // 코드 정규화 — SQL verify_* 와 동일(대문자 + 영숫자만). 클라가 하이픈/공백 포함해 보내도 매칭되게.
