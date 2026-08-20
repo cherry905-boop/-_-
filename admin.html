@@ -3153,10 +3153,10 @@
     $('as-add')?.addEventListener('click', async () => {
       const name = $('as-name').value.trim();
       if (!name) { setStatus($('as-status'), '이름을 입력하세요.', 'error'); return; }
-      // 휴대폰 필수 — 코드 가입이 '이름+휴대폰' 명단 대조라, 폰 없이 추가하면 코드가 있어도 가입이 막힘 (2026-08-19 실사고)
+      // 휴대폰 선택 — 전화 없이 추가해도 sql/50(이름 단독 대조)로 코드 가입·알림 모두 동작
       const ph = $('as-phone').value.trim();
-      if (ph.replace(/\D/g, '').length < 10) { setStatus($('as-status'), '휴대폰 번호를 입력하세요 (없으면 학생이 코드로 가입할 수 없어요).', 'error'); return; }
-      const row = { name, phone: ph };
+      const row = { name };
+      if (ph) row.phone = ph;
       const no = $('as-no').value.trim(); if (no) row.student_no = no;
       const job = $('as-job').value; if (job) row.job_keys = [job];
       const co = $('as-company').value; if (co) row.company = co;
