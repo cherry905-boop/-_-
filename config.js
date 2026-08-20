@@ -58,10 +58,10 @@ window.APP_CONFIG = {
   REQUIRE_STUDENT_CODE: false,
   REQUIRE_COMPANY_CODE: false,
 
-  // ── 즉시 푸시(선택) ─ Apps Script 발송기를 '웹 앱'으로 배포한 URL을 넣으면
-  //    공지 발행 직후 발송기를 바로 깨워서 푸시가 수초 내 나갑니다 (비우면 5분 트리거만 사용).
-  //    설정법: Desktop\push-kick-webapp.txt 참고
-  PUSH_KICK_URL: 'https://script.google.com/macros/s/AKfycbxMet7mrgG84A33lg3Kwc5j_Z2-MX7BR3EkdqIkEiPe1bMc-nLvFqGtqYmYOWgFeQvo2A/exec',
+  // ── 즉시 푸시 ─ (2026-08-20 발송기 이전) Apps Script → Supabase 엣지 함수 push-sender.
+  //    공지 발행 직후 이 URL을 깨우면 수초 내 발송, 아니어도 5분 폴링 크론(sql/52)이 처리.
+  //    개인 계정 의존 제거(절대규칙 9) — 발송 로직·기록은 supabase/functions/push-sender 참조.
+  PUSH_KICK_URL: 'https://ggitgqijycvnhhraxzgn.supabase.co/functions/v1/push-sender',
 };
 
 /* ── 4)·5) 훈련 직무 / 학습기업 ─ [원장 추종] config.js 정적값 폐기 ─────────
