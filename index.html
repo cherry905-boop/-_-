@@ -323,8 +323,8 @@
           const hn = document.getElementById('home-name'); if (hn) hn.textContent += ' (기업 담당자)';
           renderCompanyStage(_prof);
         }
-        // 학생: 내 출석 진도 카드 (sql/42 — RPC·데이터 없으면 조용히 미표시)
-        if (_prof.target_type === 'student' && _prof.code) renderAttendance(_prof);
+        // 학생: 내 출석 진도 카드 (sql/42·44 — 코드 또는 토큰, RPC·데이터 없으면 조용히 미표시)
+        if (_prof.target_type === 'student' && (_prof.code || _prof.token)) renderAttendance(_prof);
         renderSchedule(_prof);
         document.getElementById('resignup').addEventListener('click', _resignup);
       }
@@ -358,12 +358,12 @@
       window.lucide?.createIcons();
     }
 
-    // 학생 홈 — 내 출석 진도 카드 (sql/42; 초대코드로 본인 확인, RPC·데이터 없으면 조용히 미표시 = 회귀 0)
+    // 학생 홈 — 내 출석 진도 카드 (sql/42·44; 초대코드 또는 서명토큰으로 본인 확인 — iOS 설치앱 복원 프로필은 토큰만 있음)
     async function renderAttendance(prof) {
-      if (!configReady() || !prof.code) return;
+      if (!configReady() || (!prof.code && !prof.token)) return;
       let rows = null;
       try {
-        const res = await supabase.rpc('my_attendance', { p_code: prof.code });
+        const res = await supabase.rpc('my_attendance', { p_code: prof.code || null, p_token: prof.token || null });
         if (res.error || !res.data || res.data.ok !== true) return;
         rows = res.data.rows || [];
       } catch (_) { return; }
@@ -452,7 +452,7 @@
         if (rPending) {
           const jk = rJob.value; if (!jk) { setStatus(rStatus, '본인 직무를 선택해주세요.', 'error'); return; }
           const s = rPending; rPending = null;
-          return saveAndHome({ name: s.name, target_type: 'student', job_key: jk, company: s.company, type1: s.type1, manager: s.manager || null, token: s.token || null });
+          return saveAndHome({ name: s.name, target_type: 'student', job_key: jk, company: s.company, type1: s.type1, manager: s.manager || null, token: s.token || null, code: rCodeVal || null });
         }
         // 1단계: 초대코드(있으면, 코드만으로도 OK) → 없거나 미적용이면 노션 명단(이름+휴대폰) 확인
         rGo.disabled = true; setStatus(rStatus, '확인 중...', 'info');
@@ -496,7 +496,7 @@
             setStatus(rStatus, `${v.name}님 확인됐어요. 본인 직무를 선택하고 다시 눌러주세요.`, 'ok');
             return;
           }
-          return saveAndHome({ name: v.name, target_type: 'student', job_key: jobs[0] || null, company: v.company, type1: v.type1, manager: v.manager || null, token: v.token || null });
+          return saveAndHome({ name: v.name, target_type: 'student', job_key: jobs[0] || null, company: v.company, type1: v.type1, manager: v.manager || null, token: v.token || null, code: rCodeVal || null });
         }
         // (학생 전용 전환) 명단 미확인 — 기업 담당자 복원 경로는 폐지, 학생 안내만
         setStatus(rStatus, '명단에서 못 찾았어요. 이름·휴대폰 번호를 다시 확인하거나, 합격 안내의 초대코드를 입력해주세요. 계속 안 되면 센터 담당자에게 문의해주세요.', 'error');
