@@ -1813,16 +1813,11 @@
     let regSeg = 'student';
     function regSegRender() {
       const segEl = $('rg-seg'); if (!segEl) return;
-      const cnt = t => regCache.filter(r => (r.target_type || 'student') === t).length;
+      // (학생 전용 전환 2026-08-20) 지원자·기업담당자 구분 폐지 — 칩 숨김, 항상 참여학생 뷰.
+      // 복원 시: 아래 주석의 3종 칩 루프를 되살리고 segEl.style.display 줄 제거.
+      // [['student','참여학생'],['applicant','지원자'],['company','기업담당자']]
       segEl.innerHTML = '';
-      [['student', '참여학생'], ['applicant', '지원자'], ['company', '기업담당자']].forEach(([k, label]) => {
-        const b = document.createElement('button'); b.type = 'button';
-        b.className = 'chip' + (regSeg === k ? ' on' : '');
-        b.setAttribute('aria-pressed', regSeg === k ? 'true' : 'false');
-        b.textContent = label + ' ' + cnt(k);
-        b.addEventListener('click', () => { if (regSeg !== k) { regSeg = k; regSort = { key: 'name', dir: 1 }; regRender(); } });
-        segEl.appendChild(b);
-      });
+      segEl.style.display = 'none';
       // 필터: 참여학생=담당직원·직무·유형 / 기업담당자(명단 연동 시)=담당직원·기업 상태·가입 여부
       const coF = regSeg === 'company' && ccReady;
       const SHOW = { 'rg-fmanager': regSeg === 'student' || coF, 'rg-fjob': regSeg === 'student', 'rg-ftype': regSeg === 'student', 'rg-fstatus': coF, 'rg-fsigned': coF };
