@@ -1720,6 +1720,7 @@
       } catch (_) {}
     }
     const regInterest = r => Array.isArray(r.interest_jobs) ? r.interest_jobs.join(' · ') : (r.interest_jobs || '');
+    let pushMap = {}, pushTotal = 0;   // 알림 켠 기기 현황 (sql/46) — 이름(공백제거)→기기수
     async function regLoad() {
       let rows;
       const { data: roster, error: rerr } = await supabase.rpc('admin_students');   // 전체 학생 명단(R15)
@@ -1751,6 +1752,12 @@
         if (error) { $('rg-table').innerHTML = '<tbody><tr><td style="padding:10px;color:var(--text-muted)">명단 조회 권한이 아직 없어요 — 시스템 담당자에게 서버 설정(R12·R15) 적용을 요청해주세요.</td></tr></tbody>'; return; }
         rows = (data || []).map(r => ({ ...r, signed: true, interest: regInterest(r) }));
       }
+      // 알림 켠 기기 현황 (sql/46) — 실패 시 조용히 빈 맵(기존 동작 보존)
+      pushMap = {}; pushTotal = 0;
+      try {
+        const { data: pst } = await supabase.rpc('admin_push_status');
+        (pst || []).forEach(p => { pushMap[(p.name || '').replace(/\s+/g, '')] = Number(p.devices) || 0; pushTotal += Number(p.devices) || 0; });
+      } catch (_) {}
       // 기업담당자: 노션 HRD담당자 명단(company_contacts) 기준으로 가입/미가입 표시 (sql/12 + 동기화 적용 시)
       ccReady = false;
       try {
@@ -1895,6 +1902,12 @@
       const arrow = k => regSort.key === k ? (regSort.dir < 0 ? ' ▼' : ' ▲') : '';
       const canSel = isStu || regSeg === 'company';
       const allOn = canSel && rows.length && rows.every(r => regSel.has(r.id));
+      // 알림 현황 요약 줄 (학생 세그먼트에서만)
+      {
+        let ps = document.getElementById('rg-pushsum');
+        if (!ps) { ps = document.createElement('p'); ps.className = 'note'; ps.id = 'rg-pushsum'; $('rg-table').parentNode.insertBefore(ps, $('rg-table')); }
+        ps.textContent = (isStu && pushTotal) ? `🔔 알림 켠 학생 ${Object.keys(pushMap).length}명 · 기기 ${pushTotal}대 — 벨이 없는 가입자는 아직 알림을 안 켰어요` : '';
+      }
       $('rg-table').innerHTML = '<thead><tr>' +
         (canSel ? `<th class="nosort"><input type="checkbox" id="rg-all" aria-label="전체 선택" ${allOn ? 'checked' : ''}></th>` : '') +
         cols.map(c => `<th data-k="${c[0]}">${c[1]}${arrow(c[0])}</th>`).join('') +
@@ -1910,7 +1923,9 @@
           cb.querySelector('input').addEventListener('change', e => { e.target.checked ? regSel.add(r.id) : regSel.delete(r.id); tr.className = e.target.checked ? 'on' : ''; regSelBar(); });
           tr.appendChild(cb);
         }
-        const signed = r.signed ? '<span class="mju-badge mju-badge--success">가입</span>' : '<span class="mju-badge mju-badge--neutral">미가입</span>';
+        const _nb = pushMap[(r.name || '').replace(/\s+/g, '')] || 0;   // 알림 켠 기기 수 (sql/46)
+        const bell = ((r.target_type || 'student') === 'student' && _nb) ? ` <span class="mju-badge" title="알림 켠 기기 ${_nb}대">🔔${_nb > 1 ? _nb : ''}</span>` : '';
+        const signed = (r.signed ? '<span class="mju-badge mju-badge--success">가입</span>' : '<span class="mju-badge mju-badge--neutral">미가입</span>') + bell;
         const vals = isStu
           ? [esc(r.name || ''), esc(r.manager || '-'), esc(r.job_key || '-'), esc(r.company || '-'), esc(r.cohort || '-'), esc(r.status || '-'), signed]
           : regSeg === 'applicant'
