@@ -109,14 +109,17 @@
       <!-- 표준앱(홈 화면 추가) 첫 진입 + 프로필 없음 = iOS는 Safari와 저장소가 분리돼 정보가 사라짐 → 복원 게이트 -->
       <div class="card" id="restoreCard" style="display:none">
         <p class="ph-card-title">내 정보 불러오기</p>
-        <p class="ph-note" style="margin-bottom:6px">앱 아이콘에서 처음 여셨네요. <b>이미 가입하셨다면</b> 이름·휴대폰(또는 초대코드만)을 입력하면 정보를 불러옵니다 — 다시 가입 안 하셔도 돼요.</p>
-        <label>이름</label>
-        <input type="text" id="r-name" autocomplete="name" placeholder="홍길동" />
-        <label>휴대폰 번호</label>
-        <input type="tel" id="r-phone" inputmode="numeric" autocomplete="tel" placeholder="010-1234-5678" />
-        <label>초대코드 (있으면)</label>
+        <p class="ph-note" style="margin-bottom:6px">앱 아이콘에서 처음 여셨네요. <b>이미 가입하셨다면</b> 초대코드만 입력하면 정보를 그대로 불러옵니다 — 다시 가입 안 하셔도 돼요.</p>
+        <!-- (코드 전용 전환 2026-08-20) 이름·휴대폰 복원 폐지 — 사칭 방지. 필드는 확인 후 자동채움용으로 숨김 유지 -->
+        <div style="display:none">
+          <label>이름</label>
+          <input type="text" id="r-name" autocomplete="name" placeholder="홍길동" />
+          <label>휴대폰 번호</label>
+          <input type="tel" id="r-phone" inputmode="numeric" autocomplete="tel" placeholder="010-1234-5678" />
+        </div>
+        <label>초대코드 <span class="req">*</span></label>
         <input type="text" id="r-code" class="code-input" placeholder="합격 안내에 적힌 코드" autocomplete="off" maxlength="12" />
-        <p class="note" style="margin-top:6px">코드만 입력해도 정보를 불러올 수 있어요.</p>
+        <p class="note" style="margin-top:6px">코드를 잃어버렸다면 담당자에게 문의해주세요 (재발급 가능).</p>
         <div class="cond" id="r-jobGrp" hidden>
           <label>본인 직무 <span class="req">*</span></label>
           <select id="r-job"><option value="">— 선택 —</option></select>
@@ -445,7 +448,8 @@
       rGo.addEventListener('click', async () => {
         const nm = rName.value.trim(), ph = rPhone.value.trim();
         const rCodeVal = document.getElementById('r-code').value.trim();
-        if (!rCodeVal && (!nm || ph.replace(/\D/g, '').length < 10)) { setStatus(rStatus, '이름·휴대폰 번호(숫자 10~11자리)를 입력하거나, 초대코드만 입력해주세요.', 'error'); return; }
+        // (코드 전용 전환) 복원도 초대코드 필수 — 이름·휴대폰만으로는 불러올 수 없음(사칭 방지)
+        if (!rCodeVal) { setStatus(rStatus, '초대코드를 입력해주세요 (합격 안내에 동봉). 잃어버렸다면 담당자에게 문의하세요.', 'error'); return; }
         if (!configReady()) { setStatus(rStatus, 'Supabase 연결 설정이 필요합니다.', 'error'); return; }
         // 기업 담당자 복원 경로
         if (!rCompGrp.hidden) {
@@ -485,8 +489,8 @@
           }
         }
         if (!res) {
-          if (!nm || ph.replace(/\D/g, '').length < 10) { rGo.disabled = false; setStatus(rStatus, '이름과 휴대폰 번호(숫자 10~11자리)를 정확히 입력해주세요.', 'error'); return; }
-          try { res = await supabase.rpc('verify_student', { p_name: nm, p_phone: ph }); } catch (err) { res = { error: err }; }
+          // (코드 전용 전환) 이름+휴대폰 명단 조회 폴백 폐지 — 코드 확인이 안 되면 안내만
+          rGo.disabled = false; setStatus(rStatus, '초대코드 확인이 지금 어려워요 — 잠시 후 다시 시도하거나 담당자에게 문의해주세요.', 'error'); return;
         }
         rGo.disabled = false;
         if (res.error) { setStatus(rStatus, friendlyError(res.error), 'error'); return; }
