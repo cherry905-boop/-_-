@@ -377,22 +377,9 @@
       const mon = Number(String(cur.month).split('-')[1]) || '';
       let updTxt = '';
       try { const u = new Date(cur.updated_at); if (!isNaN(u)) updTxt = `${u.getMonth() + 1}/${u.getDate()} 기준 · `; } catch (_) {}
-      // 이번 달 훈련 능력단위 — 월초 안내 일정(회사/직무 타게팅)에서 내 것만 골라 카드에 한 줄 표시
-      let unitTitle = '';
-      try {
-        const cid = await requireCenterId();
-        const now = new Date();
-        const from = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
-        const to = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-31`;
-        const { data: evs } = await supabase.from('calendar_events').select('title,job_key')
-          .eq('center_id', cid).gte('event_date', from).lte('event_date', to).like('title', '%훈련 능력단위%');
-        const mine = (evs || []).find(e => {
-          if (!e.job_key) return true;
-          if (!String(e.job_key).startsWith('custom:')) return false;
-          try { return matchSel(JSON.parse(String(e.job_key).slice(7)), prof); } catch (_) { return false; }
-        });
-        if (mine) unitTitle = mine.title;
-      } catch (_) { /* 실패 시 표시 생략 */ }
+      // 이번 달 훈련 능력단위 — 출석 데이터(attendance_monthly.units, sql/47)에서 카드가 직접 표시
+      // (일정 의존 없음 — 달력을 비워도 동작. 데이터 원천은 훈련과정개발보고서 월차 배정)
+      const unitTitle = cur.units ? `${mon}월 훈련 능력단위 — ${cur.units}` : '';
       const card = document.createElement('div');
       card.className = 'card accent';
       card.innerHTML =
