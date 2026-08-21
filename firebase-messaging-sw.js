@@ -1,6 +1,13 @@
-/* firebase-messaging-sw.js — FCM 푸시 수신용 서비스워커 (앱 루트에 위치, 파일명 고정)
- * 서비스워커는 config.js 를 못 읽으므로 firebaseConfig 를 여기에 직접 적습니다(공개값이라 OK).
- * getToken()이 이 파일을 /firebase-cloud-messaging-push-scope 범위로 자동 등록합니다(PWA sw.js와 충돌 없음).
+/* firebase-messaging-sw.js — ⚠️ 더 이상 등록하지 않는 파일 (2026-08-21부터 미사용)
+ *
+ * 이 파일과 sw.js 는 둘 다 scope 가 /mju/ 라서 하나의 등록 자리를 두고 서로를 밀어냈고,
+ * install.html 이 app.js(→ sw.js 등록)를 import 하는 탓에 이 파일은 waiting 에 머물다
+ * 폐기돼 단 한 번도 active 가 되지 못했다. push 이벤트는 push 핸들러가 없는 sw.js 로
+ * 배달됐고, 그래서 FCM 이 success 를 반환해도 기기에 배너가 뜨지 않았다.
+ * → 푸시 수신 로직은 sw.js 안으로 통합했다. 이 파일을 다시 등록하지 말 것.
+ *
+ * 파일 자체는 남겨둔다: 과거 이 스크립트로 등록된 기기가 남아 있을 경우
+ * 브라우저의 SW 갱신 요청이 404 를 받아 등록이 해제되는 일을 막기 위함.
  */
 importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js');
