@@ -67,6 +67,16 @@
         <div class="status" id="status"></div>
       </div>
 
+      <!-- 알림 자가진단 — 배너가 안 뜰 때 원인을 기기에서 직접 확인하는 패널.
+           '테스트 알림'은 FCM 을 거치지 않고 서비스워커가 직접 띄우므로,
+           여기서 뜨면 기기·권한은 정상이고 문제는 전달 구간에 있다는 뜻이다. -->
+      <div class="card">
+        <p class="ph-card-title"><i data-lucide="stethoscope"></i> 알림 상태 점검</p>
+        <div id="diag" class="ph-note" style="line-height:1.9"></div>
+        <button class="mju-btn mju-btn--secondary mju-btn--full" id="diag-test" style="margin-top:10px">테스트 알림 띄우기</button>
+        <div class="status" id="diag-status"></div>
+      </div>
+
       <a href="./index.html" class="mju-btn mju-btn--secondary mju-btn--full" style="margin-top:auto">홈으로</a>
     </main>
   </div>
@@ -149,6 +159,64 @@
         let m = e.message || String(e);
         if (p === 'ios') m = 'iOS는 16.4 이상 + 홈 화면 아이콘으로 연 상태여야 알림이 켜집니다. (' + m + ')';
         setStatus(statusEl, '오류: ' + m, 'error');
+      }
+    });
+
+    // ── 알림 자가진단 ─────────────────────────────────────────────
+    const diagEl = document.getElementById('diag');
+    const diagStatusEl = document.getElementById('diag-status');
+
+    async function runDiag() {
+      const line = (k, v, ok) =>
+        `<div><b>${k}</b> — <span style="color:${ok === null ? 'inherit' : (ok ? '#1baf7a' : '#eb6834')};font-weight:700">${v}</span></div>`;
+      const rows = [];
+      const standalone = isStandalone();
+      rows.push(line('설치 상태', standalone ? '홈 화면 앱' : '브라우저 탭(← iOS는 이러면 알림 불가)', standalone));
+      const perm = ('Notification' in window) ? Notification.permission : '미지원';
+      rows.push(line('알림 권한', perm, perm === 'granted'));
+
+      let reg = null, swName = '없음', swOk = false;
+      try {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        reg = regs.find(r => r.active) || regs[0] || null;
+        if (reg && reg.active) {
+          swName = reg.active.scriptURL.split('/').pop().split('?')[0];
+          swOk = swName === 'sw.js';
+        }
+        rows.push(line('서비스워커', swName + (regs.length > 1 ? ` (등록 ${regs.length}건)` : ''), swOk));
+      } catch (_) { rows.push(line('서비스워커', '조회 실패', false)); }
+
+      // 캐시 버전 — 최신 코드가 기기에 내려왔는지
+      try {
+        const src = await (await fetch('./sw.js', { cache: 'reload' })).text();
+        const ver = (src.match(/ilhak-v\d+/) || ['알 수 없음'])[0];
+        const hasPush = /firebase-messaging-compat/.test(src);
+        rows.push(line('서버 코드', ver + (hasPush ? ' · 푸시 통합됨' : ' · 푸시 없음(구버전)'), hasPush));
+      } catch (_) { rows.push(line('서버 코드', '확인 실패', false)); }
+
+      try {
+        const sub = reg ? await reg.pushManager.getSubscription() : null;
+        const host = sub ? new URL(sub.endpoint).host : '';
+        rows.push(line('푸시 구독', sub ? '있음 (' + host + ')' : '없음 ← 알림 켜기를 다시 눌러주세요', !!sub));
+      } catch (_) { rows.push(line('푸시 구독', '조회 실패', false)); }
+
+      diagEl.innerHTML = rows.join('');
+    }
+    runDiag();
+
+    document.getElementById('diag-test').addEventListener('click', async () => {
+      try {
+        if (Notification.permission !== 'granted') {
+          setStatus(diagStatusEl, '알림 권한이 없습니다. 위 "알림 켜기"를 먼저 눌러주세요.', 'error'); return;
+        }
+        const reg = await navigator.serviceWorker.ready;
+        await reg.showNotification('테스트 알림', {
+          body: '이 배너가 보이면 기기·권한은 정상입니다.',
+          icon: './icons/icon-192.png', badge: './icons/icon-192.png', tag: 'diag-test',
+        });
+        setStatus(diagStatusEl, '띄웠습니다. 홈 버튼을 눌러 앱을 나가면 배너가 보입니다 — 앱 화면 안에서는 iOS가 배너를 감춥니다.', 'ok');
+      } catch (e) {
+        setStatus(diagStatusEl, '표시 실패: ' + (e.message || String(e)), 'error');
       }
     });
   </script>
