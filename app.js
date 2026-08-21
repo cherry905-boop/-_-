@@ -301,21 +301,47 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-// 앱이 화면에 떠 있는 동안 도착한 푸시 — FCM SDK 는 이때 배너를 띄우지 않고 페이지로 넘긴다.
-// 받는 쪽이 없으면 알림이 통째로 사라지므로 인앱 토스트로 대신 보여준다.
+// 알림을 이미 켠 기기에서 앱을 열 때 도는 정비 루틴 — 두 가지를 한다.
+//  ① 포그라운드 수신: 앱이 화면에 떠 있으면 FCM SDK 는 배너 대신 페이지로 넘긴다.
+//     받는 쪽이 없으면 알림이 통째로 사라지므로 인앱 토스트로 보여준다.
+//  ② 구독 자가복구: 서비스워커가 알림을 못 띄우던 기간에 iOS(WebKit)가 푸시 구독을
+//     조용히 회수해버린 기기가 있다. 이 경우 서버엔 토큰 행이 남아 FCM 은 계속 성공을
+//     반환하지만 실제로는 갈 곳이 없다. 학생에게 "알림 다시 켜세요"를 요구하는 대신,
+//     앱을 여는 것만으로 새 구독을 만들어 서버 토큰을 갱신한다(하루 1회로 제한).
 if ('Notification' in window && Notification.permission === 'granted' && window.FIREBASE_CONFIG) {
   (async () => {
     try {
       const { initializeApp, getApps } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js');
-      const { getMessaging, onMessage, isSupported } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js');
+      const { getMessaging, getToken, onMessage, isSupported } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js');
       if (!(await isSupported())) return;
       const fbApp = getApps().length ? getApps()[0] : initializeApp(window.FIREBASE_CONFIG);  // install.html 과 중복 초기화 방지
-      onMessage(getMessaging(fbApp), (payload) => {
+      const messaging = getMessaging(fbApp);
+
+      onMessage(messaging, (payload) => {
         const n = payload.notification || {};
         showPushToast(n.title || '새 공지', n.body || '');
         updateUnreadBadges();
       });
-    } catch (_) { /* SDK 로드 실패 시 조용히 무시 — 백그라운드 배너는 sw.js 가 처리 */ }
+
+      const prof = getProfile();
+      if (!prof || !prof.name || !window.FCM_VAPID_KEY) return;
+      const last = Number(localStorage.getItem('ilhak_push_refresh') || 0);
+      if (Date.now() - last < 86400000) return;          // 하루 1회 — 앱 열 때마다 FCM 을 두드리지 않게
+
+      const swReg = await navigator.serviceWorker.register('./sw.js');
+      const token = await getToken(messaging, { vapidKey: window.FCM_VAPID_KEY, serviceWorkerRegistration: swReg });
+      if (!token) return;
+      await supabase.rpc('register_push_token', {          // token 기준 upsert — 반복 호출 안전
+        p_slug: getCenter(), p_code: prof.code || null,
+        p_row: {
+          token, target_type: prof.target_type || null, job_key: prof.job_key || null,
+          company: prof.company || null, type1: prof.type1 || null,
+          manager: prof.manager || null, device_key: prof.token || null,
+          platform: getPlatform(), updated_at: new Date().toISOString(),
+        },
+      });
+      localStorage.setItem('ilhak_push_refresh', String(Date.now()));
+    } catch (_) { /* SDK 로드·구독 실패 시 조용히 무시 — 백그라운드 배너는 sw.js 가 처리 */ }
   })();
 }
 
