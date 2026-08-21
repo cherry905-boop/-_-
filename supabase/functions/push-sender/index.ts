@@ -54,16 +54,24 @@ async function fcmAccessToken(sa: { private_key: string; client_email: string; t
   return d.access_token as string
 }
 
+const ICON = 'https://mju-ipp.github.io/mju/icons/icon-192.png'
+
 async function sendOne(access: string, project: string, token: string, title: string, body: string): Promise<'ok' | 'dead' | 'fail'> {
   const r = await fetch(`https://fcm.googleapis.com/v1/projects/${project}/messages:send`, {
     method: 'POST', headers: { Authorization: `Bearer ${access}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ message: { token,
       notification: { title, body },
-      webpush: { fcm_options: { link: APP_URL } } } }),
+      webpush: {
+        headers: { TTL: '86400', Urgency: 'high' },   // 저전력·Doze 상태에서 묶여 지연되지 않게
+        notification: { title, body, icon: ICON, badge: ICON, lang: 'ko' },
+        fcm_options: { link: APP_URL } } } }),
   })
   if (r.ok) return 'ok'
   const t = await r.text()
-  return /UNREGISTERED|NOT_FOUND|INVALID_ARGUMENT/i.test(t) ? 'dead' : 'fail'
+  console.error('fcm_send_failed', r.status, t.slice(0, 500))
+  // ⚠️ INVALID_ARGUMENT 를 여기 넣지 말 것. 그건 토큰이 죽은 게 아니라 페이로드가 잘못됐을 때도 나온다.
+  //    예전엔 포함돼 있어서, 본문이 빈 공지 하나로 수신자 전원의 토큰 행이 지워질 수 있었다.
+  return /UNREGISTERED|NOT_FOUND|registration-token-not-registered/i.test(t) ? 'dead' : 'fail'
 }
 
 Deno.serve(async (req) => {
@@ -82,23 +90,26 @@ Deno.serve(async (req) => {
     if (!notices?.length) return json({ ok: true, processed: 0 })
 
     const { data: allTokens } = await db.from('push_tokens')
-      .select('id,token,device_key,target_type,job_key,company,type1,manager')
+      .select('id,token,device_key,target_type,job_key,company,type1,manager,center_id')
     const access = await fcmAccessToken(sa)
 
     const results: unknown[] = []
     for (const n of notices) {
+      // 공지는 자기 센터 기기에만 — 멀티센터로 늘어나도 남의 학생에게 새지 않게
+      const tokens = (allTokens || []).filter((t) => t.center_id === n.center_id)
       let targets: { fcm: string; title: string; body: string; rowId: string }[] = []
       if (n.target_scope === 'personal') {
         const { data: recs } = await db.from('notice_recipients')
           .select('student_token,title,body').eq('notice_id', n.id)
         for (const rec of recs || []) {
-          for (const t of allTokens || []) {
-            if (t.device_key === rec.student_token && t.token)
+          for (const t of tokens) {
+            // null === null 로 엉뚱한 기기가 개인 공지를 받지 않게 양쪽 존재를 먼저 확인
+            if (t.device_key && rec.student_token && t.device_key === rec.student_token && t.token)
               targets.push({ fcm: t.token, title: rec.title || n.title, body: rec.body || n.body, rowId: t.id })
           }
         }
       } else {
-        for (const t of allTokens || []) {
+        for (const t of tokens) {
           if (t.token && matches(n.target_scope || 'all', n.target_value, t))
             targets.push({ fcm: t.token, title: n.title, body: n.body, rowId: t.id })
         }
@@ -106,7 +117,8 @@ Deno.serve(async (req) => {
 
       let ok = 0; const dead: string[] = []
       for (const tg of targets) {
-        const r = await sendOne(access, sa.project_id, tg.fcm, tg.title, (tg.body || '').slice(0, 300))
+        // 본문이 비면 FCM 이 INVALID_ARGUMENT 를 낸다 → 제목으로 대체
+        const r = await sendOne(access, sa.project_id, tg.fcm, tg.title, (tg.body || tg.title || '').slice(0, 300))
         if (r === 'ok') ok++
         else if (r === 'dead') dead.push(tg.rowId)
       }

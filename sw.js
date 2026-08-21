@@ -3,15 +3,20 @@
  * ⚠️ 통합 이유 (2026-08-21) — 건드리기 전에 반드시 읽을 것
  *   app.js 는 모든 페이지에서 './sw.js' 를, install.html 은 './firebase-messaging-sw.js' 를
  *   등록했는데 **둘 다 scope 가 /mju/ 로 같다**. 같은 scope 에는 등록이 하나만 존재하므로
- *   나중 등록이 앞 등록을 밀어낸다. 실제로는 FCM SW 가 waiting 에 머물다 폐기돼
- *   단 한 번도 active 가 된 적이 없었고, push 이벤트는 push 핸들러가 없는 sw.js 로 배달돼
- *   FCM 이 success 를 반환해도 기기에 배너가 전혀 뜨지 않았다.
+ *   나중 등록이 앞 등록을 밀어낸다. install.html 이 app.js 를 import 하는 탓에 sw.js 가
+ *   먼저 활성화되고, 뒤이어 등록된 FCM SW 는 skipWaiting 이 없어 waiting 에 갇힌다.
+ *   push 이벤트는 active 워커로만 가는데 그게 push 핸들러 없는 sw.js 였고, 그래서
+ *   FCM 이 success 를 반환해도 기기에 배너가 뜨지 않았다.
+ *   (정확히는 "한 번도 안 떴다"가 아니다 — 학생이 알림을 켠 뒤 앱을 완전히 닫아
+ *    controlled client 가 0 이 되면 waiting 이던 FCM SW 가 active 로 승격돼 그 구간엔
+ *    배너가 떴다. 다음 실행 때 app.js 가 sw.js 를 재등록하면 skipWaiting 으로 즉시
+ *    되찾아 FCM SW 는 redundant 가 된다. 8/20 은 떴는데 8/21 은 안 뜬 이유가 이것이다.)
  *   → 스코프를 분리하면 PushSubscription 이 새로 생겨 기존 학생 토큰이 전부 무효가 되므로,
  *     같은 scope 를 유지한 채 이 파일 하나에 푸시 수신을 합쳤다. 기존 토큰 그대로 살아있다.
  *   따라서 './firebase-messaging-sw.js' 를 다시 등록하는 코드를 넣지 말 것.
  *
  * 코드를 고친 뒤 반영이 안 되면 CACHE 버전 숫자를 올리세요(브라우저 캐시 갱신). */
-const CACHE = 'ilhak-v22';   // 푸시 수신 통합 — 캐시 강제 갱신
+const CACHE = 'ilhak-v23';   // 푸시 수신 통합 + app.js 포그라운드 핸들러 — 캐시 강제 갱신
 const ASSETS = ['./', './index.html', './install.html', './notice.html', './library.html', './calendar.html',
   './consult.html', './survey.html', './faq.html', './privacy.html',
   './qna.html', './mycompany.html',

@@ -294,10 +294,47 @@ export function friendlyError(error) {
 }
 
 // PWA 서비스워커 등록 (홈 화면 추가 시 앱처럼 동작)
+// sw.js 는 캐시와 푸시 수신을 겸한다 — 다른 스크립트를 같은 scope 에 등록하면 서로를 밀어낸다(sw.js 상단 주석).
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js').catch(() => {});
   });
+}
+
+// 앱이 화면에 떠 있는 동안 도착한 푸시 — FCM SDK 는 이때 배너를 띄우지 않고 페이지로 넘긴다.
+// 받는 쪽이 없으면 알림이 통째로 사라지므로 인앱 토스트로 대신 보여준다.
+if ('Notification' in window && Notification.permission === 'granted' && window.FIREBASE_CONFIG) {
+  (async () => {
+    try {
+      const { initializeApp, getApps } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js');
+      const { getMessaging, onMessage, isSupported } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js');
+      if (!(await isSupported())) return;
+      const fbApp = getApps().length ? getApps()[0] : initializeApp(window.FIREBASE_CONFIG);  // install.html 과 중복 초기화 방지
+      onMessage(getMessaging(fbApp), (payload) => {
+        const n = payload.notification || {};
+        showPushToast(n.title || '새 공지', n.body || '');
+        updateUnreadBadges();
+      });
+    } catch (_) { /* SDK 로드 실패 시 조용히 무시 — 백그라운드 배너는 sw.js 가 처리 */ }
+  })();
+}
+
+function showPushToast(title, body) {
+  try {
+    document.querySelector('[data-push-toast]')?.remove();
+    const el = document.createElement('div');
+    el.dataset.pushToast = '1';
+    el.setAttribute('role', 'status');
+    el.style.cssText = 'position:fixed;left:12px;right:12px;bottom:calc(72px + env(safe-area-inset-bottom));z-index:9999;'
+      + 'background:#002968;color:#fff;border-radius:14px;padding:12px 14px;box-shadow:0 8px 24px rgba(0,0,0,.28);'
+      + 'font-size:14px;line-height:1.45;cursor:pointer';
+    const t = document.createElement('div'); t.style.cssText = 'font-weight:800;margin-bottom:2px'; t.textContent = title;
+    const b = document.createElement('div'); b.style.cssText = 'opacity:.9'; b.textContent = body;
+    el.append(t, b);   // textContent — 공지 본문이 마크업으로 해석되지 않게
+    el.addEventListener('click', () => { location.href = './notice.html'; });
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 6000);
+  } catch (_) {}
 }
 
 // 하단 탭 네비게이션 — .ph-body 가 있는 학생 페이지에만 주입(관리자 콘솔 등은 제외)
