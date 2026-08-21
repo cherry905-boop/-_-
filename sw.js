@@ -1,12 +1,93 @@
-/* sw.js — PWA 기본 서비스워커 (앱처럼 보이게 + 오프라인 최소 캐시)
- * 주의: 푸시 수신용 firebase-messaging-sw.js 는 다음 마일스톤에서 별도로 추가합니다.
+/* sw.js — PWA 서비스워커 (캐시 + FCM 푸시 수신 통합)
+ *
+ * ⚠️ 통합 이유 (2026-08-21) — 건드리기 전에 반드시 읽을 것
+ *   app.js 는 모든 페이지에서 './sw.js' 를, install.html 은 './firebase-messaging-sw.js' 를
+ *   등록했는데 **둘 다 scope 가 /mju/ 로 같다**. 같은 scope 에는 등록이 하나만 존재하므로
+ *   나중 등록이 앞 등록을 밀어낸다. 실제로는 FCM SW 가 waiting 에 머물다 폐기돼
+ *   단 한 번도 active 가 된 적이 없었고, push 이벤트는 push 핸들러가 없는 sw.js 로 배달돼
+ *   FCM 이 success 를 반환해도 기기에 배너가 전혀 뜨지 않았다.
+ *   → 스코프를 분리하면 PushSubscription 이 새로 생겨 기존 학생 토큰이 전부 무효가 되므로,
+ *     같은 scope 를 유지한 채 이 파일 하나에 푸시 수신을 합쳤다. 기존 토큰 그대로 살아있다.
+ *   따라서 './firebase-messaging-sw.js' 를 다시 등록하는 코드를 넣지 말 것.
+ *
  * 코드를 고친 뒤 반영이 안 되면 CACHE 버전 숫자를 올리세요(브라우저 캐시 갱신). */
-const CACHE = 'ilhak-v21';   // 투표 기능 폐지 — 캐시 강제 갱신
+const CACHE = 'ilhak-v22';   // 푸시 수신 통합 — 캐시 강제 갱신
 const ASSETS = ['./', './index.html', './install.html', './notice.html', './library.html', './calendar.html',
   './consult.html', './survey.html', './faq.html', './privacy.html',
   './qna.html', './mycompany.html',
   './styles.css', './app.js', './config.js', './survey-ui.js', './manifest.json', './assets/logo-mono-white.png'];
 
+const APP_URL = './notice.html';
+
+// ── FCM 수신부 ───────────────────────────────────────────────────────────────
+// SW 는 config.js 를 못 읽으므로 firebaseConfig 를 직접 적는다(공개값이라 OK).
+const FB = {
+  apiKey: 'AIzaSyDCQj4zs_ebgM18GKotG1-7n-MVXVdHkqs',
+  authDomain: 'mjuipp.firebaseapp.com',
+  projectId: 'mjuipp',
+  messagingSenderId: '13262157393',
+  appId: '1:13262157393:web:45caa766392425a90eaa70'
+};
+
+let fcmReady = false;
+try {
+  importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js');
+  importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js');
+  firebase.initializeApp(FB);
+  const messaging = firebase.messaging();
+  // notification 페이로드는 SDK 가 백그라운드에서 자동 표시(클릭 시 fcm_options.link 로 이동).
+  // 여기서는 앱 아이콘 배지만 올린다 — 중복 표시 아님.
+  messaging.onBackgroundMessage(() => { bumpBadge(); });
+  fcmReady = true;
+} catch (_) {
+  // gstatic 이 막히거나 오프라인이면 SDK 없이도 알림은 떠야 하므로 수동 폴백을 건다.
+  fcmReady = false;
+}
+
+// SDK 를 못 불러온 경우에만 직접 push/notificationclick 을 처리한다(둘 다 걸면 배너가 2번 뜬다).
+if (!fcmReady) {
+  self.addEventListener('push', (e) => {
+    let n = {};
+    try { const d = e.data ? e.data.json() : {}; n = d.notification || (d.data && d.data.notification) || {}; } catch (_) {}
+    const title = n.title || '일학습병행';
+    const body = n.body || '';
+    e.waitUntil((async () => {
+      await self.registration.showNotification(title, { body, icon: './assets/logo-mono-white.png', data: { link: APP_URL } });
+      bumpBadge();
+    })());
+  });
+  self.addEventListener('notificationclick', (e) => {
+    e.notification.close();
+    const url = new URL((e.notification.data && e.notification.data.link) || APP_URL, self.location.href).href;
+    e.waitUntil((async () => {
+      const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      for (const c of all) { if (c.url.startsWith(self.registration.scope) && 'focus' in c) { await c.navigate(url); return c.focus(); } }
+      if (self.clients.openWindow) return self.clients.openWindow(url);
+    })());
+  });
+}
+
+// 앱 아이콘 배지(홈 화면 숫자) +1 — 앱을 열면 app.js가 실제 안읽음 수로 다시 맞춤
+function bumpBadge() {
+  try {
+    const open = indexedDB.open('ilhak-badge', 1);
+    open.onupgradeneeded = () => { open.result.createObjectStore('kv'); };
+    open.onsuccess = () => {
+      try {
+        const tx = open.result.transaction('kv', 'readwrite');
+        const st = tx.objectStore('kv');
+        const g = st.get('n');
+        g.onsuccess = () => {
+          const n = (typeof g.result === 'number' ? g.result : 0) + 1;
+          st.put(n, 'n');
+          if (navigator.setAppBadge) navigator.setAppBadge(n).catch(() => {});
+        };
+      } catch (_) {}
+    };
+  } catch (_) {}
+}
+
+// ── PWA 캐시부 ───────────────────────────────────────────────────────────────
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)).catch(()=>{}));
   self.skipWaiting();

@@ -115,8 +115,10 @@
         // Firebase 앱 초기화 (중복 호출 방지)
         const app = getApps().length ? getApps()[0] : initializeApp(window.FIREBASE_CONFIG);
         const messaging = getMessaging(app);
-        // 푸시 수신 서비스워커를 상대경로로 직접 등록(프로젝트 페이지 배포에서도 404 안 나게)
-        const swReg = await navigator.serviceWorker.register('./firebase-messaging-sw.js');
+        // 푸시 수신 서비스워커 = sw.js (캐시 SW 와 통합됨). 별도 SW 를 등록하면 scope 가 겹쳐
+        // 서로 밀어내고, 그 결과 push 이벤트가 표시되지 않는다 — sw.js 상단 주석 참고.
+        const swReg = await navigator.serviceWorker.register('./sw.js');
+        await navigator.serviceWorker.ready;
         const token = await getToken(messaging, { vapidKey: window.FCM_VAPID_KEY, serviceWorkerRegistration: swReg });
         if (!token) { setStatus(statusEl, '토큰 발급 실패 — 잠시 후 다시 시도해주세요.', 'error'); return; }
 
